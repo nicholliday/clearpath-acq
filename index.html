@@ -164,8 +164,8 @@ function renderToday(){
   var t=today(), a=sumAct(t);
   var leadsToday=countLeadsIn(t), offToday=countOffers(t);
   var kpis=[
-    {l:'LEADS IN',v:leadsToday},{l:'DIALS',v:a.dials,t:T('dials_day',50)},{l:'CONVOS',v:a.convos,t:T('convos_day',10)},
-    {l:'TALK MIN',v:a.talk,t:T('talkmin_day',60)},{l:'OFFERS',v:offToday},{l:'CONTRACTS',v:countContracts(monthStart()),t:T('contracts_month',6),sub:'this month'}
+    {l:'LEADS IN',v:leadsToday},{l:'DIALS',v:a.dials,t:T('dials_day',320)},{l:'CONVOS',v:a.convos,t:T('convos_day',70)},
+    {l:'TALK MIN',v:a.talk,t:T('talkmin_day',360)},{l:'OFFERS',v:offToday,t:T('offers_day',10)},{l:'CONTRACTS',v:countContracts(t),t:T('contracts_day',1),sub:'today'}
   ];
   var h='<div class="grid">'+kpis.map(function(k){
     var col=k.t!=null?(k.v>=k.t?'var(--green)':'var(--gold)'):'var(--text)';
@@ -357,7 +357,7 @@ function renderReps(){
   var m=monthStart(), conM=countContracts(m), cT=T('contracts_month',6)*(BOARD===null?Math.max(1,D.reps.length):1);
   var pct=Math.min(100,Math.round(conM/cT*100));
   h+='<div class="card"><h2>🎯 Contract pace — '+(BOARD===null?'team':esc(BOARD))+'</h2><div class="row sm"><span>'+conM+' / '+cT+' this month</span><b style="color:'+(conM>=cT?'var(--green)':'var(--gold)')+'">'+pct+'%</b></div><div class="sbar"><i style="width:'+pct+'%;background:'+(conM>=cT?'var(--green)':'var(--gold)')+'"></i></div>'
-   +'<div class="sm mut">Daily targets: '+T('dials_day',50)+' dials · '+T('convos_day',10)+' convos · '+T('talkmin_day',60)+' talk min · '+T('offers_week',3)+' offers/week</div></div>';
+   +'<div class="sm mut">Team daily targets: '+T('dials_day',320)+' dials · '+T('convos_day',70)+' convos · '+Math.round(T('talkmin_day',360)/60*10)/10+' hrs talk · '+T('offers_day',10)+' offers · '+T('contracts_day',1)+' contract(s)</div></div>';
   document.getElementById('v_reps').innerHTML=h;
 }
 
@@ -520,7 +520,7 @@ async function saveSpend(){
 }
 
 function renderInputs(){
-  var ks=[['dials_day','Dials / day',50],['convos_day','Convos / day',10],['talkmin_day','Talk min / day',60],['offers_week','Offers / week',3],['contracts_month','Contracts / month',6]];
+  var ks=[['dials_day','Team dials / day',320],['convos_day','Team convos / day',70],['talkmin_day','Team talk min / day (360 = 6 hrs)',360],['offers_day','Team offers / day',10],['contracts_day','Team contracts / day',1],['contracts_month','Contracts / month (pace + calculator)',6]];
   if(ROLE==='owner')ks.push(['avgfee','Avg fee ($, drives proj revenue)',10000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
@@ -544,7 +544,7 @@ async function delRep(n){
   loadAll();
 }
 async function saveTargets(){
-  var keys=['dials_day','convos_day','talkmin_day','offers_week','contracts_month'];if(ROLE==='owner')keys.push('avgfee','strike_value','fx');
+  var keys=['dials_day','convos_day','talkmin_day','offers_day','contracts_day','contracts_month'];if(ROLE==='owner')keys.push('avgfee','strike_value','fx');
   for(var i=0;i<keys.length;i++){
     var el=document.getElementById('t_'+keys[i]);if(!el)continue;
     var r=await db.from('acq_targets').upsert({key:keys[i],value:Number(el.value)||0});
