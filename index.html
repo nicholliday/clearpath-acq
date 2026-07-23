@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CP Acq">
+<meta name="theme-color" content="#0B1220">
+<title>Clear Path Acq</title>
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B1220;--card:#141D2E;--card2:#1B2740;--line:#26334D;--text:#EDF1F7;--mut:#93A1B8;--blue:#3B82F6;--gold:#D4AF37;--green:#10B981;--red:#EF4444;--amber:#F59E0B}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{padding-top:max(0.6rem,env(safe-area-inset-top));padding-bottom:max(4.5rem,env(safe-area-inset-bottom))}
+.wrap{max-width:760px;margin:0 auto;padding:0.6rem 0.8rem}
+.brand{font-size:10px;letter-spacing:0.12em;color:var(--gold);font-weight:700}
+h1{font-size:19px;font-weight:700;margin:2px 0 10px}
+h2{font-size:16px;font-weight:700;margin-bottom:10px}
+.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;background:none;border:none;color:var(--mut);font-size:10px;padding:9px 2px 7px;cursor:pointer}
+.tabs button.on{color:var(--gold)}
+.tabs .ic{font-size:19px;display:block;margin-bottom:2px}
+.view{display:none}.view.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 15px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
+.kpi .v{font-size:20px;font-weight:800}.kpi .l{font-size:9px;color:var(--mut);letter-spacing:.05em}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;margin-left:6px}
+.p-new{background:#1E3A8A;color:#BFDBFE}.p-con{background:#42350D;color:#FCE28A}.p-off{background:#3A2A0D;color:#FCD34D}.p-fup{background:#312E81;color:#C7D2FE}.p-uc{background:#064E3B;color:#6EE7B7}.p-dead{background:#450A0A;color:#FCA5A5}
+input,select,textarea{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:9px 10px;font-size:14px;margin-bottom:8px}
+label{font-size:11px;color:var(--mut);display:block;margin-bottom:3px}
+.btn{background:var(--blue);border:none;color:#fff;font-weight:700;border-radius:9px;padding:9px 13px;font-size:13px;cursor:pointer;margin:2px 4px 2px 0}
+.btn.g{background:var(--gold);color:#101828}.btn.gr{background:var(--green)}.btn.d{background:var(--red)}.btn.mut{background:var(--card2);color:var(--mut);border:1px solid var(--line)}
+.btn.big{width:100%;padding:12px;font-size:15px;margin-top:6px}
+.row{display:flex;justify-content:space-between;align-items:center}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;overflow-y:auto;padding:20px 12px 60px}
+.modal.on{display:block}
+.mbox{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:560px;margin:0 auto;padding:18px 16px}
+.sbar{height:6px;background:var(--card2);border-radius:99px;overflow:hidden;margin:4px 0 8px}
+.sbar i{display:block;height:100%;border-radius:99px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
+.help{position:fixed;right:16px;bottom:74px;z-index:90;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#D4AF37,#E8C55A);color:#101828;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(212,175,55,.45)}
+#lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.mut{color:var(--mut)}.sm{font-size:11px}.warn{color:var(--red);font-size:11px;font-weight:700}
+</style>
+</head>
+<body>
+<div id="lock">
+  <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
+  <h1 style="margin:6px 0 14px">Acq Tracker</h1>
+  <input id="pw" type="password" placeholder="Passcode" style="max-width:260px" onkeydown="if(event.key==='Enter')tryPass()">
+  <button class="btn g" onclick="tryPass()" style="max-width:260px;width:100%">Enter</button>
+</div>
+
+<div class="wrap">
+  <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
+  <h1>Acq Tracker <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span></h1>
+
+  <div id="v_today" class="view on"></div>
+  <div id="v_leads" class="view"></div>
+  <div id="v_reps" class="view"></div>
+  <div id="v_metrics" class="view"></div>
+  <div id="v_owner" class="view"></div>
+  <div id="v_inputs" class="view"></div>
+</div>
+
+<div class="help" onclick="openHelp()">?</div>
+<div class="tabs" id="tabbar"></div>
+<div class="modal" id="modal"><div class="mbox" id="mbody"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+var db=supabase.createClient('https://voitbqpvynbvlibuzxbz.supabase.co','sb_publishable_QreaC86dKq8FRmJPDkeenA_wZO8G5YG');
+var D={leads:[],offers:[],act:[],targets:{},spend:[]};
+var STAGES=['New','Contacted','Offer Made','Follow-Up','Under Contract','Dead'];
+var PCLS={'New':'p-new','Contacted':'p-con','Offer Made':'p-off','Follow-Up':'p-fup','Under Contract':'p-uc','Dead':'p-dead'};
+var ROLE=localStorage.getItem('cp_acq_role')||'';
+
+function tryPass(){
+  var v=(document.getElementById('pw').value||'').toLowerCase().trim();
+  if(v==='clearpath'){ROLE='rep';}
+  else if(v==='clearpathowner'){ROLE='owner';}
+  else{alert('Wrong passcode');return;}
+  localStorage.setItem('cp_acq_role',ROLE);
+  document.getElementById('lock').style.display='none';
+  buildTabs(); loadAll();
+}
+function buildTabs(){
+  var t='<button id="tb_today" onclick="nav(\'today\')"><span class="ic">☀️</span>Today</button>'
+   +'<button id="tb_leads" onclick="nav(\'leads\')"><span class="ic">📇</span>Leads</button>'
+   +'<button id="tb_reps" onclick="nav(\'reps\')"><span class="ic">👤</span>KPIs</button>'
+   +'<button id="tb_metrics" onclick="nav(\'metrics\')"><span class="ic">📈</span>Metrics</button>'
+   +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">🔒</span>Owner</button>':'')
+   +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">⚙️</span>Inputs</button>';
+  document.getElementById('tabbar').innerHTML=t;
+  document.getElementById('roleBadge').style.display=ROLE==='owner'?'inline-block':'none';
+  nav('today');
+}
+function nav(v){
+  ['today','leads','reps','metrics','owner','inputs'].forEach(function(k){
+    var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
+    if(el)el.classList.toggle('on',k===v);
+    if(tb)tb.classList.toggle('on',k===v);
+  });
+}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function fmt$(n){return n==null||isNaN(n)?'—':'$'+Number(n).toLocaleString()}
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function daysAgo(n){var d=new Date();d.setDate(d.getDate()-n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function monthStart(){return today().slice(0,8)+'01'}
+function quarterStart(){var d=new Date();var q=Math.floor(d.getMonth()/3)*3;return d.getFullYear()+'-'+String(q+1).padStart(2,'0')+'-01'}
+function yearStart(){return today().slice(0,4)+'-01-01'}
+
+async function loadAll(){
+  var r=await Promise.all([
+    db.from('acq_leads').select('*').order('created_at',{ascending:false}),
+    db.from('acq_offers').select('*'),
+    db.from('acq_activity').select('*'),
+    db.from('acq_targets').select('*'),
+    db.from('acq_spend').select('*'),
+    db.from('deals').select('id,address,stage,revenue_closed,contract_price'),
+    db.from('stage_history').select('deal_id,stage,entered_on')
+  ]);
+  for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
+  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];
+  D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
+  render();
+}
+function T(k,d){return D.targets[k]!=null?D.targets[k]:d}
+
+function sumAct(from){
+  var o={dials:0,convos:0,talk:0};
+  D.act.forEach(function(a){if(a.on_date>=from){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
+  return o;
+}
+function countOffers(from){return D.offers.filter(function(o){return o.offered_on>=from}).length}
+function countContracts(from){return D.leads.filter(function(l){return l.contracted_on&&l.contracted_on>=from}).length}
+function countLeadsIn(from){return D.leads.filter(function(l){return (l.created_at||'').slice(0,10)>=from}).length}
+
+/* ============ RENDER ============ */
+function render(){renderToday();renderLeads();renderReps();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
+
+function renderToday(){
+  var t=today(), a=sumAct(t);
+  var leadsToday=countLeadsIn(t), offToday=countOffers(t);
+  var kpis=[
+    {l:'LEADS IN',v:leadsToday},{l:'DIALS',v:a.dials,t:T('dials_day',50)},{l:'CONVOS',v:a.convos,t:T('convos_day',10)},
+    {l:'TALK MIN',v:a.talk,t:T('talkmin_day',60)},{l:'OFFERS',v:offToday},{l:'CONTRACTS',v:countContracts(monthStart()),t:T('contracts_month',6),sub:'this month'}
+  ];
+  var h='<div class="grid">'+kpis.map(function(k){
+    var col=k.t!=null?(k.v>=k.t?'var(--green)':'var(--gold)'):'var(--text)';
+    return '<div class="kpi"><div class="v" style="color:'+col+'">'+k.v+(k.t!=null?'<span style="font-size:11px;color:var(--mut)">/'+k.t+'</span>':'')+'</div><div class="l">'+k.l+(k.sub?'<br>'+k.sub:'')+'</div></div>';
+  }).join('')+'</div>';
+
+  h+='<div class="card"><h2>⚡ Log activity</h2><div class="sm mut" style="margin-bottom:8px">Add to today\'s totals — end of a call block, punch it in.</div>'
+   +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+   +'<div><label>+ Dials</label><input id="qa_d" type="number" inputmode="numeric"></div>'
+   +'<div><label>+ Convos</label><input id="qa_c" type="number" inputmode="numeric"></div>'
+   +'<div><label>+ Talk min</label><input id="qa_t" type="number" inputmode="numeric"></div></div>'
+   +'<button class="btn g big" onclick="quickLog()">Add to today</button></div>';
+
+  var due=D.leads.filter(function(l){return l.stage!=='Dead'&&l.stage!=='Under Contract'&&l.next_followup&&l.next_followup<=t});
+  h+='<div class="card"><h2>📅 Follow-ups due ('+due.length+')</h2>';
+  h+=due.length?due.map(function(l){
+    var od=l.next_followup<t;
+    return '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div onclick="openLead(\''+l.id+'\')" style="cursor:pointer"><b>'+esc(l.name||l.address||'Lead')+'</b><span class="pill '+PCLS[l.stage]+'">'+l.stage+'</span>'
+      +(od?'<div class="warn">⏰ overdue — was due '+l.next_followup+'</div>':'<div class="sm mut">due today</div>')+'</div>'
+      +(l.phone?'<a class="btn gr" style="text-decoration:none" href="tel:'+esc(l.phone)+'">📞 Call</a>':'')+'</div>';
+  }).join(''):'<div class="sm mut">Nothing due — set follow-up dates on your leads so nobody slips.</div>';
+  h+='</div>';
+
+  var fresh=D.leads.filter(function(l){return l.stage==='New'});
+  h+='<div class="card"><h2>🔥 New leads — call now ('+fresh.length+')</h2>';
+  h+=fresh.length?fresh.map(function(l){
+    return '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div onclick="openLead(\''+l.id+'\')" style="cursor:pointer"><b>'+esc(l.name||l.address||'Lead')+'</b><div class="sm mut">'+esc(l.market||l.source||'')+' · in '+((l.created_at||'').slice(0,10)===t?'today':(l.created_at||'').slice(0,10))+'</div></div>'
+      +(l.phone?'<a class="btn gr" style="text-decoration:none" href="tel:'+esc(l.phone)+'">📞 Call</a>':'')+'</div>';
+  }).join(''):'<div class="sm mut">No untouched leads. 💪</div>';
+  h+='</div>';
+  document.getElementById('v_today').innerHTML=h;
+}
+
+function renderLeads(){
+  var h='<input placeholder="🔍 Search name, address, phone…" oninput="leadSearch(this.value)" id="lsearch">'
+   +'<button class="btn g big" onclick="openLeadForm()">➕ Add lead</button><div style="height:10px"></div><div id="leadList"></div>';
+  document.getElementById('v_leads').innerHTML=h;
+  leadSearch('');
+}
+function leadSearch(q){
+  q=(q||'').toLowerCase();
+  var byStage={};STAGES.forEach(function(s){byStage[s]=[]});
+  D.leads.forEach(function(l){
+    var hay=((l.name||'')+' '+(l.address||'')+' '+(l.phone||'')+' '+(l.market||'')).toLowerCase();
+    if(!q||hay.indexOf(q)>=0) byStage[l.stage||'New'].push(l);
+  });
+  var h='';
+  STAGES.forEach(function(s){
+    var arr=byStage[s];if(!arr.length)return;
+    h+='<div class="sm mut" style="margin:10px 0 6px;font-weight:700;letter-spacing:.05em">'+s.toUpperCase()+' ('+arr.length+')</div>';
+    arr.forEach(function(l){h+=leadCard(l)});
+  });
+  document.getElementById('leadList').innerHTML=h||'<div class="sm mut">No leads match.</div>';
+}
+function leadCard(l){
+  var offs=D.offers.filter(function(o){return o.lead_id===l.id});
+  var t=today(), od=l.next_followup&&l.next_followup<t&&l.stage!=='Dead'&&l.stage!=='Under Contract';
+  return '<div class="card" onclick="openLead(\''+l.id+'\')" style="cursor:pointer">'
+   +'<div class="row"><b>'+esc(l.name||'—')+'</b><span class="pill '+PCLS[l.stage||'New']+'">'+(l.stage||'New')+'</span></div>'
+   +'<div class="sm mut">'+esc(l.address||'')+(l.market?' · '+esc(l.market):'')+' · '+esc(l.source||'Meta')+'</div>'
+   +'<div class="sm" style="margin-top:5px">Ask '+fmt$(l.asking)+' · Max '+fmt$(l.max_offer)+' · Offers: <b>'+offs.length+'</b>'+(l.contract_price?' · 📝 '+fmt$(l.contract_price):'')+'</div>'
+   +(od?'<div class="warn" style="margin-top:4px">⏰ Follow-up overdue ('+l.next_followup+')</div>':(l.next_followup&&l.stage!=='Dead'?'<div class="sm mut" style="margin-top:4px">Next touch: '+l.next_followup+'</div>':''))
+   +(l.stage==='Under Contract'&&!l.sent_to_dispo?'<div class="sm" style="margin-top:4px;color:var(--gold)">➡️ Ready to send to Dispo</div>':'')
+   +(l.sent_to_dispo?'<div class="sm" style="margin-top:4px;color:var(--green)">✅ In Dispo pipeline</div>':'')
+   +'</div>';
+}
+
+function openLead(id){
+  var l=D.leads.find(function(x){return x.id===id});if(!l)return;
+  var offs=D.offers.filter(function(o){return o.lead_id===id}).sort(function(a,b){return (b.amount||0)-(a.amount||0)});
+  var h='<h2>'+esc(l.name||'Lead')+' <span class="pill '+PCLS[l.stage]+'">'+l.stage+'</span></h2>'
+   +'<div class="sm mut" style="margin-bottom:8px">'+esc(l.address||'')+(l.market?' · '+esc(l.market):'')+' · '+esc(l.source||'Meta')+'</div>'
+   +(l.phone?'<a class="btn gr" style="text-decoration:none" href="tel:'+esc(l.phone)+'">📞 '+esc(l.phone)+'</a>':'')
+   +'<div style="margin:10px 0" class="sm">Asking '+fmt$(l.asking)+' · Our max '+fmt$(l.max_offer)+(l.motivation?'<br>Motivation: '+esc(l.motivation):'')+(l.notes?'<br>Notes: '+esc(l.notes):'')+'</div>'
+   +'<label>Stage</label><select id="ld_stage">'+STAGES.map(function(s){return '<option'+(s===l.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select>'
+   +'<div id="ld_deadwrap" style="display:'+(l.stage==='Dead'?'block':'none')+'"><label>Dead reason (required)</label><select id="ld_dead"><option></option><option>Price too high</option><option>Not motivated</option><option>Listed with agent</option><option>Sold elsewhere</option><option>Unresponsive</option><option>Bad lead</option><option>Other</option></select></div>'
+   +'<div id="ld_ucwrap" style="display:'+(l.stage==='Under Contract'?'block':'none')+'"><label>Contract price</label><input id="ld_cprice" type="number" value="'+(l.contract_price||'')+'"><label>Contracted on</label><input id="ld_con" type="date" value="'+(l.contracted_on||today())+'"></div>'
+   +'<label>Next follow-up</label><input id="ld_fup" type="date" value="'+(l.next_followup||'')+'">'
+   +'<button class="btn big" onclick="saveLeadQuick(\''+id+'\')">Save</button>'
+   +'<div style="margin:14px 0 6px"><b>💰 Offers ('+offs.length+')</b></div>'
+   +(offs.map(function(o,i){return '<div class="sm" style="padding:4px 0;'+(i===0?'color:var(--gold);font-weight:700':'')+'">'+fmt$(o.amount)+' — '+o.offered_on+'</div>'}).join('')||'<div class="sm mut">None yet — the money is in the offers.</div>')
+   +'<button class="btn g" onclick="addOffer(\''+id+'\')">+ Offer</button>'
+   +(l.stage==='Under Contract'&&!l.sent_to_dispo?'<button class="btn gr big" onclick="sendToDispo(\''+id+'\')">➡️ Send to Dispo command center</button>':'')
+   +(l.sent_to_dispo?'<div class="sm" style="color:var(--green);margin-top:8px">✅ Already in the Dispo pipeline</div>':'')
+   +'<button class="btn mut" onclick="editLead(\''+id+'\')">✏️ Edit details</button>'
+   +'<button class="btn d" onclick="delLead(\''+id+'\')">Delete</button>'
+   +'<button class="btn mut" onclick="closeModal()">Close</button>';
+  openModal(h);
+  document.getElementById('ld_stage').addEventListener('change',function(){
+    document.getElementById('ld_deadwrap').style.display=this.value==='Dead'?'block':'none';
+    document.getElementById('ld_ucwrap').style.display=this.value==='Under Contract'?'block':'none';
+  });
+}
+async function saveLeadQuick(id){
+  var st=document.getElementById('ld_stage').value;
+  var row={stage:st,next_followup:document.getElementById('ld_fup').value||null};
+  if(st==='Dead'){var dr=document.getElementById('ld_dead').value;if(!dr){alert('Pick the dead reason — the graveyard teaches us.');return}row.dead_reason=dr}
+  if(st==='Under Contract'){row.contract_price=Number(document.getElementById('ld_cprice').value)||null;row.contracted_on=document.getElementById('ld_con').value||today()}
+  var r=await db.from('acq_leads').update(row).eq('id',id);
+  if(r.error)return alert(r.error.message);
+  closeModal();loadAll();
+}
+function openLeadForm(){editLead('')}
+function editLead(id){
+  var l=D.leads.find(function(x){return x.id===id})||{};
+  var h='<h2>'+(id?'Edit lead':'New lead')+'</h2>'
+   +'<label>Seller name</label><input id="lf_name" value="'+esc(l.name||'')+'">'
+   +'<label>Phone</label><input id="lf_phone" value="'+esc(l.phone||'')+'">'
+   +'<label>Property address</label><input id="lf_addr" value="'+esc(l.address||'')+'">'
+   +'<label>Market</label><input id="lf_mkt" value="'+esc(l.market||'')+'" placeholder="e.g. memphis">'
+   +'<label>Source</label><select id="lf_src">'+['Meta','Referral','Old lead','Other'].map(function(s){return '<option'+(s===(l.source||'Meta')?' selected':'')+'>'+s+'</option>'}).join('')+'</select>'
+   +'<label>Seller asking</label><input id="lf_ask" type="number" value="'+(l.asking||'')+'">'
+   +'<label>Our max offer</label><input id="lf_max" type="number" value="'+(l.max_offer||'')+'">'
+   +'<label>Motivation</label><input id="lf_mot" value="'+esc(l.motivation||'')+'" placeholder="why are they selling?">'
+   +'<label>Notes</label><textarea id="lf_notes" rows="2">'+esc(l.notes||'')+'</textarea>'
+   +'<button class="btn g big" onclick="saveLead(\''+(id||'')+'\')">'+(id?'Save changes':'Add lead')+'</button>'
+   +'<button class="btn mut" onclick="closeModal()">Cancel</button>';
+  openModal(h);
+}
+async function saveLead(id){
+  var row={name:document.getElementById('lf_name').value||null,phone:document.getElementById('lf_phone').value||null,
+   address:document.getElementById('lf_addr').value||null,market:(document.getElementById('lf_mkt').value||'').toLowerCase().trim()||null,
+   source:document.getElementById('lf_src').value,asking:Number(document.getElementById('lf_ask').value)||null,
+   max_offer:Number(document.getElementById('lf_max').value)||null,motivation:document.getElementById('lf_mot').value||null,
+   notes:document.getElementById('lf_notes').value||null};
+  var r=id?await db.from('acq_leads').update(row).eq('id',id):await db.from('acq_leads').insert(row);
+  if(r.error)return alert(r.error.message);
+  closeModal();loadAll();
+}
+async function delLead(id){
+  if(!confirm('Delete this lead completely? Use stage → Dead for real dead leads.'))return;
+  var r=await db.from('acq_leads').delete().eq('id',id);
+  if(r.error)return alert(r.error.message);
+  closeModal();loadAll();
+}
+async function addOffer(id){
+  var a=prompt('Offer amount ($):');if(a==null)return;
+  var r=await db.from('acq_offers').insert({lead_id:id,amount:Number(a)||null,offered_on:today()});
+  if(r.error)return alert(r.error.message);
+  closeModal();loadAll();
+}
+async function sendToDispo(id){
+  var l=D.leads.find(function(x){return x.id===id});if(!l)return;
+  if(!l.address){alert('Add the property address first (✏️ Edit details).');return}
+  if(!confirm('Send '+l.address+' into the Dispo command center as a new deal?'))return;
+  var chk=await db.from('deals').select('id').ilike('address','%'+l.address.slice(0,12)+'%');
+  if(chk.data&&chk.data.length){alert('A deal with a similar address already exists in Dispo — check there first.');return}
+  var r=await db.from('deals').insert({address:l.address,seller_name:l.name||null,stage:'Waiting On Photos',deal_type:'Cash',contract_price:l.contract_price||null,contract_date:l.contracted_on||today(),market:l.market||null}).select();
+  if(r.error)return alert(r.error.message);
+  var did=(r.data&&r.data[0])?r.data[0].id:null;
+  await db.from('acq_leads').update({sent_to_dispo:true,deal_id:did}).eq('id',id);
+  alert('🚀 Deal is live in the Dispo pipeline — Reid takes it from here.');
+  closeModal();loadAll();
+}
+async function quickLog(){
+  var d=Number(document.getElementById('qa_d').value)||0,c=Number(document.getElementById('qa_c').value)||0,t=Number(document.getElementById('qa_t').value)||0;
+  if(!d&&!c&&!t)return;
+  var ex=D.act.find(function(a){return a.on_date===today()&&a.rep==='rep1'});
+  var r=ex?await db.from('acq_activity').update({dials:(ex.dials||0)+d,convos:(ex.convos||0)+c,talk_min:(ex.talk_min||0)+t}).eq('id',ex.id)
+          :await db.from('acq_activity').insert({rep:'rep1',on_date:today(),dials:d,convos:c,talk_min:t});
+  if(r.error)return alert(r.error.message);
+  loadAll();
+}
+
+function renderReps(){
+  var ranges=[['Today',today()],['Week',daysAgo(6)],['Month',monthStart()],['Quarter',quarterStart()],['Year',yearStart()]];
+  var rows=[
+    ['📞 Dials',function(f){return sumAct(f).dials}],
+    ['💬 Convos',function(f){return sumAct(f).convos}],
+    ['⏱ Talk (min)',function(f){return sumAct(f).talk}],
+    ['💰 Offers',countOffers],
+    ['📝 Contracts',countContracts],
+    ['📥 Leads in',countLeadsIn]
+  ];
+  var h='<div class="card"><h2>👤 Acq scoreboard</h2><table><tr><th></th>'+ranges.map(function(r){return '<th>'+r[0].toUpperCase()+'</th>'}).join('')+'</tr>';
+  rows.forEach(function(rw){h+='<tr><td>'+rw[0]+'</td>'+ranges.map(function(r){return '<td>'+rw[1](r[1])+'</td>'}).join('')+'</tr>'});
+  h+='</table></div>';
+  var m=monthStart(), conM=countContracts(m), cT=T('contracts_month',6);
+  var pct=Math.min(100,Math.round(conM/cT*100));
+  h+='<div class="card"><h2>🎯 Contract pace</h2><div class="row sm"><span>'+conM+' / '+cT+' this month</span><b style="color:'+(conM>=cT?'var(--green)':'var(--gold)')+'">'+pct+'%</b></div><div class="sbar"><i style="width:'+pct+'%;background:'+(conM>=cT?'var(--green)':'var(--gold)')+'"></i></div>'
+   +'<div class="sm mut">Daily targets: '+T('dials_day',50)+' dials · '+T('convos_day',10)+' convos · '+T('talkmin_day',60)+' talk min · '+T('offers_week',3)+' offers/week</div></div>';
+  document.getElementById('v_reps').innerHTML=h;
+}
+
+
+/* ============ PHASE 1: METRICS + CALCULATOR ============ */
+var MET_FROM=null; // null = all time
+function setMetRange(f){MET_FROM=f;renderMetrics()}
+function linkedDeal(l){if(!l.deal_id)return null;return D.ddeals.find(function(d){return d.id===l.deal_id})||null}
+function stageMoveOn(dealId,stage){
+  var h=D.dhist.filter(function(x){return x.deal_id===dealId&&x.stage===stage}).sort(function(a,b){return a.entered_on<b.entered_on?-1:1});
+  return h.length?h[0].entered_on:null;
+}
+function inR(dt){if(!dt)return false;var d=(dt+'').slice(0,10);return !MET_FROM||d>=MET_FROM}
+function metChain(){
+  var leads=D.leads.filter(function(l){return inR(l.created_at)});
+  var bad=leads.filter(function(l){return l.stage==='Dead'&&l.dead_reason==='Bad lead'}).length;
+  var a={dials:0,convos:0,talk:0};
+  D.act.forEach(function(x){if(inR(x.on_date)){a.dials+=x.dials||0;a.convos+=x.convos||0;a.talk+=x.talk_min||0}});
+  var offers=D.offers.filter(function(o){return inR(o.offered_on)}).length;
+  var contracts=D.leads.filter(function(l){return l.contracted_on&&inR(l.contracted_on)}).length;
+  var assigned=0,closed=0,revenue=0,fees=[];
+  D.leads.forEach(function(l){
+    if(!l.deal_id)return;
+    var em=stageMoveOn(l.deal_id,'EMD In'), cl=stageMoveOn(l.deal_id,'Closed');
+    if(em&&inR(em))assigned++;
+    if(cl&&inR(cl)){closed++;var d=linkedDeal(l);var f=d&&(d.revenue_closed||0);if(f){revenue+=f;fees.push(f)}}
+  });
+  return {leads:leads.length,net:leads.length-bad,dials:a.dials,convos:a.convos,talk:a.talk,offers:offers,contracts:contracts,assigned:assigned,closed:closed,revenue:revenue,fees:fees};
+}
+function ratio(a,b,dec){if(!a)return '—';var v=b/a;return dec?Math.round(v*Math.pow(10,dec))/Math.pow(10,dec):Math.round(v*100)+'%'}
+function avgDays(pairs){
+  var ds=pairs.filter(function(p){return p[0]&&p[1]}).map(function(p){return Math.round((new Date(p[1])-new Date(p[0]))/86400000)});
+  if(!ds.length)return null;
+  return Math.round(ds.reduce(function(s,x){return s+x},0)/ds.length);
+}
+function renderMetrics(){
+  var el=document.getElementById('v_metrics');if(!el)return;
+  var m=metChain();
+  var ranges=[['Month',monthStart()],['Quarter',quarterStart()],['Year',yearStart()],['All time',null]];
+  var h='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+ranges.map(function(r){
+    var on=(MET_FROM===r[1]);
+    return '<button class="btn '+(on?'g':'mut')+'" onclick="setMetRange('+(r[1]?"'"+r[1]+"'":'null')+')">'+r[0]+'</button>';
+  }).join('')+'</div>';
+
+  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💵 Revenue',fmt$(m.revenue)]];
+  h+='<div class="card"><h2>⛓ The chain</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
+
+  function rrow(l,v){return '<div class="row sm" style="padding:5px 0"><span class="mut">'+l+'</span><b>'+v+'</b></div>'}
+  h+='<div class="card"><h2>🔀 Ratios</h2>'
+   +rrow('Contact rate (convos / dials)',ratio(m.dials,m.convos))
+   +rrow('Dials per offer',m.offers?Math.round(m.dials/m.offers):'—')
+   +rrow('Convos per offer',m.offers?Math.round(m.convos/m.offers*10)/10:'—')
+   +rrow('Offers per contract',m.contracts?Math.round(m.offers/m.contracts*10)/10:'—')
+   +rrow('Lead → contract',ratio(m.net,m.contracts))
+   +rrow('Contract → close',ratio(m.contracts,m.closed))
+   +rrow('Offer → close',ratio(m.offers,m.closed))
+   +rrow('Revenue per dial',m.dials?fmt$(Math.round(m.revenue/m.dials)):'—')
+   +rrow('Revenue per lead',m.leads?fmt$(Math.round(m.revenue/m.leads)):'—')
+   +'</div>';
+
+  var lc=[],cc=[],lcl=[];
+  D.leads.forEach(function(l){
+    if(l.contracted_on)lc.push([(l.created_at||'').slice(0,10),l.contracted_on]);
+    if(l.deal_id){var cl=stageMoveOn(l.deal_id,'Closed');
+      if(cl&&l.contracted_on)cc.push([l.contracted_on,cl]);
+      if(cl)lcl.push([(l.created_at||'').slice(0,10),cl]);}
+  });
+  var avgFee=m.fees.length?Math.round(m.fees.reduce(function(s,x){return s+x},0)/m.fees.length):null;
+  h+='<div class="card"><h2>⏳ Timelines (avg days, all time)</h2>'
+   +rrow('Lead → contract',avgDays(lc)!=null?avgDays(lc)+' days':'—')
+   +rrow('Contract → close',avgDays(cc)!=null?avgDays(cc)+' days':'—')
+   +rrow('💰 Cash conversion cycle (lead → close)',avgDays(lcl)!=null?'<span style="color:var(--gold)">'+avgDays(lcl)+' days</span>':'—')
+   +rrow('Avg assignment fee (range)',avgFee?fmt$(avgFee):'—')
+   +'<div class="sm mut" style="margin-top:6px">Timelines fill in as leads you send to Dispo start closing — the lead→close number is how long your money is stuck in a deal.</div></div>';
+
+  h+='<div class="card"><h2>🧮 Commission calculator</h2><div id="ccOut"></div>'
+   +'<label>Month revenue (auto from closed deals — edit to model)</label><input id="cc_rev" type="number" value="'+(metMonthRev()||'')+'" oninput="calcComm()">'
+   +'<label>Ramp month (1-12)</label><select id="cc_mo" onchange="calcComm()">'+[1,2,3,4,5,6,7,8,9,10,11,12].map(function(n){return '<option'+(n===rampMonthGuess()?' selected':'')+'>'+n+'</option>'}).join('')+'</select>'
+   +'<label>Strikes this month</label><input id="cc_str" type="number" value="0" oninput="calcComm()">'
+   +'<label>$ per strike (USD)</label><input id="cc_strv" type="number" value="'+T('strike_value',500)+'" oninput="calcComm()">'
+   +'<label>USD → CAD rate</label><input id="cc_fx" type="number" step="0.01" value="'+T('fx',1.38)+'" oninput="calcComm()">'
+   +'<div class="sm mut" style="margin-top:4px">Sliding scale: ≤$20K→$0 · ≤$40K→10% · ≤$80K→12% · ≤$100K→14% · ≤$150K→16% · $150K+→17%. Ramp target hit = +2% of commission, miss = −2% (months 1-3 protected). Strikes deduct after everything.</div></div>';
+  el.innerHTML=h;
+  calcComm();
+}
+function metMonthRev(){
+  var ms=monthStart(),rev=0;
+  D.leads.forEach(function(l){if(!l.deal_id)return;var cl=stageMoveOn(l.deal_id,'Closed');
+    if(cl&&cl>=ms){var d=linkedDeal(l);rev+=(d&&d.revenue_closed)||0}});
+  return rev;
+}
+var RAMP=[0,20000,40000,60000,80000,100000,110000,120000,130000,140000,150000,160000];
+function rampMonthGuess(){return Math.min(12,Math.max(1,(new Date().getMonth()-6)+1))||1}
+function tierPct(rev){
+  if(rev<=20000)return 0;
+  if(rev<=40000)return .10;
+  if(rev<=80000)return .12;
+  if(rev<=100000)return .14;
+  if(rev<=150000)return .16;
+  return .17;
+}
+function calcComm(){
+  var out=document.getElementById('ccOut');if(!out)return;
+  var rev=Number(document.getElementById('cc_rev').value)||0;
+  var mo=Number(document.getElementById('cc_mo').value)||1;
+  var strikes=Number(document.getElementById('cc_str').value)||0;
+  var strv=Number(document.getElementById('cc_strv').value)||0;
+  var fx=Number(document.getElementById('cc_fx').value)||1.38;
+  var pct=tierPct(rev), base=rev*pct;
+  var target=RAMP[mo-1], hit=rev>=target;
+  var adj=hit?base*0.02:(mo<=3?0:-base*0.02);
+  var strikeDed=strikes*strv;
+  var usd=Math.max(0,base+adj-strikeDed), cad=usd*fx;
+  out.innerHTML='<div class="grid" style="grid-template-columns:1fr 1fr">'
+   +'<div class="kpi"><div class="v">'+(pct*100)+'%</div><div class="l">TIER</div></div>'
+   +'<div class="kpi"><div class="v">'+fmt$(Math.round(base))+'</div><div class="l">BASE COMM</div></div>'
+   +'<div class="kpi"><div class="v" style="color:'+(hit?'var(--green)':'var(--red)')+'">'+(hit?'+':'')+fmt$(Math.round(adj))+'</div><div class="l">RAMP '+(hit?'HIT ✓':(mo<=3?'PROTECTED':'MISS'))+' (tgt '+fmt$(target)+')</div></div>'
+   +'<div class="kpi"><div class="v" style="color:'+(strikeDed?'var(--red)':'var(--text)')+'">−'+fmt$(strikeDed)+'</div><div class="l">STRIKES</div></div>'
+   +'</div>'
+   +'<div class="kpi" style="margin-bottom:10px"><div class="v" style="color:var(--gold);font-size:26px">'+fmt$(Math.round(usd))+' USD · '+fmt$(Math.round(cad))+' CAD</div><div class="l">THE CHECK</div></div>';
+}
+
+function renderOwner(){
+  var m=today().slice(0,7);
+  var sp=D.spend.find(function(s){return s.month===m});var spend=sp?Number(sp.spend):0;
+  var mLeads=countLeadsIn(monthStart()),mOff=countOffers(monthStart()),mCon=countContracts(monthStart());
+  var cpl=mLeads?Math.round(spend/mLeads):0, cpc=mCon?Math.round(spend/mCon):0;
+  var proj=mCon*T('avgfee',10000);
+  var allLeads=D.leads.length, contacted=D.leads.filter(function(l){return l.stage!=='New'}).length,
+      offered=D.leads.filter(function(l){return D.offers.some(function(o){return o.lead_id===l.id})}).length,
+      uc=D.leads.filter(function(l){return l.contracted_on}).length;
+  function frow(a,b,l1,l2){var p=a?Math.round(b/a*100):0;return '<div class="row sm" style="padding:5px 0"><span>'+l1+' → '+l2+'</span><b style="color:'+(p<15?'var(--red)':'var(--text)')+'">'+b+'/'+a+' ('+p+'%)</b></div>'}
+  var h='<div class="card"><h2>🔒 Owner — this month</h2><div class="grid">'
+   +'<div class="kpi"><div class="v">'+fmt$(spend)+'</div><div class="l">META SPEND</div></div>'
+   +'<div class="kpi"><div class="v">'+(cpl?fmt$(cpl):'—')+'</div><div class="l">COST / LEAD</div></div>'
+   +'<div class="kpi"><div class="v">'+(cpc?fmt$(cpc):'—')+'</div><div class="l">COST / CONTRACT</div></div>'
+   +'<div class="kpi"><div class="v">'+mLeads+'</div><div class="l">LEADS</div></div>'
+   +'<div class="kpi"><div class="v">'+mCon+'</div><div class="l">CONTRACTS</div></div>'
+   +'<div class="kpi"><div class="v" style="color:var(--gold)">'+fmt$(proj)+'</div><div class="l">PROJ REVENUE</div></div>'
+   +'</div><label>This month\'s Meta spend ($)</label><input id="ow_spend" type="number" value="'+(spend||'')+'"><button class="btn g" onclick="saveSpend()">Save spend</button>'
+   +'<div class="sm mut" style="margin-top:6px">Proj revenue = contracts × avg fee target ('+fmt$(T('avgfee',10000))+', editable in Inputs). Only visible with the owner passcode.</div></div>';
+  h+='<div class="card"><h2>🔻 Acq funnel (all time)</h2>'
+   +frow(allLeads,contacted,'Leads','Contacted')+frow(contacted,offered,'Contacted','Offer made')+frow(offered,uc,'Offers','Contract')
+   +'</div>';
+  var dead={};D.leads.filter(function(l){return l.stage==='Dead'}).forEach(function(l){dead[l.dead_reason||'Unknown']=(dead[l.dead_reason||'Unknown']||0)+1});
+  h+='<div class="card"><h2>💀 Dead lead reasons</h2>'+(Object.keys(dead).map(function(k){return '<div class="row sm" style="padding:4px 0"><span>'+esc(k)+'</span><b>'+dead[k]+'</b></div>'}).join('')||'<div class="sm mut">No dead leads yet.</div>')+'</div>';
+  document.getElementById('v_owner').innerHTML=h;
+}
+async function saveSpend(){
+  var m=today().slice(0,7),v=Number(document.getElementById('ow_spend').value)||0;
+  var r=await db.from('acq_spend').upsert({month:m,spend:v});
+  if(r.error)return alert(r.error.message);
+  loadAll();
+}
+
+function renderInputs(){
+  var ks=[['dials_day','Dials / day',50],['convos_day','Convos / day',10],['talkmin_day','Talk min / day',60],['offers_week','Offers / week',3],['contracts_month','Contracts / month',6]];
+  if(ROLE==='owner')ks.push(['avgfee','Avg fee ($, drives proj revenue)',10000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
+  var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
+   +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
+  h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time: punch them in on <b>Today → Log activity</b> after each call block. Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. Leads: <b>Add lead</b> (auto-import from Meta/GHL is the next upgrade — same relay as dispo).</div></div>';
+  document.getElementById('v_inputs').innerHTML=h;
+}
+async function saveTargets(){
+  var keys=['dials_day','convos_day','talkmin_day','offers_week','contracts_month'];if(ROLE==='owner')keys.push('avgfee','strike_value','fx');
+  for(var i=0;i<keys.length;i++){
+    var el=document.getElementById('t_'+keys[i]);if(!el)continue;
+    var r=await db.from('acq_targets').upsert({key:keys[i],value:Number(el.value)||0});
+    if(r.error)return alert(r.error.message);
+  }
+  alert('Targets saved');loadAll();
+}
+
+/* ============ HELP ============ */
+var HELP_TOPICS=[
+ {q:'📥 How do leads get in here?',k:'add new lead meta import',a:'V1: tap <b>Leads → ➕ Add lead</b> the moment a Meta lead lands. Auto-import from the Meta/GHL pipeline is the next upgrade — same relay system the dispo app uses.'},
+ {q:'📞 How do I log dials, convos, talk time?',k:'activity count kpi punch',a:'<b>Today → ⚡ Log activity</b> — after each call block, punch in the numbers and hit Add. They stack onto today\'s totals and feed every range on the KPIs tab.'},
+ {q:'💰 How do I log an offer?',k:'record made offer amount',a:'Open the lead → <b>+ Offer</b> → amount. Offers show on the lead (highest gold) and count on the scoreboard. Offers are the leak that costs contracts — the target is '+'weekly.'},
+ {q:'📅 How do follow-ups work?',k:'next touch due overdue reminder',a:'Set <b>Next follow-up</b> on any lead. It appears on <b>Today → Follow-ups due</b> when the date arrives, and turns red ⏰ when overdue. Deals die on follow-up 4-6 — this list is the money list.'},
+ {q:'📝 How do I mark a contract locked?',k:'under contract signed locked won',a:'Open the lead → Stage → <b>Under Contract</b> → enter contract price + date → Save. It counts on the scoreboard and unlocks the <b>Send to Dispo</b> button.'},
+ {q:'➡️ How do I send a contract to Dispo?',k:'dispo handoff pipeline transfer reid',a:'On an Under Contract lead → <b>➡️ Send to Dispo command center</b> → it appears instantly in the dispo app as a new deal at Waiting On Photos, address, seller, and price pre-filled. Reid takes it from there.'},
+ {q:'💀 How do I kill a dead lead?',k:'dead reason lost graveyard',a:'Stage → <b>Dead</b> → pick the reason (required). Reasons roll up so we learn why leads die instead of guessing.'},
+ {q:'🧭 What are the tabs?',k:'navigation menu sections',a:'☀️ <b>Today</b> — log activity, follow-ups due, fresh leads · 📇 <b>Leads</b> — full pipeline by stage, searchable · 👤 <b>KPIs</b> — scoreboard across Today/Week/Month/Quarter/Year + contract pace · ⚙️ <b>Inputs</b> — targets.'},
+ {q:'🎯 Where do I change targets?',k:'goals quota edit',a:'<b>Inputs</b> tab → edit → Save targets. They drive the /target coloring on Today and the contract pace bar.'},
+ {q:'🔐 What are the passcodes?',k:'password login owner rep',a:'Rep passcode shows the rep view. The owner passcode unlocks the 🔒 Owner tab (spend, cost-per-lead, funnel) — that tab is invisible on the rep\'s login.'},
+ {q:'💻 How do I install this on Mac or phone?',k:'dock home screen app chrome safari',a:'From the live site URL: <b>Mac Chrome</b> ⋮ → Cast, Save and Share → Install page as app. <b>Safari</b> File → Add to Dock. <b>iPhone</b> Share → Add to Home Screen.'},
+ {q:'🗓️ Do the numbers reset?',k:'zero wipe daily weekly',a:'Today resets daily, Week is rolling 7 days, Month/Quarter/Year on calendar boundaries. Nothing is deleted — every range just filters the same history.'}
+ ,{q:'📈 What is the Metrics tab?',k:'chain ratios conversion data range',a:'The full money chain — Leads → Net leads → Dials → Convos → Offers → Contracts → Assigned → Closed → Revenue — with every ratio between steps, filterable by Month / Quarter / Year / All time. Assigned, Closed, and Revenue flow in automatically from the Dispo app once a lead is sent over.'}
+ ,{q:'⏳ What is the cash conversion cycle?',k:'timeline lead close days average fee',a:'On <b>Metrics</b>: average days from <b>lead → contract</b>, <b>contract → close</b>, and the full <b>lead → close</b> — how long money is stuck in a deal. Average assignment fee sits with it.'}
+ ,{q:'🧮 How does the commission calculator work?',k:'check pay tier ramp strike cad',a:'On <b>Metrics</b>: revenue auto-fills from closed deals (editable to model scenarios) → sliding-scale tier % → ramp target ±2% (months 1-3 protected) → strike deductions → the check in USD and CAD.'}
+];
+var XX_DUMMY_REMOVED=0;
+var HELP_STOP={'where':1,'do':1,'does':1,'i':1,'my':1,'me':1,'we':1,'our':1,'how':1,'what':1,'is':1,'are':1,'the':1,'a':1,'an':1,'to':1,'of':1,'in':1,'on':1,'for':1,'and':1,'or':1,'it':1,'can':1,'find':1,'see':1,'get':1,'go':1,'up':1,'set':1,'with':1,'this':1,'when':1,'why':1};
+function helpMatches(q){
+  q=(q||'').toLowerCase().trim();var idx=[];
+  if(!q){HELP_TOPICS.forEach(function(_,i){idx.push(i)});return idx}
+  var raw=q.split(/[^a-z0-9$%]+/).filter(Boolean);
+  var words=raw.filter(function(w){return !HELP_STOP[w]});if(!words.length)words=raw;
+  var all=[],any=[];
+  HELP_TOPICS.forEach(function(t,i){
+    var hay=(t.q+' '+(t.k||'')+' '+t.a).toLowerCase().replace(/<[^>]*>/g,' ');
+    var m=0;words.forEach(function(w){if(hay.indexOf(w)>=0)m++});
+    if(m===words.length)all.push(i);else if(m>0)any.push(i);
+  });
+  return all.length?all:any;
+}
+function helpFilter(q){
+  var hits=helpMatches(q),qq=(q||'').trim();
+  HELP_TOPICS.forEach(function(t,i){
+    var row=document.getElementById('hlprow'+i),body=document.getElementById('hlp'+i);
+    if(!row)return;var hit=hits.indexOf(i)>=0;
+    row.style.display=hit?'block':'none';
+    if(body)body.style.display=(qq&&hit&&hits.length<=4)?'block':'none';
+  });
+  var none=document.getElementById('hlpnone');
+  if(none)none.style.display=hits.length?'none':'block';
+}
+function openHelp(){
+  var h='<h2>❓ Help — how do I…</h2><input placeholder="🔍 Ask anything… e.g. how do i log an offer" autocomplete="off" oninput="helpFilter(this.value)">';
+  HELP_TOPICS.forEach(function(t,i){
+    h+='<div id="hlprow'+i+'" style="border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden">'
+     +'<div onclick="var b=document.getElementById(\'hlp'+i+'\');b.style.display=b.style.display===\'none\'?\'block\':\'none\'" style="padding:10px 12px;cursor:pointer;font-size:13px;font-weight:600">'+t.q+'</div>'
+     +'<div id="hlp'+i+'" style="display:none;padding:0 12px 12px;font-size:12px;line-height:1.6">'+t.a+'</div></div>';
+  });
+  h+='<div id="hlpnone" style="display:none;font-size:12px;color:var(--mut);padding:8px 2px">No match — try one word (lead, offer, contract, dispo, install…).</div>'
+   +'<button class="btn mut" onclick="closeModal()">Close</button>';
+  openModal(h);
+}
+function openModal(h){document.getElementById('mbody').innerHTML=h;document.getElementById('modal').classList.add('on')}
+function closeModal(){document.getElementById('modal').classList.remove('on')}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
+
+if(ROLE){document.getElementById('lock').style.display='none';buildTabs();loadAll();}
+</script>
+</body>
+</html>
