@@ -124,23 +124,38 @@ async function loadAll(){
     db.from('acq_targets').select('*'),
     db.from('acq_spend').select('*'),
     db.from('deals').select('id,address,stage,revenue_closed,contract_price'),
-    db.from('stage_history').select('deal_id,stage,entered_on')
+    db.from('stage_history').select('deal_id,stage,entered_on'),
+    db.from('acq_reps').select('*').order('created_at')
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
-  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];
+  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];
   D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
   render();
 }
 function T(k,d){return D.targets[k]!=null?D.targets[k]:d}
 
+var BOARD=null; // null = total acq, else rep name
+function repOf(l){return l.rep||D.reps[0]}
+function leadRepOk(l){return !BOARD||repOf(l)===BOARD}
 function sumAct(from){
   var o={dials:0,convos:0,talk:0};
-  D.act.forEach(function(a){if(a.on_date>=from){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
+  D.act.forEach(function(a){if(a.on_date>=from&&(!BOARD||(a.rep||D.reps[0])===BOARD)){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
   return o;
 }
-function countOffers(from){return D.offers.filter(function(o){return o.offered_on>=from}).length}
-function countContracts(from){return D.leads.filter(function(l){return l.contracted_on&&l.contracted_on>=from}).length}
-function countLeadsIn(from){return D.leads.filter(function(l){return (l.created_at||'').slice(0,10)>=from}).length}
+function leadById(id){return D.leads.find(function(l){return l.id===id})}
+function countOffers(from){return D.offers.filter(function(o){var l=leadById(o.lead_id);return o.offered_on>=from&&(!l||leadRepOk(l))}).length}
+function countContracts(from){return D.leads.filter(function(l){return l.contracted_on&&l.contracted_on>=from&&leadRepOk(l)}).length}
+function countLeadsIn(from){return D.leads.filter(function(l){return (l.created_at||'').slice(0,10)>=from&&leadRepOk(l)}).length}
+function closedStats(from){
+  var o={assigned:0,closed:0,revenue:0};
+  D.leads.forEach(function(l){
+    if(!l.deal_id||!leadRepOk(l))return;
+    var em=stageMoveOn(l.deal_id,'EMD In'),cl=stageMoveOn(l.deal_id,'Closed');
+    if(em&&em>=from)o.assigned++;
+    if(cl&&cl>=from){o.closed++;var d=linkedDeal(l);o.revenue+=(d&&d.revenue_closed)||0}
+  });
+  return o;
+}
 
 /* ============ RENDER ============ */
 function render(){renderToday();renderLeads();renderReps();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
@@ -162,6 +177,7 @@ function renderToday(){
    +'<div><label>+ Dials</label><input id="qa_d" type="number" inputmode="numeric"></div>'
    +'<div><label>+ Convos</label><input id="qa_c" type="number" inputmode="numeric"></div>'
    +'<div><label>+ Talk min</label><input id="qa_t" type="number" inputmode="numeric"></div></div>'
+   +'<label>Who</label><select id="qa_rep">'+D.reps.map(function(rp){return '<option>'+esc(rp)+'</option>'}).join('')+'</select>'
    +'<button class="btn g big" onclick="quickLog()">Add to today</button></div>';
 
   var due=D.leads.filter(function(l){return l.stage!=='Dead'&&l.stage!=='Under Contract'&&l.next_followup&&l.next_followup<=t});
@@ -210,7 +226,7 @@ function leadCard(l){
   var t=today(), od=l.next_followup&&l.next_followup<t&&l.stage!=='Dead'&&l.stage!=='Under Contract';
   return '<div class="card" onclick="openLead(\''+l.id+'\')" style="cursor:pointer">'
    +'<div class="row"><b>'+esc(l.name||'—')+'</b><span class="pill '+PCLS[l.stage||'New']+'">'+(l.stage||'New')+'</span></div>'
-   +'<div class="sm mut">'+esc(l.address||'')+(l.market?' · '+esc(l.market):'')+' · '+esc(l.source||'Meta')+'</div>'
+   +'<div class="sm mut">'+esc(l.address||'')+(l.market?' · '+esc(l.market):'')+' · '+esc(l.source||'Meta')+' · 👤 '+esc(repOf(l))+'</div>'
    +'<div class="sm" style="margin-top:5px">Ask '+fmt$(l.asking)+' · Max '+fmt$(l.max_offer)+' · Offers: <b>'+offs.length+'</b>'+(l.contract_price?' · 📝 '+fmt$(l.contract_price):'')+'</div>'
    +(od?'<div class="warn" style="margin-top:4px">⏰ Follow-up overdue ('+l.next_followup+')</div>':(l.next_followup&&l.stage!=='Dead'?'<div class="sm mut" style="margin-top:4px">Next touch: '+l.next_followup+'</div>':''))
    +(l.stage==='Under Contract'&&!l.sent_to_dispo?'<div class="sm" style="margin-top:4px;color:var(--gold)">➡️ Ready to send to Dispo</div>':'')
@@ -222,7 +238,7 @@ function openLead(id){
   var l=D.leads.find(function(x){return x.id===id});if(!l)return;
   var offs=D.offers.filter(function(o){return o.lead_id===id}).sort(function(a,b){return (b.amount||0)-(a.amount||0)});
   var h='<h2>'+esc(l.name||'Lead')+' <span class="pill '+PCLS[l.stage]+'">'+l.stage+'</span></h2>'
-   +'<div class="sm mut" style="margin-bottom:8px">'+esc(l.address||'')+(l.market?' · '+esc(l.market):'')+' · '+esc(l.source||'Meta')+'</div>'
+   +'<div class="sm mut" style="margin-bottom:8px">'+esc(l.address||'')+(l.market?' · '+esc(l.market):'')+' · '+esc(l.source||'Meta')+' · 👤 '+esc(repOf(l))+'</div>'
    +(l.phone?'<a class="btn gr" style="text-decoration:none" href="tel:'+esc(l.phone)+'">📞 '+esc(l.phone)+'</a>':'')
    +'<div style="margin:10px 0" class="sm">Asking '+fmt$(l.asking)+' · Our max '+fmt$(l.max_offer)+(l.motivation?'<br>Motivation: '+esc(l.motivation):'')+(l.notes?'<br>Notes: '+esc(l.notes):'')+'</div>'
    +'<label>Stage</label><select id="ld_stage">'+STAGES.map(function(s){return '<option'+(s===l.stage?' selected':'')+'>'+s+'</option>'}).join('')+'</select>'
@@ -261,6 +277,7 @@ function editLead(id){
    +'<label>Phone</label><input id="lf_phone" value="'+esc(l.phone||'')+'">'
    +'<label>Property address</label><input id="lf_addr" value="'+esc(l.address||'')+'">'
    +'<label>Market</label><input id="lf_mkt" value="'+esc(l.market||'')+'" placeholder="e.g. memphis">'
+   +'<label>Assigned rep</label><select id="lf_rep">'+D.reps.map(function(rp){return '<option'+(rp===(l.rep||D.reps[0])?' selected':'')+'>'+esc(rp)+'</option>'}).join('')+'</select>'
    +'<label>Source</label><select id="lf_src">'+['Meta','Referral','Old lead','Other'].map(function(s){return '<option'+(s===(l.source||'Meta')?' selected':'')+'>'+s+'</option>'}).join('')+'</select>'
    +'<label>Seller asking</label><input id="lf_ask" type="number" value="'+(l.asking||'')+'">'
    +'<label>Our max offer</label><input id="lf_max" type="number" value="'+(l.max_offer||'')+'">'
@@ -273,7 +290,7 @@ function editLead(id){
 async function saveLead(id){
   var row={name:document.getElementById('lf_name').value||null,phone:document.getElementById('lf_phone').value||null,
    address:document.getElementById('lf_addr').value||null,market:(document.getElementById('lf_mkt').value||'').toLowerCase().trim()||null,
-   source:document.getElementById('lf_src').value,asking:Number(document.getElementById('lf_ask').value)||null,
+   source:document.getElementById('lf_src').value,rep:document.getElementById('lf_rep').value,asking:Number(document.getElementById('lf_ask').value)||null,
    max_offer:Number(document.getElementById('lf_max').value)||null,motivation:document.getElementById('lf_mot').value||null,
    notes:document.getElementById('lf_notes').value||null};
   var r=id?await db.from('acq_leads').update(row).eq('id',id):await db.from('acq_leads').insert(row);
@@ -308,13 +325,15 @@ async function sendToDispo(id){
 async function quickLog(){
   var d=Number(document.getElementById('qa_d').value)||0,c=Number(document.getElementById('qa_c').value)||0,t=Number(document.getElementById('qa_t').value)||0;
   if(!d&&!c&&!t)return;
-  var ex=D.act.find(function(a){return a.on_date===today()&&a.rep==='rep1'});
+  var who=(document.getElementById('qa_rep')||{}).value||D.reps[0];
+  var ex=D.act.find(function(a){return a.on_date===today()&&(a.rep||D.reps[0])===who});
   var r=ex?await db.from('acq_activity').update({dials:(ex.dials||0)+d,convos:(ex.convos||0)+c,talk_min:(ex.talk_min||0)+t}).eq('id',ex.id)
-          :await db.from('acq_activity').insert({rep:'rep1',on_date:today(),dials:d,convos:c,talk_min:t});
+          :await db.from('acq_activity').insert({rep:who,on_date:today(),dials:d,convos:c,talk_min:t});
   if(r.error)return alert(r.error.message);
   loadAll();
 }
 
+function setBoard(b){BOARD=b;renderReps()}
 function renderReps(){
   var ranges=[['Today',today()],['Week',daysAgo(6)],['Month',monthStart()],['Quarter',quarterStart()],['Year',yearStart()]];
   var rows=[
@@ -323,14 +342,21 @@ function renderReps(){
     ['⏱ Talk (min)',function(f){return sumAct(f).talk}],
     ['💰 Offers',countOffers],
     ['📝 Contracts',countContracts],
-    ['📥 Leads in',countLeadsIn]
+    ['📥 Leads in',countLeadsIn],
+    ['🤝 Assigned',function(f){return closedStats(f).assigned}],
+    ['🏁 Closed',function(f){return closedStats(f).closed}],
+    ['💵 Revenue',function(f){return fmt$(closedStats(f).revenue)}]
   ];
-  var h='<div class="card"><h2>👤 Acq scoreboard</h2><table><tr><th></th>'+ranges.map(function(r){return '<th>'+r[0].toUpperCase()+'</th>'}).join('')+'</tr>';
+  var h='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'
+   +'<button class="btn '+(BOARD===null?'g':'mut')+'" onclick="setBoard(null)">🏢 Total Acq</button>'
+   +D.reps.map(function(rp){return '<button class="btn '+(BOARD===rp?'g':'mut')+'" onclick="setBoard(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')
+   +'</div>';
+  h+='<div class="card"><h2>'+(BOARD===null?'🏢 Total Acq board':'👤 '+esc(BOARD)+"'s board")+'</h2><table><tr><th></th>'+ranges.map(function(r){return '<th>'+r[0].toUpperCase()+'</th>'}).join('')+'</tr>';
   rows.forEach(function(rw){h+='<tr><td>'+rw[0]+'</td>'+ranges.map(function(r){return '<td>'+rw[1](r[1])+'</td>'}).join('')+'</tr>'});
   h+='</table></div>';
-  var m=monthStart(), conM=countContracts(m), cT=T('contracts_month',6);
+  var m=monthStart(), conM=countContracts(m), cT=T('contracts_month',6)*(BOARD===null?Math.max(1,D.reps.length):1);
   var pct=Math.min(100,Math.round(conM/cT*100));
-  h+='<div class="card"><h2>🎯 Contract pace</h2><div class="row sm"><span>'+conM+' / '+cT+' this month</span><b style="color:'+(conM>=cT?'var(--green)':'var(--gold)')+'">'+pct+'%</b></div><div class="sbar"><i style="width:'+pct+'%;background:'+(conM>=cT?'var(--green)':'var(--gold)')+'"></i></div>'
+  h+='<div class="card"><h2>🎯 Contract pace — '+(BOARD===null?'team':esc(BOARD))+'</h2><div class="row sm"><span>'+conM+' / '+cT+' this month</span><b style="color:'+(conM>=cT?'var(--green)':'var(--gold)')+'">'+pct+'%</b></div><div class="sbar"><i style="width:'+pct+'%;background:'+(conM>=cT?'var(--green)':'var(--gold)')+'"></i></div>'
    +'<div class="sm mut">Daily targets: '+T('dials_day',50)+' dials · '+T('convos_day',10)+' convos · '+T('talkmin_day',60)+' talk min · '+T('offers_week',3)+' offers/week</div></div>';
   document.getElementById('v_reps').innerHTML=h;
 }
@@ -408,7 +434,8 @@ function renderMetrics(){
    +'<div class="sm mut" style="margin-top:6px">Timelines fill in as leads you send to Dispo start closing — the lead→close number is how long your money is stuck in a deal.</div></div>';
 
   h+='<div class="card"><h2>🧮 Commission calculator</h2><div id="ccOut"></div>'
-   +'<label>Month revenue (auto from closed deals — edit to model)</label><input id="cc_rev" type="number" value="'+(metMonthRev()||'')+'" oninput="calcComm()">'
+   +'<label>Rep</label><select id="cc_rep" onchange="ccFillRev()">'+D.reps.map(function(rp){return '<option>'+esc(rp)+'</option>'}).join('')+'</select>'
+   +'<label>Month revenue (auto from their closed deals — edit to model)</label><input id="cc_rev" type="number" value="'+(metMonthRev(D.reps[0])||'')+'" oninput="calcComm()">'
    +'<label>Ramp month (1-12)</label><select id="cc_mo" onchange="calcComm()">'+[1,2,3,4,5,6,7,8,9,10,11,12].map(function(n){return '<option'+(n===rampMonthGuess()?' selected':'')+'>'+n+'</option>'}).join('')+'</select>'
    +'<label>Strikes this month</label><input id="cc_str" type="number" value="0" oninput="calcComm()">'
    +'<label>$ per strike (USD)</label><input id="cc_strv" type="number" value="'+T('strike_value',500)+'" oninput="calcComm()">'
@@ -417,11 +444,16 @@ function renderMetrics(){
   el.innerHTML=h;
   calcComm();
 }
-function metMonthRev(){
+function metMonthRev(rep){
   var ms=monthStart(),rev=0;
-  D.leads.forEach(function(l){if(!l.deal_id)return;var cl=stageMoveOn(l.deal_id,'Closed');
+  D.leads.forEach(function(l){if(!l.deal_id)return;if(rep&&repOf(l)!==rep)return;var cl=stageMoveOn(l.deal_id,'Closed');
     if(cl&&cl>=ms){var d=linkedDeal(l);rev+=(d&&d.revenue_closed)||0}});
   return rev;
+}
+function ccFillRev(){
+  var rp=document.getElementById('cc_rep').value;
+  document.getElementById('cc_rev').value=metMonthRev(rp)||'';
+  calcComm();
 }
 var RAMP=[0,20000,40000,60000,80000,100000,110000,120000,130000,140000,150000,160000];
 function rampMonthGuess(){return Math.min(12,Math.max(1,(new Date().getMonth()-6)+1))||1}
@@ -492,8 +524,24 @@ function renderInputs(){
   if(ROLE==='owner')ks.push(['avgfee','Avg fee ($, drives proj revenue)',10000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
+  h+='<div class="card"><h2>👥 Reps</h2><div class="sm mut" style="margin-bottom:8px">Boards, lead assignment, and the calculator use this list.</div>'
+   +D.reps.map(function(rp){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>'+esc(rp)+'</span>'+(ROLE==='owner'?'<button class="btn d" onclick="delRep(\''+esc(rp)+'\')">✕</button>':'')+'</div>'}).join('')
+   +(ROLE==='owner'?'<input id="nr_name" placeholder="New rep name"><button class="btn g" onclick="addRep()">+ Add rep</button>':'')
+   +'</div>';
   h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time: punch them in on <b>Today → Log activity</b> after each call block. Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. Leads: <b>Add lead</b> (auto-import from Meta/GHL is the next upgrade — same relay as dispo).</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
+}
+async function addRep(){
+  var n=(document.getElementById('nr_name').value||'').trim();if(!n)return;
+  var r=await db.from('acq_reps').insert({name:n});
+  if(r.error)return alert(r.error.message);
+  loadAll();
+}
+async function delRep(n){
+  if(!confirm('Remove '+n+' from the rep list? (Their logged history stays.)'))return;
+  var r=await db.from('acq_reps').delete().eq('name',n);
+  if(r.error)return alert(r.error.message);
+  loadAll();
 }
 async function saveTargets(){
   var keys=['dials_day','convos_day','talkmin_day','offers_week','contracts_month'];if(ROLE==='owner')keys.push('avgfee','strike_value','fx');
@@ -519,6 +567,7 @@ var HELP_TOPICS=[
  {q:'🔐 What are the passcodes?',k:'password login owner rep',a:'Rep passcode shows the rep view. The owner passcode unlocks the 🔒 Owner tab (spend, cost-per-lead, funnel) — that tab is invisible on the rep\'s login.'},
  {q:'💻 How do I install this on Mac or phone?',k:'dock home screen app chrome safari',a:'From the live site URL: <b>Mac Chrome</b> ⋮ → Cast, Save and Share → Install page as app. <b>Safari</b> File → Add to Dock. <b>iPhone</b> Share → Add to Home Screen.'},
  {q:'🗓️ Do the numbers reset?',k:'zero wipe daily weekly',a:'Today resets daily, Week is rolling 7 days, Month/Quarter/Year on calendar boundaries. Nothing is deleted — every range just filters the same history.'}
+ ,{q:'🏢 What are the boards?',k:'total acq rep board team individual switch kpis',a:'On <b>KPIs</b>: tap <b>🏢 Total Acq</b> for the whole department, or any rep\'s name for their personal board — same rows (dials through revenue), scoped to them. Add reps under <b>Inputs → 👥 Reps</b>; every lead gets an assigned rep.'}
  ,{q:'📈 What is the Metrics tab?',k:'chain ratios conversion data range',a:'The full money chain — Leads → Net leads → Dials → Convos → Offers → Contracts → Assigned → Closed → Revenue — with every ratio between steps, filterable by Month / Quarter / Year / All time. Assigned, Closed, and Revenue flow in automatically from the Dispo app once a lead is sent over.'}
  ,{q:'⏳ What is the cash conversion cycle?',k:'timeline lead close days average fee',a:'On <b>Metrics</b>: average days from <b>lead → contract</b>, <b>contract → close</b>, and the full <b>lead → close</b> — how long money is stuck in a deal. Average assignment fee sits with it.'}
  ,{q:'🧮 How does the commission calculator work?',k:'check pay tier ramp strike cad',a:'On <b>Metrics</b>: revenue auto-fills from closed deals (editable to model scenarios) → sliding-scale tier % → ramp target ±2% (months 1-3 protected) → strike deductions → the check in USD and CAD.'}
