@@ -162,35 +162,45 @@ function render(){renderToday();renderCommand();renderMetrics();if(ROLE==='owner
 
 function renderToday(){
   var t=today();
-  var stats={};D.reps.forEach(function(rp){stats[rp]=repRange(rp,t)});
+  var reps=D.reps;
+  var n=Math.max(1,reps.length);
+  var stats={};reps.forEach(function(rp){stats[rp]=repRange(rp,t)});
   function hm(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
-  function tile(label,key,target,full,fmtFn){
-    var vals=D.reps.map(function(rp){return stats[rp][key]});
+  var bigSize='min('+Math.max(10,Math.floor(56/n))+'vw,80px)';
+  var smallSize='min('+Math.max(6,Math.floor(34/n))+'vw,44px)';
+
+  var h='<div class="kpi" style="padding:26px 8px 22px;border-radius:20px">';
+
+  // rep name header row
+  h+='<div style="display:flex;margin-bottom:6px">'+reps.map(function(rp){
+    return '<div style="flex:1;text-align:center;font-size:min('+Math.max(4,Math.floor(10/n*2))+'vw,18px);font-weight:800;letter-spacing:.08em;color:var(--gold)">'+esc(rp.split(' ')[0]).toUpperCase()+'</div>';
+  }).join('')+'</div>';
+
+  var rows=[
+    ['\uD83D\uDCDE DIALS','dials',T('dials_day',320),null],
+    ['\uD83D\uDCAC CONVOS','convos',T('convos_day',70),null],
+    ['\u23F1 TALK TIME','talk',T('talkmin_day',420),hm],
+    ['\uD83D\uDCB0 OFFERS','offers',T('offers_day',10),null],
+    ['\uD83D\uDCDD CONTRACTS','contracts',T('contracts_day',1),null]
+  ];
+  rows.forEach(function(row,ri){
+    var label=row[0], key=row[1], target=row[2], fmtFn=row[3];
+    var vals=reps.map(function(rp){return stats[rp][key]});
     var best=Math.max.apply(null,vals);
     var teamV=vals.reduce(function(a,b){return a+b},0);
     var pct=target?Math.min(100,Math.round(teamV/target*100)):0;
-    var cols=D.reps.map(function(rp,i){
-      var v=vals[i];
-      var lead=v===best&&v>0;
-      var disp=fmtFn?fmtFn(v):v;
-      return '<div style="flex:1;text-align:center"><div style="font-size:13px;color:var(--mut);letter-spacing:.08em;font-weight:800">'+esc(rp.split(' ')[0]).toUpperCase()+(lead?' \uD83D\uDC51':'')+'</div>'
-        +'<div style="font-size:'+(full?'min(17vw,92px)':'min(11vw,58px)')+';font-weight:800;line-height:1.05;color:'+(lead?'var(--gold)':'var(--text)')+'">'+disp+'</div></div>';
-    }).join('<div style="width:1px;background:var(--line);margin:6px 0"></div>');
-    return '<div class="kpi" style="padding:22px 10px 18px;border-radius:18px;'+(full?'grid-column:1 / -1;min-height:22vh':'min-height:17vh')+';display:flex;flex-direction:column;justify-content:center">'
-      +'<div style="font-size:14px;color:var(--mut);letter-spacing:.12em;font-weight:800;margin-bottom:10px;text-align:center">'+label+'</div>'
-      +'<div style="display:flex;align-items:stretch">'+cols+'</div>'
-      +(target?'<div class="sbar" style="height:8px;margin:16px 15% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+(teamV>=target?'var(--green)':'var(--gold)')+'"></i></div>'
-        +'<div style="font-size:12px;color:var(--mut);text-align:center;margin-top:5px">team '+(fmtFn?fmtFn(teamV):teamV)+' / '+(fmtFn?fmtFn(target):target)+(teamV>=target?' \u2713':'')+'</div>':'')
-      +'</div>';
-  }
-  var h='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px">'
-   +tile('\uD83D\uDCDE DIALS','dials',T('dials_day',320),true)
-   +tile('\uD83D\uDCAC CONVOS','convos',T('convos_day',70),false)
-   +tile('\u23F1 TALK TIME','talk',T('talkmin_day',420),false,hm)
-   +tile('\uD83D\uDCB0 OFFERS','offers',T('offers_day',10),false)
-   +tile('\uD83D\uDCDD CONTRACTS','contracts',T('contracts_day',1),false)
-   +'</div>';
-  
+    h+='<div style="'+(ri>0?'border-top:1px solid var(--line);':'')+'padding:16px 0 14px">'
+     +'<div style="text-align:center;font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut);margin-bottom:8px">'+label+'</div>'
+     +'<div style="display:flex;align-items:baseline">'+reps.map(function(rp,i){
+        var v=vals[i], lead=v===best&&v>0;
+        var disp=fmtFn?fmtFn(v):v;
+        return '<div style="flex:1;text-align:center"><span style="font-size:'+(fmtFn?smallSize:bigSize)+';font-weight:800;line-height:1;color:'+(lead?'var(--gold)':'var(--text)')+'">'+disp+'</span>'+(lead?' <span style="font-size:18px">\uD83D\uDC51</span>':'')+'</div>';
+      }).join('')+'</div>'
+     +(target?'<div class="sbar" style="height:7px;margin:12px 18% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+(teamV>=target?'var(--green)':'var(--gold)')+'"></i></div>'
+       +'<div style="font-size:11px;color:var(--mut);text-align:center;margin-top:4px">team '+(fmtFn?fmtFn(teamV):teamV)+' / '+(fmtFn?fmtFn(target):target)+(teamV>=target?' \u2713':'')+'</div>':'')
+     +'</div>';
+  });
+  h+='</div>';
   document.getElementById('v_today').innerHTML=h;
 }
 
