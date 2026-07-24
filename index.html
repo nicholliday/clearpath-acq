@@ -62,7 +62,6 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
   <h1>Acq Tracker <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span></h1>
 
   <div id="v_today" class="view on"></div>
-  <div id="v_leads" class="view"></div>
   <div id="v_reps" class="view"></div>
   <div id="v_cmd" class="view"></div>
   <div id="v_metrics" class="view"></div>
@@ -93,7 +92,6 @@ function tryPass(){
 }
 function buildTabs(){
   var t='<button id="tb_today" onclick="nav(\'today\')"><span class="ic">☀️</span>Today</button>'
-   +'<button id="tb_leads" onclick="nav(\'leads\')"><span class="ic">📇</span>Leads</button>'
    +'<button id="tb_reps" onclick="nav(\'reps\')"><span class="ic">👤</span>KPIs</button>'
    +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">🎯</span>Command</button>'
    +'<button id="tb_metrics" onclick="nav(\'metrics\')"><span class="ic">📈</span>Metrics</button>'
@@ -104,7 +102,7 @@ function buildTabs(){
   nav('today');
 }
 function nav(v){
-  ['today','leads','reps','cmd','metrics','owner','inputs'].forEach(function(k){
+  ['today','reps','cmd','metrics','owner','inputs'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
@@ -161,7 +159,7 @@ function closedStats(from){
 }
 
 /* ============ RENDER ============ */
-function render(){renderToday();renderLeads();renderReps();renderCommand();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
+function render(){renderToday();renderReps();renderCommand();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
 
 function renderToday(){
   var t=today(), a=sumAct(t);
@@ -186,23 +184,10 @@ function renderToday(){
 
   
 
-  var due=D.leads.filter(function(l){return l.stage!=='Dead'&&l.stage!=='Under Contract'&&l.next_followup&&l.next_followup<=t});
-  h+='<div class="card"><h2>📅 Follow-ups due ('+due.length+')</h2>';
-  h+=due.length?due.map(function(l){
-    var od=l.next_followup<t;
-    return '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div onclick="openLead(\''+l.id+'\')" style="cursor:pointer"><b>'+esc(l.name||l.address||'Lead')+'</b><span class="pill '+PCLS[l.stage]+'">'+l.stage+'</span>'
-      +(od?'<div class="warn">⏰ overdue — was due '+l.next_followup+'</div>':'<div class="sm mut">due today</div>')+'</div>'
-      +(l.phone?'<a class="btn gr" style="text-decoration:none" href="tel:'+esc(l.phone)+'">📞 Call</a>':'')+'</div>';
-  }).join(''):'<div class="sm mut">Nothing due — set follow-up dates on your leads so nobody slips.</div>';
-  h+='</div>';
-
-  var fresh=D.leads.filter(function(l){return l.stage==='New'});
-  h+='<div class="card"><h2>🔥 New leads — call now ('+fresh.length+')</h2>';
-  h+=fresh.length?fresh.map(function(l){
-    return '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div onclick="openLead(\''+l.id+'\')" style="cursor:pointer"><b>'+esc(l.name||l.address||'Lead')+'</b><div class="sm mut">'+esc(l.market||l.source||'')+' · in '+((l.created_at||'').slice(0,10)===t?'today':(l.created_at||'').slice(0,10))+'</div></div>'
-      +(l.phone?'<a class="btn gr" style="text-decoration:none" href="tel:'+esc(l.phone)+'">📞 Call</a>':'')+'</div>';
-  }).join(''):'<div class="sm mut">No untouched leads. 💪</div>';
-  h+='</div>';
+    h+='<div class="card"><h2>\u26A1 Log a win</h2><div class="sm mut" style="margin-bottom:8px">Leads live in GHL \u2014 log the results here so the boards and money math stay true.</div>'
+   +'<button class="btn g" onclick="logOfferQuick()">\uD83D\uDCB0 + Offer made</button>'
+   +'<button class="btn gr" onclick="logContractQuick()">\uD83D\uDCDD + Contract locked</button>'
+   +'</div>';
   document.getElementById('v_today').innerHTML=h;
 }
 
@@ -240,6 +225,57 @@ function leadCard(l){
    +'</div>';
 }
 
+function logOfferQuick(){
+  var h='<h2>\uD83D\uDCB0 Log an offer</h2>'
+   +'<label>Rep</label><select id="qo_rep">'+payReps().concat(D.reps.indexOf(OWNER_REP)>=0?[OWNER_REP]:[]).map(function(rp){return '<option>'+esc(rp)+'</option>'}).join('')+'</select>'
+   +'<label>Property / seller (optional)</label><input id="qo_addr" placeholder="e.g. 123 Main St or Smith">'
+   +'<label>Offer amount ($)</label><input id="qo_amt" type="number">'
+   +'<button class="btn g big" onclick="saveOfferQuick()">Save offer</button>'
+   +'<button class="btn mut" onclick="closeModal()">Cancel</button>';
+  openModal(h);
+}
+async function saveOfferQuick(){
+  var rep=document.getElementById('qo_rep').value;
+  var addr=document.getElementById('qo_addr').value||null;
+  var amt=Number(document.getElementById('qo_amt').value)||null;
+  var l=await db.from('acq_leads').insert({name:addr,address:addr,rep:rep,stage:'Offer Made',source:'GHL'}).select();
+  if(l.error)return alert(l.error.message);
+  var r=await db.from('acq_offers').insert({lead_id:l.data[0].id,amount:amt,offered_on:today()});
+  if(r.error)return alert(r.error.message);
+  closeModal();loadAll();
+}
+function logContractQuick(){
+  var h='<h2>\uD83D\uDCDD Log a contract</h2>'
+   +'<label>Rep</label><select id="qc_rep">'+payReps().concat(D.reps.indexOf(OWNER_REP)>=0?[OWNER_REP]:[]).map(function(rp){return '<option>'+esc(rp)+'</option>'}).join('')+'</select>'
+   +'<label>Property address</label><input id="qc_addr" placeholder="required">'
+   +'<label>Seller name</label><input id="qc_name">'
+   +'<label>Contract price ($)</label><input id="qc_price" type="number">'
+   +'<label>Contracted on</label><input id="qc_date" type="date" value="'+today()+'">'
+   +'<label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="qc_dispo" type="checkbox" checked style="width:auto"> Send to Dispo command center</label>'
+   +'<button class="btn gr big" onclick="saveContractQuick()">Lock it \uD83C\uDF89</button>'
+   +'<button class="btn mut" onclick="closeModal()">Cancel</button>';
+  openModal(h);
+}
+async function saveContractQuick(){
+  var rep=document.getElementById('qc_rep').value;
+  var addr=(document.getElementById('qc_addr').value||'').trim();
+  if(!addr)return alert('Address required \u2014 the dispo side needs it.');
+  var nm=document.getElementById('qc_name').value||null;
+  var price=Number(document.getElementById('qc_price').value)||null;
+  var don=document.getElementById('qc_date').value||today();
+  var toDispo=document.getElementById('qc_dispo').checked;
+  var ins={name:nm,address:addr,rep:rep,stage:'Under Contract',source:'GHL',contract_price:price,contracted_on:don};
+  var l=await db.from('acq_leads').insert(ins).select();
+  if(l.error)return alert(l.error.message);
+  if(toDispo){
+    var chk=await db.from('deals').select('id').ilike('address','%'+addr.slice(0,12)+'%');
+    if(!(chk.data&&chk.data.length)){
+      var d=await db.from('deals').insert({address:addr,seller_name:nm,stage:'Waiting On Photos',deal_type:'Cash',contract_price:price,contract_date:don}).select();
+      if(!d.error&&d.data&&d.data[0])await db.from('acq_leads').update({sent_to_dispo:true,deal_id:d.data[0].id}).eq('id',l.data[0].id);
+    }
+  }
+  closeModal();loadAll();
+}
 function openLead(id){
   var l=D.leads.find(function(x){return x.id===id});if(!l)return;
   var offs=D.offers.filter(function(o){return o.lead_id===id}).sort(function(a,b){return (b.amount||0)-(a.amount||0)});
@@ -688,7 +724,7 @@ var HELP_TOPICS=[
  {q:'📝 How do I mark a contract locked?',k:'under contract signed locked won',a:'Open the lead → Stage → <b>Under Contract</b> → enter contract price + date → Save. It counts on the scoreboard and unlocks the <b>Send to Dispo</b> button.'},
  {q:'➡️ How do I send a contract to Dispo?',k:'dispo handoff pipeline transfer reid',a:'On an Under Contract lead → <b>➡️ Send to Dispo command center</b> → it appears instantly in the dispo app as a new deal at Waiting On Photos, address, seller, and price pre-filled. Reid takes it from there.'},
  {q:'💀 How do I kill a dead lead?',k:'dead reason lost graveyard',a:'Stage → <b>Dead</b> → pick the reason (required). Reasons roll up so we learn why leads die instead of guessing.'},
- {q:'🧭 What are the tabs?',k:'navigation menu sections',a:'☀️ <b>Today</b> — log activity, follow-ups due, fresh leads · 📇 <b>Leads</b> — full pipeline by stage, searchable · 👤 <b>KPIs</b> — scoreboard across Today/Week/Month/Quarter/Year + contract pace · ⚙️ <b>Inputs</b> — targets.'},
+ {q:'🧭 What are the tabs?',k:'navigation menu sections',a:'\u2600\uFE0F <b>Today</b> \u2014 live scoreboard + Log a win \u00b7 \uD83D\uDC64 <b>KPIs</b> \u2014 per-rep boards \u00b7 \uD83C\uDFAF <b>Command</b> \u2014 the race + money math \u00b7 \uD83D\uDCC8 <b>Metrics</b> \u2014 full chain and ratios \u00b7 \u2699\uFE0F <b>Inputs</b> \u2014 targets and goals. Leads live in GHL.'},
  {q:'🎯 Where do I change targets?',k:'goals quota edit',a:'<b>Inputs</b> tab → edit → Save targets. They drive the /target coloring on Today and the contract pace bar.'},
  {q:'🔐 What are the passcodes?',k:'password login owner rep',a:'Rep passcode shows the rep view. The owner passcode unlocks the 🔒 Owner tab (spend, cost-per-lead, funnel) — that tab is invisible on the rep\'s login.'},
  {q:'💻 How do I install this on Mac or phone?',k:'dock home screen app chrome safari',a:'From the live site URL: <b>Mac Chrome</b> ⋮ → Cast, Save and Share → Install page as app. <b>Safari</b> File → Add to Dock. <b>iPhone</b> Share → Add to Home Screen.'},
