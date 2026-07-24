@@ -588,26 +588,154 @@ function cmdFrom(){
 }
 function renderScript(){
   var el=document.getElementById('v_script');if(!el)return;
-  function sec(t,b){return '<div class="card"><h2>'+t+'</h2><div class="sm" style="line-height:1.9">'+b+'</div></div>'}
-  var h='';
-  h+=sec('\ud83d\udcdc Opening',
-    '\u201cHey, is this <b>[seller name]</b>? \u2014 this is <b>[you]</b> with Clear Path Property Solutions. I\u2019m reaching out about the property at <b>[address]</b>\u2026 are you still open to an offer on it?\u201d<br><span class="mut">Tone: calm, unhurried. You\u2019re the buyer \u2014 they need you.</span>');
-  h+=sec('\ud83d\udd0d Discovery \u2014 motivation first',
-    '\u2022 \u201cWhat\u2019s got you thinking about selling?\u201d<br>\u2022 \u201cIf it sold in the next 30 days, what would that do for you?\u201d<br>\u2022 \u201cIs anyone living in it right now?\u201d<br>\u2022 \u201cWhat\u2019s the timeline look like on your end?\u201d<br><span class="mut">Motivation \u00d7 timeline = the deal. No motivation, polite exit.</span>');
-  h+=sec('\ud83c\udfe0 Condition walk',
-    'Roof \u00b7 HVAC \u00b7 foundation \u00b7 kitchen/baths \u00b7 last updates \u00b7 \u201cIf I brought a contractor through, what would they flag?\u201d<br><span class="mut">Every repair named now is negotiation ammo later.</span>');
-  h+=sec('\ud83d\udcb5 Price anchor',
-    '\u201cWhere would the price need to be for this to make sense for you?\u201d \u2014 then <b>silence</b>.<br>If they push back on you first: \u201cI\u2019ll be straight with you \u2014 we buy as-is, cash, no fees, and close on your timeline. That convenience is what shapes our number.\u201d');
-  h+=sec('\u2728 Magic Questions',
-    '<b>#1 (text or call):</b> push the fence-sitter to commit.<br><b>#2 (call only):</b> confirm they\u2019re real before the offer.<br><b>#3 (close the gap):</b> \u201cYou are so close to our highest \u2014 if you can come up at all, it\u2019s yours.\u201d');
-  h+=sec('\ud83d\uded1 Objections',
-    '<b>\u201cAre you local?\u201d</b> \u2192 \u201cWe buy across [markets] \u2014 our team handles everything remotely and closings run through a local title company you can verify.\u201d<br>'
-    +'<b>\u201cHow can you make an offer without seeing it?\u201d</b> \u2192 \u201cGreat question \u2014 between what you\u2019ve told me, photos, and our comps, we get 95% there. The contract has an inspection window that protects us both.\u201d<br>'
-    +'<b>\u201cThat\u2019s too low.\u201d</b> \u2192 \u201cCompared to what number? Walk me through where you need to be.\u201d<br>'
-    +'<b>\u201cI need to think about it.\u201d</b> \u2192 \u201cTotally fair \u2014 what specifically would you be thinking over? Maybe I can answer it now.\u201d');
-  h+=sec('\ud83e\udd1d Close',
-    '\u201cHere\u2019s what happens next: I send the agreement, you sign electronically, our team handles title, and you pick the closing date. Sound fair?\u201d<br><span class="mut">Then stop talking.</span>');
-  h+='<div class="sm mut" style="margin:4px 2px">Want a line changed? Tell Nic \u2014 this page updates for everyone at once.</div>';
+  var NAVY='#22375A', GOLD='#C9A24B', BRONZE='#A67420', INK='#1E2A3D';
+  function banner(t){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:20px;letter-spacing:.04em;padding:14px 8px;margin:22px 0 14px;border-radius:4px">'+t+'</div>'}
+  function sub(t){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:15px;letter-spacing:.04em;padding:9px 8px;margin:18px 12% 12px;border-radius:4px">'+t+'</div>'}
+  function hold(){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:18px;letter-spacing:.14em;padding:16px 8px;margin:24px 6% ;border-radius:4px">3 MIN HOLD</div>'}
+  function b(t){return '<div style="display:flex;gap:10px;margin:0 0 13px;color:'+INK+';font-size:15px;line-height:1.55"><span style="color:'+GOLD+';font-weight:900">\u2022</span><div>'+t+'</div></div>'}
+  function ins(t){return '<div style="color:'+BRONZE+';font-weight:800;font-size:13px;letter-spacing:.02em;margin:4px 0 15px 20px">'+t+'</div>'}
+  function bl(){return '<span style="color:'+GOLD+'">______</span>'}
+
+  var h='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)">';
+
+  // header
+  h+='<div style="background:'+NAVY+';padding:30px 12px 26px;text-align:center">'
+   +'<div style="color:#fff;font-size:min(8.5vw,44px);font-weight:800;letter-spacing:.12em">ONE CALL CLOSE SCRIPT</div>'
+   +'<div style="width:180px;height:2px;background:'+GOLD+';margin:12px auto"></div>'
+   +'<div style="color:#B9C4D6;font-size:12px">Inbound Meta Leads &nbsp;\u2014&nbsp; <span style="color:'+GOLD+'">Bronze text</span> = instructions, do not read aloud</div>'
+   +'</div>';
+
+  h+='<div style="padding:6px 18px 26px">';
+
+  h+=banner('INTRO / MOTIVATION');
+  h+=b('Hey '+bl()+'. This is '+bl()+' with Clear Path');
+  h+=b('I just received the form you submitted about the property you\u2019re looking to sell at '+bl());
+  h+=b('How are you doing ?');
+  h+=b('Perfect, I just have a second here to see if this is something we can help with in terms of purchasing.');
+  h+=b('I saw you\u2019re looking to sell it sooner than later? <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(if under 90 days)</span>');
+  h+=ins('(PAUSE AND LET THEM TALK TO OPEN UP THEIR MOTIVATION)');
+  h+=b('Understood. Ok you probably already saw we\u2019re looking to buy for a few reasons.');
+  h+=b('For the most part we look for ones that we could either fix up and flip or that we could keep as a rental.');
+  h+=b('So I have a team of underwriters here with me.');
+  h+=b('They\u2019re the ones that decide which ones we approve to purchase and which ones we have to pass on.');
+  h+=b('So\u2026. If it\u2019s approved we\u2019ll be able to give an offer here on this call and if not approved they will give us a reason why.');
+  h+=b('So before I start asking you about your house.');
+  h+=b('I know you and I have not spoken before and I don\u2019t want to be a complete stranger to you <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(concerned tone)</span>.');
+  h+=b('Can you do me a quick favour, do you happen to have just a pen and paper handy?');
+  h+=b('I\u2019m just going to give you my information quickly that way you actually know who you\u2019re on the phone with today <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(chuckle)</span>.');
+  h+=b('Your name');
+  h+=b('Clear path properties');
+  h+=b('Your number');
+  h+=b('Perfect thank you for doing that.');
+  h+=b('So catch me up to speed, what\u2019s got you wanting to sell?');
+  h+=ins('(PAUSE AND LET THEM TALK TO OPEN UP THEIR MOTIVATION)');
+
+  h+=sub('IF DISTRESSED SELLER');
+  h+=b('Got it, I understand.');
+  h+=b('I\u2019m sorry to hear you\u2019re dealing with that <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(empathetic tone)</span>');
+  h+=ins('THIRD PARTY STORY ABOUT OUR OTHER SELLERS DEALING WITH SAME THING');
+
+  h+=sub('IF NOT DISTRESSED');
+  h+=b('Ok got it understood, and what\u2019s got you looking for a fast close with an investor like us rather than listing it?');
+  h+=ins('TALK ABOUT THEIR SITUATION TO GATHER AS MUCH INFO AS NECESSARY WITH OUT PISSING THEM OFF');
+
+  h+=banner('CONDITION');
+  h+=b('Ok got it. Before we dive inside the house tell me quickly about the exterior.');
+  h+=b('Is there any work that needs to be done to the outside of the property?');
+  h+=b('Anything in the back yard that would be important for us to factor in ?');
+  h+=b('Pool, patio, structure. Anything like that?');
+  h+=b('Ok great, and I should confirm its '+bl()+' bedrooms , '+bl()+' bathrooms? '+bl()+' sqft? '+bl()+' year built?');
+  h+=b('Ok got it and also, what are you looking to get for the property?');
+  h+=b('Ok got it. I\u2019ll let the underwriter know.');
+  h+=ins('(DONT REACT TO PRICE AT ALL)');
+  h+=b('What I\u2019d like to do now is walk me through the inside.');
+  h+=b('What does the inside currently look like?');
+  h+=b('I see it\u2019s built in (year). Is it original inside to (year)?');
+  h+=b('What kind of flooring throughout the home do you have?');
+  h+=b('Has there ever been any additions done to the home?');
+  h+=b('When it comes to the kitchen.');
+  h+=b('How old would the cabinets be? Do they need to be replaced or painted at all?');
+  h+=b('And what kind of counter tops do you have? Would they need to be redone at all?');
+  h+=b('And the appliances, how old are they? And are they staying with the home?');
+  h+=b('Perfect thank you. And when it comes to the bathrooms.');
+  h+=b('How about the vanity? Is it original? Needing any work?');
+  h+=b('How old are the toilets?');
+  h+=b('And the shower / tub. How old would that be?');
+  h+=b('Ok Great I just want to make sure everything i have is correct so im just going to read this back to you quick.');
+  h+=ins('(QUICKLY READ THE ENTIRE CONDITION BACK TO THEM TO SHOW YOUR LISTENING/ACCURATE)');
+  h+=b('Is there anything I have not asked that would be important for us to know? Good or bad?');
+  h+=b('For example if you were to stay in the home and you had to put $20,000-$30,000 into it.');
+  h+=b('What would you put it towards?');
+  h+=b('Ok and when it comes to the timeline I saw in your form you\u2019re looking to close in '+bl()+' days.');
+  h+=b('Is that right?');
+  h+=b('Got it thank you.');
+  h+=b('Ok, everything you gave me goes directly into our notes and has been going back to our underwriters.');
+  h+=b('So what they have been doing while we\u2019ve been on the phone is they run a CMA report.');
+  h+=b('That\u2019s a current\u2026.market\u2026.analaysis.');
+  h+=b('That\u2019s just them diving deep into the value of your home as it currently sits.');
+  h+=b('That\u2019s how they decide if it\u2019s something they are wanting to purchase.');
+  h+=b('So what I\u2019m going to do is I\u2019m just going to put you on a brief hold and see if they are done with their report and if this is a property they\u2019ll approve to purchase.');
+  h+=b('So I\u2019m not gonna hang up, just a brief hold.');
+  h+=b('Give me just two seconds here and run back to them. Thank you');
+
+  h+=hold();
+
+  h+=sub('AFTER FIRST HOLD');
+  h+=b('Hey, I\u2019m back. Really quick ... .I don\u2019t have good or bad news yet.');
+  h+=b('They are just turning me around to ask do you know the age of the hot water heater?');
+  h+=b('How about the roof?');
+  h+=b('And the windows, how old are they?');
+  h+=b('Electrical and plumbing need any work?');
+  h+=b('And age of the A/C?');
+  h+=b('Ok perfect and is there anything else that you\u2019d need to figure out still before deciding to sell?');
+  h+=b('Ok got it. The reason I\u2019m asking is they were just asking me, if we do come back with an approval and offer that makes sense for you.');
+  h+=b('Are you ready to move forward with a purchase agreement today if you like the offer?');
+  h+=b('Ok in that case just while I\u2019m waiting for the underwriters to wrap up I will also let you know what the process looks like.');
+  h+=b('So, once a house is approved and an offer accepted, we then sign a simple 2 page agreement.');
+  h+=b('Its written in 3rd grade english so its super easy to understand and I also go over it with you');
+  h+=b('After that, within 24 hours you get a welcome call from our transaction coordinator.');
+  h+=b('He will just line up a time for us to come out to the property');
+  h+=b('We use a local title company to make sure title is clear so we can close on it');
+  h+=b('We\u2019ll do a quick walkthrough, then we\u2019re headed to the closing table and that\u2019s where you get paid and it is that simple.');
+  h+=b('So just as I started saying all that it looks like my underwriter was waving me down here so it\u2019s looking like they must be done with the report.');
+  h+=b('Give me just 2 seconds to run back there and I\u2019ll get the answer we\u2019ve been waiting for\u2026..Ok thank you');
+
+  h+=hold();
+
+  h+=banner('THE OFFER');
+  h+=b('Hey '+bl()+'. I\u2019m back, still with me? Ok great.');
+  h+=b('Coming back to you with some good news.');
+  h+=b('We have an approval to give an offer to you here.');
+  h+=ins('(sound excited)');
+  h+=b('Here is what they have approved.');
+  h+=b('The offer is approved where we will buy the house completely as is.');
+  h+=b('Meaning\u2026 you don\u2019t have to fix up a thing, you don\u2019t have to clean or renovate.');
+  h+=b('The way it currently sits is the way we will buy it so the day of closing you can just grab what\u2019s important to you and leave the house without lifting a finger.');
+  h+=b('They are also going to cover all the closing costs for both sides.');
+  h+=b('AND there are 0 commissions for you to pay since we are not a realtor.');
+  h+=b('So in simple terms there\u2019s nothing you need to do to the property to sell it and the offer im about to give you is net to you at closing');
+  h+=b('So the approved offer in its current as is condition came in at $'+bl()+'.');
+  h+=ins('2-3 Second pause then assume the close if they don\u2019t reject right away\u2026.');
+  h+=b('So what i can do is i can send the agreement over to the best email for you.');
+  h+=b('Is '+bl()+' the best email?');
+  h+=b('Perfect, go ahead and open up your email and I\u2019ll go over it with you here.');
+  h+=ins('(begin drafting docusign)');
+
+  h+=sub('IF THEY SAID TOO LOW');
+  h+=b('I totally understand that\u2019s just what they authorized me to spend.');
+  h+=b('Are we far apart?');
+  h+=b('Well we certainly don\u2019t want to do a deal that doesn\u2019t work for you as well.');
+  h+=b('How far apart are we?');
+  h+=b('Where do they need to be for it to work for you as well?');
+  h+=b('I can\u2019t promise a yes but I\u2019m always willing to ask.');
+  h+=b('Let me run back to them and ill see what they can do.');
+  h+=b('Give me one moment');
+  h+=ins('NO LIVE NEGOTIATING - ALWAYS GO BACK TO UNDERWRITER BEFORE COMING UP');
+  h+=ins('GO BACK AND FORTH UNTIL YOU GET THEM');
+
+  h+='<div style="border-top:2px solid '+GOLD+';margin-top:22px;padding-top:10px;display:flex;justify-content:space-between;color:'+NAVY+';font-size:11px;font-weight:800"><span>CLEAR PATH PROPERTY SOLUTIONS</span><span>ONE CALL CLOSE</span></div>';
+
+  h+='</div></div>';
   el.innerHTML=h;
 }
 function renderBot(){
