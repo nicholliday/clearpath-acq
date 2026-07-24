@@ -168,15 +168,14 @@ function renderToday(){
     {l:'LEADS IN',v:leadsToday},{l:'DIALS',v:a.dials,t:T('dials_day',320)},{l:'CONVOS',v:a.convos,t:T('convos_day',70)},
     {l:'TALK MIN',v:a.talk,t:T('talkmin_day',360)},{l:'OFFERS',v:offToday,t:T('offers_day',10)},{l:'CONTRACTS',v:countContracts(t),t:T('contracts_day',1),sub:'today'}
   ];
-  var h='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px">'+kpis.map(function(k){
+  var h='<div style="display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:20px">'+kpis.map(function(k){
     var hit=k.t!=null&&k.v>=k.t;
     var col=k.t!=null?(hit?'var(--green)':'var(--gold)'):'var(--text)';
     var pct=k.t?Math.min(100,Math.round(k.v/k.t*100)):0;
-    return '<div class="kpi" style="padding:26px 14px 20px;border-radius:16px">'
-      +'<div style="font-size:12px;color:var(--mut);letter-spacing:.1em;font-weight:700;margin-bottom:6px">'+k.l+(k.sub?' <span style="font-weight:400">('+k.sub+')</span>':'')+'</div>'
-      +'<div style="font-size:58px;font-weight:800;line-height:1;color:'+col+'">'+k.v+'</div>'
-      +(k.t!=null?'<div style="font-size:15px;color:var(--mut);margin-top:6px">of '+k.t+(hit?' \u2713':'')+'</div>'
-        +'<div class="sbar" style="height:8px;margin:12px 18% 0"><i style="width:'+pct+'%;background:'+col+'"></i></div>':'<div style="height:26px"></div>')
+    return '<div class="kpi" style="padding:30px 16px 24px;border-radius:20px;min-height:24vh;display:flex;flex-direction:column;justify-content:center">'
+      +'<div style="font-size:15px;color:var(--mut);letter-spacing:.12em;font-weight:800;margin-bottom:8px">'+k.l+(k.sub?' <span style="font-weight:400">('+k.sub+')</span>':'')+'</div>'
+      +'<div style="font-size:min(26vw,120px);font-weight:800;line-height:1;color:'+col+'">'+k.v+(k.t!=null?'<span style="font-size:min(7vw,30px);color:var(--mut);font-weight:700"> / '+k.t+(hit?' \u2713':'')+'</span>':'')+'</div>'
+      +(k.t!=null?'<div class="sbar" style="height:12px;margin:18px 10% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>':'')
       +'</div>';
   }).join('')+'</div>';
 
