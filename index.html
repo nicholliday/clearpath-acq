@@ -63,6 +63,7 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 
   <div id="v_today" class="view on"></div>
   <div id="v_cmd" class="view"></div>
+  <div id="v_earn" class="view"></div>
   <div id="v_metrics" class="view"></div>
   <div id="v_owner" class="view"></div>
   <div id="v_inputs" class="view"></div>
@@ -79,6 +80,7 @@ var D={leads:[],offers:[],act:[],targets:{},spend:[]};
 var STAGES=['New','Contacted','Offer Made','Follow-Up','Under Contract','Dead'];
 var PCLS={'New':'p-new','Contacted':'p-con','Offer Made':'p-off','Follow-Up':'p-fup','Under Contract':'p-uc','Dead':'p-dead'};
 var ROLE=localStorage.getItem('cp_acq_role')||'';
+var ME=localStorage.getItem('cp_acq_me')||null;
 
 function tryPass(){
   var v=(document.getElementById('pw').value||'').toLowerCase().trim();
@@ -86,6 +88,7 @@ function tryPass(){
   else if(v==='clearpathowner'){ROLE='owner';}
   else{alert('Wrong passcode');return;}
   localStorage.setItem('cp_acq_role',ROLE);
+  if(ROLE==='owner'){ME=null;localStorage.removeItem('cp_acq_me');}
   document.getElementById('lock').style.display='none';
   buildTabs(); loadAll();
 }
@@ -93,6 +96,7 @@ function buildTabs(){
   var t='<button id="tb_today" onclick="nav(\'today\')"><span class="ic">☀️</span>Today</button>'
    
    +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\uD83D\uDCCA</span>KPIs</button>'
+   +'<button id="tb_earn" onclick="nav(\'earn\')"><span class="ic">\uD83D\uDCB0</span>Earnings</button>'
    +'<button id="tb_metrics" onclick="nav(\'metrics\')"><span class="ic">📈</span>Metrics</button>'
    +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">🔒</span>Owner</button>':'')
    +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">⚙️</span>Inputs</button>';
@@ -111,7 +115,7 @@ function nav(v){
     }
   }
 
-  ['today','cmd','metrics','owner','inputs'].forEach(function(k){
+  ['today','cmd','earn','metrics','owner','inputs'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
@@ -138,8 +142,9 @@ async function loadAll(){
     db.from('acq_calls').select('phone,called_at,rep,counted')
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
-  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.calls=(r[8].data||[]);
+  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.calls=(r[8].data||[]);
   D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
+  if(ROLE==='rep'&&(!ME||payReps().indexOf(ME)<0))pickIdentity();
   render();
 }
 function T(k,d){return D.targets[k]!=null?D.targets[k]:d}
@@ -168,7 +173,7 @@ function closedStats(from){
 }
 
 /* ============ RENDER ============ */
-function render(){renderToday();renderCommand();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
+function render(){renderToday();renderCommand();renderEarnings();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
 
 function renderToday(){
   var t=today();
@@ -489,6 +494,77 @@ function daysInfo(){
   var day=now.getDate();
   return {elapsed:day,left:Math.max(1,dim-day+1),total:dim};
 }
+function rampMonthOf(rep){
+  var rs=(D.repRamp&&D.repRamp[rep])||monthStart();
+  var a=new Date(rs+'T00:00:00'), b=new Date();
+  var m=(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth())+1;
+  return Math.min(12,Math.max(1,m));
+}
+var EARN_REP=null;
+function setEarnRep(r){EARN_REP=r;renderEarnings()}
+function renderEarnings(){
+  var el=document.getElementById('v_earn');if(!el)return;
+  var PR=payReps();if(!PR.length)PR=D.reps;
+  if(ME&&PR.indexOf(ME)>=0)PR=[ME];
+  if(EARN_REP===null||PR.indexOf(EARN_REP)<0)EARN_REP=PR[0];
+  var rep=EARN_REP, fx=T('fx',1.38), avgFee=T('avgfee',10000), di=daysInfo();
+  var mo=rampMonthOf(rep);
+  var target=RAMP[mo-1];
+  var closed=metMonthRev(rep);
+  var ms=repRange(rep,monthStart());
+  var projRev=Math.round(((ms.contracts/di.elapsed)*di.total)*avgFee);
+  var effRev=Math.max(closed,projRev);
+  var onTrack=effRev>=target;
+  var protectedMo=mo<=3;
+
+  function cad(usd){return fmt$(Math.round(usd*fx))}
+  function baseCAD(rev){return rev*tierPct(rev)*fx}
+  function hitCAD(rev){return baseCAD(rev)+rev*0.02*fx}
+  function missCAD(rev,m){return m<=3?baseCAD(rev):baseCAD(rev)-rev*0.02*fx}
+
+  var h='';
+  if(PR.length>1){
+    h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(EARN_REP===rp?'g':'mut')+'" onclick="setEarnRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
+  }
+
+  // this month card
+  var estBase=baseCAD(closed);
+  var estIfHit=hitCAD(effRev>=target?Math.max(closed,target):closed);
+  h+='<div class="card"><h2>\uD83D\uDCB0 '+esc(rep.split(' ')[0])+' \u2014 ramp month '+mo+(protectedMo?' <span class="pill p-uc">NO PENALTY</span>':'')+'</h2>'
+   +'<div class="row" style="margin-top:6px"><div><div class="sm mut">THIS MONTH\u2019S TARGET</div><div style="font-size:34px;font-weight:800">'+fmt$(target)+'</div></div>'
+   +'<div style="text-align:right"><div class="sm mut">CLOSED SO FAR</div><div style="font-size:34px;font-weight:800;color:'+(closed>=target?'var(--green)':'var(--gold)')+'">'+fmt$(closed)+'</div></div></div>'
+   +'<div class="sbar" style="height:12px;margin-top:12px"><i style="width:'+(target?Math.min(100,Math.round(closed/target*100)):100)+'%;background:'+(closed>=target?'var(--green)':'var(--gold)')+'"></i></div>'
+   +'<div class="sm" style="margin-top:10px;line-height:1.8">'
+   +'Pace (contracts locked \u00d7 avg fee): <b>'+fmt$(projRev)+'</b><br>'
+   +(closed>=target
+     ?'\u2705 <b>Target hit</b> \u2014 +2% of revenue bonus is yours.'
+     :(onTrack?'\uD83D\uDFE1 On pace to hit \u2014 close what\u2019s locked.':(protectedMo?'\u26AA Trailing target \u2014 no penalty this month, but the bonus is on the table.':'\uD83D\uDD34 Trailing target \u2014 miss costs \u22122% of revenue.')))
+   +'</div></div>';
+
+  // check estimate card
+  h+='<div class="card"><h2>\uD83E\uDDFE Check estimate (CAD)</h2><table>'
+   +'<tr><td>Base on closed ('+fmt$(closed)+')</td><td style="text-align:right"><b>'+fmt$(Math.round(estBase))+'</b></td></tr>'
+   +'<tr><td>If target hit (+2% of rev)</td><td style="text-align:right;color:var(--green)"><b>'+fmt$(Math.round(hitCAD(Math.max(closed,target))))+'</b></td></tr>'
+   +'<tr><td>If missed ('+(protectedMo?'protected':'\u22122% of rev')+')</td><td style="text-align:right;color:'+(protectedMo?'var(--mut)':'var(--red)')+'"><b>'+fmt$(Math.round(missCAD(closed,mo)))+'</b></td></tr>'
+   +'</table><div class="sm mut" style="margin-top:6px">Paid on the month it funds. USD\u2192CAD at '+fx+'.</div></div>';
+
+  // ramp table
+  h+='<div class="card"><h2>\uD83D\uDCC8 Ramp \u2014 the 12-month climb</h2><table><tr><th>MO</th><th>TARGET</th><th>BASE CAD</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
+  for(var i=0;i<12;i++){
+    var tv=RAMP[i], cur=(i+1)===mo;
+    h+='<tr style="'+(cur?'background:rgba(212,175,55,.12);font-weight:800':'')+'">'
+     +'<td>'+(i+1)+((i+1)<=3?' <span class="sm mut">np</span>':'')+(cur?' \u25C0':'')+'</td>'
+     +'<td style="text-align:right">'+fmt$(tv)+'</td>'
+     +'<td style="text-align:right">'+fmt$(Math.round(baseCAD(tv)))+'</td>'
+     +'<td style="text-align:right;color:var(--green)">'+fmt$(Math.round(hitCAD(tv)))+'</td>'
+     +'<td style="text-align:right;color:'+((i+1)<=3?'var(--mut)':'var(--red)')+'">'+fmt$(Math.round(missCAD(tv,i+1)))+'</td>'
+     +'</tr>';
+  }
+  h+='</table><div class="sm mut" style="margin-top:6px">np = no penalty months. Sliding scale: \u2264$50K\u219210% \u00b7 \u2264$100K\u219212% \u00b7 \u2264$150K\u219214% \u00b7 \u2264$200K\u219216% \u00b7 $200K+\u219217%.</div></div>';
+
+  el.innerHTML=h;
+}
+
 function repRange(rep,from){
   var o={dials:0,convos:0,talk:0,offers:0,contracts:0};
   D.act.forEach(function(a){if((!from||a.on_date>=from)&&(a.rep||D.reps[0])===rep){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
@@ -509,6 +585,7 @@ function cmdFrom(){
 function renderCommand(){
   var el=document.getElementById('v_cmd');if(!el)return;
   var PR=payReps();if(!PR.length)PR=D.reps;
+  if(ME&&PR.indexOf(ME)>=0)PR=[ME];
   if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
   var di=daysInfo(), avgFee=T('avgfee',10000);
   var from=cmdFrom();
@@ -716,18 +793,22 @@ function renderInputs(){
   if(ROLE==='owner')ks.push(['avgfee','Avg fee ($, drives proj revenue)',10000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
-  h+='<div class="card"><h2>👥 Reps</h2><div class="sm mut" style="margin-bottom:8px">Boards, lead assignment, and the calculator use this list.</div>'
+  h+=(ROLE==='rep'?'<div class="card"><h2>\ud83d\udc4b You</h2><div class="sm">Signed in as <b>'+esc(ME||'?')+'</b></div><button class="btn mut" onclick="pickIdentity()">Switch user</button></div>':'')
+   +'<div class="card"><h2>👥 Reps</h2><div class="sm mut" style="margin-bottom:8px">Boards, lead assignment, and the calculator use this list.</div>'
    +D.reps.map(function(rp){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>'+esc(rp)+'</span>'+(ROLE==='owner'?'<button class="btn d" onclick="delRep(\''+esc(rp)+'\')">✕</button>':'')+'</div>'}).join('')
    +(ROLE==='owner'?'<input id="nr_name" placeholder="New rep name"><button class="btn g" onclick="addRep()">+ Add rep</button>':'')
    +'<div style="margin-top:12px"><b class="sm">💰 Monthly commission goals</b></div>'
-   +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+'</label><div style="display:flex;gap:8px"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join('')
+   +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+' \u2014 goal + ramp start</label><div style="display:flex;gap:8px"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'"><input id="ramp_'+gid+'" type="month" value="'+(((D.repRamp&&D.repRamp[rp])||monthStart()).slice(0,7))+'"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join('')
    +'</div>';
   h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time count <b>automatically</b> — every GHL and OpenPhone call by Nic or BT flows in through the acq relay (2+ min = convo, same number within 60 min counts once). Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
 }
 async function saveGoal(rp){
   var el=document.getElementById('goal_'+rp.replace(/[^a-zA-Z0-9]/g,'_'));if(!el)return;
-  var r=await db.from('acq_reps').update({monthly_goal:Number(el.value)||8000}).eq('name',rp);
+  var rel=document.getElementById('ramp_'+rp.replace(/[^a-zA-Z0-9]/g,'_'));
+  var upd={monthly_goal:Number(el.value)||8000};
+  if(rel&&rel.value)upd.ramp_start=rel.value+'-01';
+  var r=await db.from('acq_reps').update(upd).eq('name',rp);
   if(r.error)return alert(r.error.message);
   loadAll();
 }
@@ -809,6 +890,15 @@ function openHelp(){
   h+='<div id="hlpnone" style="display:none;font-size:12px;color:var(--mut);padding:8px 2px">No match — try one word (lead, offer, contract, dispo, install…).</div>'
    +'<button class="btn mut" onclick="closeModal()">Close</button>';
   openModal(h);
+}
+function pickIdentity(){
+  var h='<h2>\ud83d\udc4b Who are you?</h2><div class="sm mut" style="margin-bottom:10px">Personalizes your Earnings and money math. Remembered on this device.</div>'
+   +payReps().map(function(rp){return '<button class="btn g big" onclick="setIdentity(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('');
+  openModal(h);
+}
+function setIdentity(rp){
+  ME=rp;localStorage.setItem('cp_acq_me',rp);
+  closeModal();render();
 }
 function openModal(h){document.getElementById('mbody').innerHTML=h;document.getElementById('modal').classList.add('on')}
 function closeModal(){document.getElementById('modal').classList.remove('on')}
