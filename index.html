@@ -592,8 +592,8 @@ function renderScript(){
   function banner(t){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:20px;letter-spacing:.04em;padding:14px 8px;margin:22px 0 14px;border-radius:4px">'+t+'</div>'}
   function sub(t){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:15px;letter-spacing:.04em;padding:9px 8px;margin:18px 12% 12px;border-radius:4px">'+t+'</div>'}
   function hold(){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:18px;letter-spacing:.14em;padding:16px 8px;margin:24px 6% ;border-radius:4px">3 MIN HOLD</div>'}
-  function b(t){return '<div style="display:flex;gap:10px;margin:0 0 13px;color:'+INK+';font-size:15px;line-height:1.55"><span style="color:'+GOLD+';font-weight:900">\u2022</span><div>'+t+'</div></div>'}
-  function ins(t){return '<div style="color:'+BRONZE+';font-weight:800;font-size:13px;letter-spacing:.02em;margin:4px 0 15px 20px">'+t+'</div>'}
+  function b(t){return '<div style="display:flex;gap:10px;margin:0 0 20px;color:'+INK+';font-size:17px;line-height:1.6"><span style="color:'+GOLD+';font-weight:900">\u2022</span><div>'+t+'</div></div>'}
+  function ins(t){return '<div style="color:'+BRONZE+';font-weight:800;font-size:14.5px;letter-spacing:.02em;margin:6px 0 22px 22px">'+t+'</div>'}
   function bl(){return '<span style="color:'+GOLD+'">______</span>'}
 
   var h='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)">';
@@ -778,45 +778,69 @@ function renderGoal(){
   var PR=payReps();if(!PR.length)PR=D.reps;
   if(ME&&PR.indexOf(ME)>=0)PR=[ME];
   if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
-  var di=daysInfo(), avgFee=T('avgfee',10000);
+  var rep=CMD_REP, di=daysInfo(), avgFee=T('avgfee',10000), fx=T('fx',1.38);
   var h='';
-  // personal money math
-  var mstats={};D.reps.forEach(function(rp){mstats[rp]=repRange(rp,monthStart())});
-  var projs={};
-  D.reps.forEach(function(rp){var s=mstats[rp];projs[rp]=commissionOf(((s.contracts/di.elapsed)*di.total)*avgFee)});
-  var s=mstats[CMD_REP];
-  var goal=(D.repGoals&&D.repGoals[CMD_REP])||8000;
-  var proj=projs[CMD_REP]||0;
-  var pct=goal?Math.min(100,Math.round(proj/goal*100)):0;
-  var col=proj>=goal?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
-
   if(PR.length>1){
     h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(CMD_REP===rp?'g':'mut')+'" onclick="setCmdRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
   }
 
-  h+='<div class="card"><h2>\uD83D\uDCB0 '+esc(CMD_REP.split(' ')[0])+"'s money \u2014 this month</h2>"
-   +'<div class="row" style="align-items:flex-end"><div><div class="sm mut">ON PACE FOR (CAD)</div><div style="font-size:44px;font-weight:800;color:'+col+'">'+fmt$(Math.round(proj))+'</div></div>'
-   +'<div style="text-align:right"><div class="sm mut">GOAL</div><div style="font-size:26px;font-weight:800">'+fmt$(goal)+'</div></div></div>'
-   +'<div class="sbar" style="height:12px;margin-top:12px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
-   +'<div class="sm mut" style="margin-top:6px">'+(proj>=goal?'\u2705 Pace beats goal \u2014 hold the line.':('Gap: '+fmt$(Math.round(goal-proj))+' \u2014 close it below.'))+'</div></div>';
+  var mo=rampMonthOf(rep);
+  var target=RAMP[mo-1];
+  var closed=metMonthRev(rep);
+  var ms=repRange(rep,monthStart());
+  var monthName=new Date().toLocaleDateString('en-US',{month:'long'}).toUpperCase();
+  var pct=target?Math.min(100,Math.round(closed/target*100)):100;
+  var col=closed>=target?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
 
-  var reqRev=revForCommission(goal);
-  var reqContracts=Math.max(1,Math.ceil(reqRev/avgFee));
-  var convoPerContract=s.contracts>0?Math.max(5,Math.round(s.convos/s.contracts)):40;
-  var dialPerConvo=s.convos>0?Math.max(2,Math.round(s.dials/s.convos)):5;
-  var reqConvos=reqContracts*convoPerContract;
-  var contractsLeft=Math.max(0,reqContracts-s.contracts);
-  var dialsLeftDay=Math.ceil((contractsLeft*convoPerContract*dialPerConvo)/di.left);
-  var curDialsDay=Math.round(s.dials/di.elapsed);
-  h+='<div class="card"><h2>\uD83C\uDFAF What '+fmt$(goal)+' takes</h2>'
-   +'<div class="sm" style="line-height:2">'
-   +fmt$(goal)+' CAD commission \u2248 <b>'+fmt$(reqRev)+'</b> personal revenue<br>'
-   +'= <b>'+reqContracts+' contracts</b> at '+fmt$(avgFee)+' avg fee ('+s.contracts+' locked, <b>'+contractsLeft+' to go</b>)<br>'
-   +'= <b>'+reqConvos+' convos</b> at your '+convoPerContract+'-convos-per-contract rate<br>'
-   +'= <b style="color:var(--gold);font-size:17px">'+dialsLeftDay+' dials/day</b> for the next '+di.left+' days (you\'re averaging '+curDialsDay+')'
-   +'</div>'
-   +(curDialsDay>=dialsLeftDay?'<div class="sm" style="color:var(--green);margin-top:6px">\u2705 Current volume covers it \u2014 keep swinging.</div>':'<div class="sm" style="color:var(--red);margin-top:6px">\u26A0\uFE0F Volume gap: +'+(dialsLeftDay-curDialsDay)+' dials/day between you and your check.</div>')
+  // THE GOAL — from the ramp
+  h+='<div class="card" style="text-align:center;padding:26px 14px">'
+   +'<div class="sm mut" style="letter-spacing:.18em;font-weight:800">'+monthName+' \u00b7 RAMP MONTH '+mo+(mo<=3?' \u00b7 NO PENALTY':'')+'</div>'
+   +'<div style="font-size:15px;color:var(--mut);margin-top:14px">THIS MONTH\u2019S GOAL</div>'
+   +'<div style="font-size:min(16vw,74px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(target)+'</div>'
+   +'<div style="font-size:13px;color:var(--mut)">revenue locked + closed</div>'
+   +'<div class="sbar" style="height:14px;margin:18px 8% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
+   +'<div class="row" style="margin-top:10px;padding:0 6%"><span class="sm mut">CLOSED: <b style="color:'+col+'">'+fmt$(closed)+'</b></span><span class="sm mut">TO GO: <b>'+fmt$(Math.max(0,target-closed))+'</b></span></div>'
    +'</div>';
+
+  // REVERSE ENGINEERED
+  var reqContracts=target>0?Math.max(1,Math.ceil(target/avgFee)):0;
+  var convoPerContract=ms.contracts>0?Math.max(5,Math.round(ms.convos/ms.contracts)):40;
+  var dialPerConvo=ms.convos>0?Math.max(2,Math.round(ms.dials/ms.convos)):5;
+  var contractsLeft=Math.max(0,reqContracts-ms.contracts);
+  var convosNeeded=contractsLeft*convoPerContract;
+  var dialsNeeded=convosNeeded*dialPerConvo;
+  var dialsDay=di.left?Math.ceil(dialsNeeded/di.left):0;
+  var curDialsDay=Math.round(ms.dials/di.elapsed);
+  var covered=curDialsDay>=dialsDay;
+
+  function rrow(l,v,hint){return '<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><div style="font-size:14px;font-weight:700">'+l+'</div>'+(hint?'<div class="sm mut">'+hint+'</div>':'')+'</div><div style="font-size:24px;font-weight:800;text-align:right">'+v+'</div></div>'}
+
+  if(target>0){
+    h+='<div class="card"><h2>\uD83D\uDD27 Reverse engineered</h2>'
+     +rrow('\uD83D\uDCDD Contracts needed', reqContracts+' <span class="sm mut">('+ms.contracts+' locked)</span>','at '+fmt$(avgFee)+' avg fee')
+     +rrow('\uD83D\uDCAC Convos still needed', convosNeeded, convoPerContract+' convos per contract \u2014 your rate')
+     +rrow('\uD83D\uDCDE Dials still needed', dialsNeeded, dialPerConvo+' dials per convo \u2014 your rate')
+     +'<div style="text-align:center;padding:18px 0 6px">'
+     +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
+     +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
+     +'<div class="sm mut">dials/day for the next '+di.left+' days \u00b7 you\u2019re averaging '+curDialsDay+'</div>'
+     +(covered?'<div class="sm" style="color:var(--green);margin-top:8px">\u2705 Current volume covers the goal \u2014 keep swinging.</div>':'<div class="sm" style="color:var(--red);margin-top:8px">\u26A0\uFE0F +'+(dialsDay-curDialsDay)+' more dials/day between you and the goal.</div>')
+     +'</div></div>';
+  } else {
+    h+='<div class="card"><h2>\uD83D\uDD27 Ramp month 1</h2><div class="sm">No revenue target this month \u2014 build pipeline. Every dial, convo, and offer is planting next month\u2019s checks.</div></div>';
+  }
+
+  // WHAT HITTING PAYS
+  var baseCAD=Math.round(target*tierPct(target)*fx);
+  var hitCAD=Math.round((target*tierPct(target)+target*0.02)*fx);
+  var missCAD=mo<=3?baseCAD:Math.round((target*tierPct(target)-target*0.02)*fx);
+  if(target>0){
+    h+='<div class="card"><h2>\uD83D\uDCB0 What hitting it pays (CAD)</h2><table>'
+     +'<tr><td>Hit the goal (+2% of rev)</td><td style="text-align:right;color:var(--green)"><b>'+fmt$(hitCAD)+'</b></td></tr>'
+     +'<tr><td>Base at goal</td><td style="text-align:right"><b>'+fmt$(baseCAD)+'</b></td></tr>'
+     +'<tr><td>Miss ('+(mo<=3?'protected':'\u22122% of rev')+')</td><td style="text-align:right;color:'+(mo<=3?'var(--mut)':'var(--red)')+'"><b>'+fmt$(missCAD)+'</b></td></tr>'
+     +'</table><div class="sm mut" style="margin-top:6px">Full ramp lives on the Comp Plan tab.</div></div>';
+  }
 
   el.innerHTML=h;
 }
