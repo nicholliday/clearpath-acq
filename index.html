@@ -415,35 +415,57 @@ function daysInfo(){
   var day=now.getDate();
   return {elapsed:day,left:Math.max(1,dim-day+1),total:dim};
 }
+function repRange(rep,from){
+  var o={dials:0,convos:0,talk:0,offers:0,contracts:0};
+  D.act.forEach(function(a){if((!from||a.on_date>=from)&&(a.rep||D.reps[0])===rep){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
+  D.offers.forEach(function(of){var l=leadById(of.lead_id);if((!from||of.offered_on>=from)&&l&&repOf(l)===rep)o.offers++});
+  D.leads.forEach(function(l){if(repOf(l)!==rep)return;if(l.contracted_on&&(!from||l.contracted_on>=from))o.contracts++});
+  return o;
+}
+var CMD_FROM='__month__';
+function setCmdRange(f){CMD_FROM=f;renderCommand()}
+function cmdFrom(){
+  if(CMD_FROM==='__day__')return today();
+  if(CMD_FROM==='__week__')return daysAgo(6);
+  if(CMD_FROM==='__month__')return monthStart();
+  if(CMD_FROM==='__q__')return quarterStart();
+  if(CMD_FROM==='__year__')return yearStart();
+  return null;
+}
 function renderCommand(){
   var el=document.getElementById('v_cmd');if(!el)return;
   var PR=payReps();if(!PR.length)PR=D.reps;
   if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
   var di=daysInfo(), avgFee=T('avgfee',10000);
+  var from=cmdFrom();
 
-  var stats={};D.reps.forEach(function(rp){stats[rp]=repMonth(rp)});
-  var h='<div class="card"><h2>\uD83C\uDFC6 Head to head \u2014 this month</h2><table><tr><th></th>'+D.reps.map(function(rp){return '<th>'+esc(rp.split(' ')[0]).toUpperCase()+'</th>'}).join('')+'</tr>';
-  [['\uD83D\uDCDE Dials','dials'],['\uD83D\uDCAC Convos','convos'],['\uD83D\uDCB0 Offers','offers'],['\uD83D\uDCDD Contracts','contracts']].forEach(function(row){
+  var ranges=[['Day','__day__'],['Week','__week__'],['Month','__month__'],['Quarter','__q__'],['Year','__year__'],['All time','__all__']];
+  var h='<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">'+ranges.map(function(r){
+    var on=(CMD_FROM===r[1])||(r[1]==='__all__'&&CMD_FROM!=='__day__'&&CMD_FROM!=='__week__'&&CMD_FROM!=='__month__'&&CMD_FROM!=='__q__'&&CMD_FROM!=='__year__');
+    return '<button class="btn '+(on?'g':'mut')+'" onclick="setCmdRange(\''+r[1]+'\')">'+r[0]+'</button>';
+  }).join('')+'</div>';
+
+  var stats={};D.reps.forEach(function(rp){stats[rp]=repRange(rp,from)});
+  h+='<div class="card"><h2>\uD83C\uDFC6 The race</h2><table><tr><th></th>'+D.reps.map(function(rp){return '<th>'+esc(rp.split(' ')[0]).toUpperCase()+'</th>'}).join('')+'</tr>';
+  [['\uD83D\uDCDE Dials','dials'],['\uD83D\uDCAC Convos','convos'],['\u23F1 Talk (min)','talk'],['\uD83D\uDCB0 Offers','offers'],['\uD83D\uDCDD Contracts','contracts']].forEach(function(row){
     var best=Math.max.apply(null,D.reps.map(function(rp){return stats[rp][row[1]]}));
     h+='<tr><td>'+row[0]+'</td>'+D.reps.map(function(rp){var v=stats[rp][row[1]];return '<td style="'+(v===best&&v>0?'color:var(--gold);font-weight:800':'')+'">'+v+'</td>'}).join('')+'</tr>';
   });
-  var bestProj=0, projs={};
-  D.reps.forEach(function(rp){
-    var s=stats[rp];
-    var projContracts=(s.contracts/di.elapsed)*di.total;
-    projs[rp]=commissionOf(projContracts*avgFee);
-    if(rp!==OWNER_REP&&projs[rp]>bestProj)bestProj=projs[rp];
-  });
-  h+='<tr><td>\uD83D\uDCC8 Proj. commission</td>'+D.reps.map(function(rp){if(rp===OWNER_REP)return '<td class="mut">&#8212;</td>';return '<td style="'+(projs[rp]===bestProj&&bestProj>0?'color:var(--gold);font-weight:800':'')+'">'+fmt$(Math.round(projs[rp]))+'</td>'}).join('')+'</tr>';
   h+='</table></div>';
 
-  h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(CMD_REP===rp?'g':'mut')+'" onclick="setCmdRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
-
-  var s=stats[CMD_REP];
+  // money math (always this-month, BT only)
+  var mstats={};D.reps.forEach(function(rp){mstats[rp]=repRange(rp,monthStart())});
+  var projs={};
+  D.reps.forEach(function(rp){var s=mstats[rp];projs[rp]=commissionOf(((s.contracts/di.elapsed)*di.total)*avgFee)});
+  var s=mstats[CMD_REP];
   var goal=(D.repGoals&&D.repGoals[CMD_REP])||8000;
   var proj=projs[CMD_REP]||0;
   var pct=goal?Math.min(100,Math.round(proj/goal*100)):0;
   var col=proj>=goal?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
+
+  if(PR.length>1){
+    h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(CMD_REP===rp?'g':'mut')+'" onclick="setCmdRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
+  }
 
   h+='<div class="card"><h2>\uD83D\uDCB0 '+esc(CMD_REP.split(' ')[0])+"'s money \u2014 this month</h2>"
    +'<div class="row" style="align-items:flex-end"><div><div class="sm mut">ON PACE FOR (CAD)</div><div style="font-size:44px;font-weight:800;color:'+col+'">'+fmt$(Math.round(proj))+'</div></div>'
@@ -457,36 +479,21 @@ function renderCommand(){
   var dialPerConvo=s.convos>0?Math.max(2,Math.round(s.dials/s.convos)):5;
   var reqConvos=reqContracts*convoPerContract;
   var contractsLeft=Math.max(0,reqContracts-s.contracts);
-  var convosLeft=contractsLeft*convoPerContract;
-  var dialsLeftDay=Math.ceil((convosLeft*dialPerConvo)/di.left);
+  var dialsLeftDay=Math.ceil((contractsLeft*convoPerContract*dialPerConvo)/di.left);
   var curDialsDay=Math.round(s.dials/di.elapsed);
   h+='<div class="card"><h2>\uD83C\uDFAF What '+fmt$(goal)+' takes</h2>'
    +'<div class="sm" style="line-height:2">'
-   +fmt$(goal)+' CAD commission ≈ <b>'+fmt$(reqRev)+'</b> personal revenue<br>'
+   +fmt$(goal)+' CAD commission \u2248 <b>'+fmt$(reqRev)+'</b> personal revenue<br>'
    +'= <b>'+reqContracts+' contracts</b> at '+fmt$(avgFee)+' avg fee ('+s.contracts+' locked, <b>'+contractsLeft+' to go</b>)<br>'
    +'= <b>'+reqConvos+' convos</b> at your '+convoPerContract+'-convos-per-contract rate<br>'
    +'= <b style="color:var(--gold);font-size:17px">'+dialsLeftDay+' dials/day</b> for the next '+di.left+' days (you\'re averaging '+curDialsDay+')'
    +'</div>'
    +(curDialsDay>=dialsLeftDay?'<div class="sm" style="color:var(--green);margin-top:6px">\u2705 Current volume covers it \u2014 keep swinging.</div>':'<div class="sm" style="color:var(--red);margin-top:6px">\u26A0\uFE0F Volume gap: +'+(dialsLeftDay-curDialsDay)+' dials/day between you and your check.</div>')
-   +'<div class="sm mut" style="margin-top:6px">Ratios use your real numbers this month; defaults fill in until volume builds. Goal editable in Inputs.</div></div>';
-
-  var others=D.reps.filter(function(rp){return rp!==CMD_REP});
-  var leak='';
-  if(s.dials>=40){
-    var myConvoRate=s.dials?s.convos/s.dials:0;
-    var myOfferRate=s.convos?s.offers/s.convos:0;
-    var oD=0,oC=0,oO=0;
-    others.forEach(function(rp){var o=stats[rp];oD+=o.dials;oC+=o.convos;oO+=o.offers});
-    var otherConvoRate=oD?oC/oD:0;
-    var otherOfferRate=oC?oO/oC:0;
-    if(otherConvoRate>0&&myConvoRate<otherConvoRate*0.7)leak='Your convo rate ('+Math.round(myConvoRate*100)+'%) trails '+esc((others[0]||'the team').split(' ')[0])+' ('+Math.round(otherConvoRate*100)+'%) \u2014 lists or opening line, not effort.';
-    else if(otherOfferRate>0&&myOfferRate<otherOfferRate*0.7)leak='Convos are landing but offers aren\'t \u2014 '+Math.round(myOfferRate*100)+'% convo\u2192offer vs '+Math.round(otherOfferRate*100)+'%. Push to numbers faster.';
-    else if(s.offers>=3&&s.contracts===0)leak='Offers out, nothing locked \u2014 follow-up cadence is where this month\'s money is sitting.';
-  }
-  h+='<div class="card"><h2>\uD83D\uDD27 The leak</h2><div class="sm">'+(leak||'No standout leak yet \u2014 volume is the variable. More swings.')+'</div></div>';
+   +'</div>';
 
   el.innerHTML=h;
 }
+
 
 function speedToLead(){
   var ds=[];
