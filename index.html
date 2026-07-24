@@ -62,7 +62,6 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
   <h1>Acq Tracker <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span></h1>
 
   <div id="v_today" class="view on"></div>
-  <div id="v_reps" class="view"></div>
   <div id="v_cmd" class="view"></div>
   <div id="v_metrics" class="view"></div>
   <div id="v_owner" class="view"></div>
@@ -92,8 +91,8 @@ function tryPass(){
 }
 function buildTabs(){
   var t='<button id="tb_today" onclick="nav(\'today\')"><span class="ic">☀️</span>Today</button>'
-   +'<button id="tb_reps" onclick="nav(\'reps\')"><span class="ic">👤</span>KPIs</button>'
-   +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">🎯</span>Command</button>'
+   
+   +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\uD83D\uDCCA</span>KPIs</button>'
    +'<button id="tb_metrics" onclick="nav(\'metrics\')"><span class="ic">📈</span>Metrics</button>'
    +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">🔒</span>Owner</button>':'')
    +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">⚙️</span>Inputs</button>';
@@ -102,7 +101,7 @@ function buildTabs(){
   nav('today');
 }
 function nav(v){
-  ['today','reps','cmd','metrics','owner','inputs'].forEach(function(k){
+  ['today','cmd','metrics','owner','inputs'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
@@ -159,35 +158,39 @@ function closedStats(from){
 }
 
 /* ============ RENDER ============ */
-function render(){renderToday();renderReps();renderCommand();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
+function render(){renderToday();renderCommand();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
 
 function renderToday(){
-  var t=today(), a=sumAct(t);
-  var leadsToday=countLeadsIn(t), offToday=countOffers(t);
-  var kpis=[
-    {l:'LEADS IN',v:leadsToday},{l:'DIALS',v:a.dials,t:T('dials_day',320)},{l:'CONVOS',v:a.convos,t:T('convos_day',70)},
-    {l:'TALK TIME',v:a.talk,t:T('talkmin_day',360),d:Math.floor(a.talk/60)+' hrs '+(a.talk%60)+' min',td:Math.floor(T('talkmin_day',360)/60)+' hrs'},{l:'OFFERS',v:offToday,t:T('offers_day',10)},{l:'CONTRACTS',v:countContracts(t),t:T('contracts_day',1),sub:'today'}
-  ];
-  var h='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px">'+kpis.map(function(k){
-    var hit=k.t!=null&&k.v>=k.t;
-    var col=k.t!=null?(hit?'var(--green)':'var(--gold)'):'var(--text)';
-    var pct=k.t?Math.min(100,Math.round(k.v/k.t*100)):0;
-    var big=k.d?'<span style="font-size:min(8vw,44px)">'+k.d+'</span>':k.v;
-    var tgt=k.td||k.t;
-    return '<div class="kpi" style="padding:22px 10px 18px;border-radius:18px;min-height:17vh;display:flex;flex-direction:column;justify-content:center">'
-      +'<div style="font-size:13px;color:var(--mut);letter-spacing:.1em;font-weight:800;margin-bottom:8px">'+k.l+(k.sub?' <span style="font-weight:400">('+k.sub+')</span>':'')+'</div>'
-      +'<div style="font-size:min(15vw,84px);font-weight:800;line-height:1;color:'+col+'">'+big+'</div>'
-      +(k.t!=null?'<div style="font-size:min(4.5vw,17px);color:var(--mut);font-weight:700;margin-top:6px">/ '+tgt+(hit?' \u2713':'')+'</div>'
-        +'<div class="sbar" style="height:10px;margin:14px 12% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>':'')
+  var t=today();
+  var stats={};D.reps.forEach(function(rp){stats[rp]=repRange(rp,t)});
+  function hm(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
+  function tile(label,key,target,full,fmtFn){
+    var vals=D.reps.map(function(rp){return stats[rp][key]});
+    var best=Math.max.apply(null,vals);
+    var teamV=vals.reduce(function(a,b){return a+b},0);
+    var pct=target?Math.min(100,Math.round(teamV/target*100)):0;
+    var cols=D.reps.map(function(rp,i){
+      var v=vals[i];
+      var lead=v===best&&v>0;
+      var disp=fmtFn?fmtFn(v):v;
+      return '<div style="flex:1;text-align:center"><div style="font-size:13px;color:var(--mut);letter-spacing:.08em;font-weight:800">'+esc(rp.split(' ')[0]).toUpperCase()+(lead?' \uD83D\uDC51':'')+'</div>'
+        +'<div style="font-size:'+(full?'min(17vw,92px)':'min(11vw,58px)')+';font-weight:800;line-height:1.05;color:'+(lead?'var(--gold)':'var(--text)')+'">'+disp+'</div></div>';
+    }).join('<div style="width:1px;background:var(--line);margin:6px 0"></div>');
+    return '<div class="kpi" style="padding:22px 10px 18px;border-radius:18px;'+(full?'grid-column:1 / -1;min-height:22vh':'min-height:17vh')+';display:flex;flex-direction:column;justify-content:center">'
+      +'<div style="font-size:14px;color:var(--mut);letter-spacing:.12em;font-weight:800;margin-bottom:10px;text-align:center">'+label+'</div>'
+      +'<div style="display:flex;align-items:stretch">'+cols+'</div>'
+      +(target?'<div class="sbar" style="height:8px;margin:16px 15% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+(teamV>=target?'var(--green)':'var(--gold)')+'"></i></div>'
+        +'<div style="font-size:12px;color:var(--mut);text-align:center;margin-top:5px">team '+(fmtFn?fmtFn(teamV):teamV)+' / '+(fmtFn?fmtFn(target):target)+(teamV>=target?' \u2713':'')+'</div>':'')
       +'</div>';
-  }).join('')+'</div>';
-
-  
-
-    h+='<div class="card"><h2>\u26A1 Log a win</h2><div class="sm mut" style="margin-bottom:8px">Leads live in GHL \u2014 log the results here so the boards and money math stay true.</div>'
-   +'<button class="btn g" onclick="logOfferQuick()">\uD83D\uDCB0 + Offer made</button>'
-   +'<button class="btn gr" onclick="logContractQuick()">\uD83D\uDCDD + Contract locked</button>'
+  }
+  var h='<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px">'
+   +tile('\uD83D\uDCDE DIALS','dials',T('dials_day',320),true)
+   +tile('\uD83D\uDCAC CONVOS','convos',T('convos_day',70),false)
+   +tile('\u23F1 TALK TIME','talk',T('talkmin_day',420),false,hm)
+   +tile('\uD83D\uDCB0 OFFERS','offers',T('offers_day',10),false)
+   +tile('\uD83D\uDCDD CONTRACTS','contracts',T('contracts_day',1),false)
    +'</div>';
+  
   document.getElementById('v_today').innerHTML=h;
 }
 
@@ -482,7 +485,7 @@ function renderCommand(){
   }).join('')+'</div>';
 
   var stats={};D.reps.forEach(function(rp){stats[rp]=repRange(rp,from)});
-  h+='<div class="card"><h2>\uD83C\uDFC6 The race</h2><table><tr><th></th>'+D.reps.map(function(rp){return '<th>'+esc(rp.split(' ')[0]).toUpperCase()+'</th>'}).join('')+'</tr>';
+  h+='<div class="card"><h2>\uD83D\uDCCA SALES TRACKER</h2><table><tr><th></th>'+D.reps.map(function(rp){return '<th>'+esc(rp.split(' ')[0]).toUpperCase()+'</th>'}).join('')+'</tr>';
   [['\uD83D\uDCDE Dials','dials'],['\uD83D\uDCAC Convos','convos'],['\u23F1 Talk (min)','talk'],['\uD83D\uDCB0 Offers','offers'],['\uD83D\uDCDD Contracts','contracts']].forEach(function(row){
     var best=Math.max.apply(null,D.reps.map(function(rp){return stats[rp][row[1]]}));
     h+='<tr><td>'+row[0]+'</td>'+D.reps.map(function(rp){var v=stats[rp][row[1]];return '<td style="'+(v===best&&v>0?'color:var(--gold);font-weight:800':'')+'">'+v+'</td>'}).join('')+'</tr>';
