@@ -61,7 +61,10 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
   <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
   <h1><span id="appTitle">Acq Tracker</span> <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span></h1>
 
+  <div id="v_script" class="view"></div>
   <div id="v_today" class="view on"></div>
+  <div id="v_goal" class="view"></div>
+  <div id="v_bot" class="view"></div>
   <div id="v_cmd" class="view"></div>
   <div id="v_earn" class="view"></div>
   <div id="v_metrics" class="view"></div>
@@ -93,13 +96,14 @@ function tryPass(){
   buildTabs(); loadAll();
 }
 function buildTabs(){
-  var t='<button id="tb_today" onclick="nav(\'today\')"><span class="ic">☀️</span>Today</button>'
-   
-   +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\uD83D\uDCCA</span>KPIs</button>'
-   +'<button id="tb_earn" onclick="nav(\'earn\')"><span class="ic">\uD83D\uDCB0</span>Earnings</button>'
-   +'<button id="tb_metrics" onclick="nav(\'metrics\')"><span class="ic">📈</span>Metrics</button>'
-   +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">🔒</span>Owner</button>':'')
-   +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">⚙️</span>Inputs</button>';
+  var t='<button id="tb_script" onclick="nav(\'script\')"><span class="ic">\ud83d\udcdc</span>Script</button>'
+   +'<button id="tb_today" onclick="nav(\'today\')"><span class="ic">\u2600\ufe0f</span>Today</button>'
+   +'<button id="tb_goal" onclick="nav(\'goal\')"><span class="ic">\ud83c\udfaf</span>Goal Hitter</button>'
+   +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\ud83d\udcca</span>KPIs</button>'
+   +'<button id="tb_bot" onclick="nav(\'bot\')"><span class="ic">\ud83e\udd16</span>Bot</button>'
+   +'<button id="tb_earn" onclick="nav(\'earn\')"><span class="ic">\ud83d\udcb0</span>Comp Plan</button>'
+   +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">\ud83d\udd12</span>Owner</button>':'')
+   +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">\u2699\ufe0f</span>Inputs</button>';
   document.getElementById('tabbar').innerHTML=t;
   document.getElementById('roleBadge').style.display=ROLE==='owner'?'inline-block':'none';
   nav('today');
@@ -115,7 +119,7 @@ function nav(v){
     }
   }
 
-  ['today','cmd','earn','metrics','owner','inputs'].forEach(function(k){
+  ['script','today','goal','cmd','bot','earn','metrics','owner','inputs'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
@@ -173,7 +177,7 @@ function closedStats(from){
 }
 
 /* ============ RENDER ============ */
-function render(){renderToday();renderCommand();renderEarnings();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
+function render(){renderScript();renderToday();renderGoal();renderCommand();renderBot();renderEarnings();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
 
 function renderToday(){
   var t=today();
@@ -582,6 +586,40 @@ function cmdFrom(){
   if(CMD_FROM==='__year__')return yearStart();
   return null;
 }
+function renderScript(){
+  var el=document.getElementById('v_script');if(!el)return;
+  function sec(t,b){return '<div class="card"><h2>'+t+'</h2><div class="sm" style="line-height:1.9">'+b+'</div></div>'}
+  var h='';
+  h+=sec('\ud83d\udcdc Opening',
+    '\u201cHey, is this <b>[seller name]</b>? \u2014 this is <b>[you]</b> with Clear Path Property Solutions. I\u2019m reaching out about the property at <b>[address]</b>\u2026 are you still open to an offer on it?\u201d<br><span class="mut">Tone: calm, unhurried. You\u2019re the buyer \u2014 they need you.</span>');
+  h+=sec('\ud83d\udd0d Discovery \u2014 motivation first',
+    '\u2022 \u201cWhat\u2019s got you thinking about selling?\u201d<br>\u2022 \u201cIf it sold in the next 30 days, what would that do for you?\u201d<br>\u2022 \u201cIs anyone living in it right now?\u201d<br>\u2022 \u201cWhat\u2019s the timeline look like on your end?\u201d<br><span class="mut">Motivation \u00d7 timeline = the deal. No motivation, polite exit.</span>');
+  h+=sec('\ud83c\udfe0 Condition walk',
+    'Roof \u00b7 HVAC \u00b7 foundation \u00b7 kitchen/baths \u00b7 last updates \u00b7 \u201cIf I brought a contractor through, what would they flag?\u201d<br><span class="mut">Every repair named now is negotiation ammo later.</span>');
+  h+=sec('\ud83d\udcb5 Price anchor',
+    '\u201cWhere would the price need to be for this to make sense for you?\u201d \u2014 then <b>silence</b>.<br>If they push back on you first: \u201cI\u2019ll be straight with you \u2014 we buy as-is, cash, no fees, and close on your timeline. That convenience is what shapes our number.\u201d');
+  h+=sec('\u2728 Magic Questions',
+    '<b>#1 (text or call):</b> push the fence-sitter to commit.<br><b>#2 (call only):</b> confirm they\u2019re real before the offer.<br><b>#3 (close the gap):</b> \u201cYou are so close to our highest \u2014 if you can come up at all, it\u2019s yours.\u201d');
+  h+=sec('\ud83d\uded1 Objections',
+    '<b>\u201cAre you local?\u201d</b> \u2192 \u201cWe buy across [markets] \u2014 our team handles everything remotely and closings run through a local title company you can verify.\u201d<br>'
+    +'<b>\u201cHow can you make an offer without seeing it?\u201d</b> \u2192 \u201cGreat question \u2014 between what you\u2019ve told me, photos, and our comps, we get 95% there. The contract has an inspection window that protects us both.\u201d<br>'
+    +'<b>\u201cThat\u2019s too low.\u201d</b> \u2192 \u201cCompared to what number? Walk me through where you need to be.\u201d<br>'
+    +'<b>\u201cI need to think about it.\u201d</b> \u2192 \u201cTotally fair \u2014 what specifically would you be thinking over? Maybe I can answer it now.\u201d');
+  h+=sec('\ud83e\udd1d Close',
+    '\u201cHere\u2019s what happens next: I send the agreement, you sign electronically, our team handles title, and you pick the closing date. Sound fair?\u201d<br><span class="mut">Then stop talking.</span>');
+  h+='<div class="sm mut" style="margin:4px 2px">Want a line changed? Tell Nic \u2014 this page updates for everyone at once.</div>';
+  el.innerHTML=h;
+}
+function renderBot(){
+  var el=document.getElementById('v_bot');if(!el)return;
+  var h='<div class="card" style="text-align:center;padding:34px 16px">'
+   +'<div style="font-size:56px">\ud83e\udd16</div>'
+   +'<h2 style="margin-top:8px">Nic Acq Bot Trainer</h2>'
+   +'<div class="sm mut" style="margin-top:8px;line-height:1.9">Coming online soon. Two weapons:<br><b>\ud83c\udfa7 Call grading</b> \u2014 every recorded call scored against the script, with coaching notes in Nic\u2019s voice.<br><b>\ud83d\udcac Objection chat</b> \u2014 stuck at 9pm? Ask the bot exactly what Nic would say.</div>'
+   +'<div class="sm" style="margin-top:14px;color:var(--gold)">Calls are already being recorded + transcribed \u2014 the bot trains on your real conversations from day one.</div>'
+   +'</div>';
+  el.innerHTML=h;
+}
 function renderCommand(){
   var el=document.getElementById('v_cmd');if(!el)return;
   var PR=payReps();if(!PR.length)PR=D.reps;
@@ -604,7 +642,17 @@ function renderCommand(){
   });
   h+='</table></div>';
 
-  // money math (always this-month, BT only)
+  h+='<div style="height:8px"></div><div class="sm mut" style="margin:6px 2px">FULL METRICS</div><div id="metricsHost"></div>';
+  el.innerHTML=h;
+}
+function renderGoal(){
+  var el=document.getElementById('v_goal');if(!el)return;
+  var PR=payReps();if(!PR.length)PR=D.reps;
+  if(ME&&PR.indexOf(ME)>=0)PR=[ME];
+  if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
+  var di=daysInfo(), avgFee=T('avgfee',10000);
+  var h='';
+  // personal money math
   var mstats={};D.reps.forEach(function(rp){mstats[rp]=repRange(rp,monthStart())});
   var projs={};
   D.reps.forEach(function(rp){var s=mstats[rp];projs[rp]=commissionOf(((s.contracts/di.elapsed)*di.total)*avgFee)});
@@ -663,7 +711,7 @@ function speedToLead(){
   return Math.round(ds.reduce(function(s,x){return s+x},0)/ds.length);
 }
 function renderMetrics(){
-  var el=document.getElementById('v_metrics');if(!el)return;
+  var el=document.getElementById('metricsHost')||document.getElementById('v_metrics');if(!el)return;
   var m=metChain();
   var ranges=[['Month',monthStart()],['Quarter',quarterStart()],['Year',yearStart()],['All time',null]];
   var h='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+ranges.map(function(r){
