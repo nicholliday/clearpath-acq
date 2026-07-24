@@ -218,7 +218,7 @@ function renderToday(){
     });
     var best=Math.max.apply(null,projs);
     h+='<div style="border-top:1px solid var(--line);padding:10px 0;flex:1;display:flex;flex-direction:column;justify-content:center">'
-     +'<div style="text-align:center;font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut);margin-bottom:8px">\uD83D\uDCC8 PROJECTED REV</div>'
+     +'<div style="text-align:center;font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut);margin-bottom:8px">\uD83D\uDCC8 PROJECTED REV LOCKED UP</div>'
      +'<div style="display:flex;align-items:baseline">'+reps.map(function(rp,i){
         var v=projs[i], lead=v===best&&v>0;
         return '<div style="flex:1;text-align:center"><span style="font-size:'+smallSize+';font-weight:800;line-height:1;color:'+(lead?'var(--gold)':'var(--text)')+'">'+fmt$(v)+'</span>'+(lead?' <span style="font-size:18px">\uD83D\uDC51</span>':'')+'</div>';
