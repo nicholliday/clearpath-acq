@@ -388,6 +388,8 @@ function avgDays(pairs){
   if(!ds.length)return null;
   return Math.round(ds.reduce(function(s,x){return s+x},0)/ds.length);
 }
+var OWNER_REP='Nic Holliday';
+function payReps(){return D.reps.filter(function(r){return r!==OWNER_REP})}
 var CMD_REP=null;
 function setCmdRep(r){CMD_REP=r;renderCommand()}
 function repMonth(rep){
@@ -415,7 +417,8 @@ function daysInfo(){
 }
 function renderCommand(){
   var el=document.getElementById('v_cmd');if(!el)return;
-  if(CMD_REP===null||D.reps.indexOf(CMD_REP)<0)CMD_REP=D.reps[0];
+  var PR=payReps();if(!PR.length)PR=D.reps;
+  if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
   var di=daysInfo(), avgFee=T('avgfee',10000);
 
   var stats={};D.reps.forEach(function(rp){stats[rp]=repMonth(rp)});
@@ -429,12 +432,12 @@ function renderCommand(){
     var s=stats[rp];
     var projContracts=(s.contracts/di.elapsed)*di.total;
     projs[rp]=commissionOf(projContracts*avgFee);
-    if(projs[rp]>bestProj)bestProj=projs[rp];
+    if(rp!==OWNER_REP&&projs[rp]>bestProj)bestProj=projs[rp];
   });
-  h+='<tr><td>\uD83D\uDCC8 Proj. commission</td>'+D.reps.map(function(rp){return '<td style="'+(projs[rp]===bestProj&&bestProj>0?'color:var(--gold);font-weight:800':'')+'">'+fmt$(Math.round(projs[rp]))+'</td>'}).join('')+'</tr>';
+  h+='<tr><td>\uD83D\uDCC8 Proj. commission</td>'+D.reps.map(function(rp){if(rp===OWNER_REP)return '<td class="mut">&#8212;</td>';return '<td style="'+(projs[rp]===bestProj&&bestProj>0?'color:var(--gold);font-weight:800':'')+'">'+fmt$(Math.round(projs[rp]))+'</td>'}).join('')+'</tr>';
   h+='</table></div>';
 
-  h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+D.reps.map(function(rp){return '<button class="btn '+(CMD_REP===rp?'g':'mut')+'" onclick="setCmdRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
+  h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(CMD_REP===rp?'g':'mut')+'" onclick="setCmdRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
 
   var s=stats[CMD_REP];
   var goal=(D.repGoals&&D.repGoals[CMD_REP])||8000;
@@ -636,7 +639,7 @@ function renderInputs(){
    +D.reps.map(function(rp){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>'+esc(rp)+'</span>'+(ROLE==='owner'?'<button class="btn d" onclick="delRep(\''+esc(rp)+'\')">✕</button>':'')+'</div>'}).join('')
    +(ROLE==='owner'?'<input id="nr_name" placeholder="New rep name"><button class="btn g" onclick="addRep()">+ Add rep</button>':'')
    +'<div style="margin-top:12px"><b class="sm">💰 Monthly commission goals</b></div>'
-   +D.reps.map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+'</label><div style="display:flex;gap:8px"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join('')
+   +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+'</label><div style="display:flex;gap:8px"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join('')
    +'</div>';
   h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time count <b>automatically</b> — every GHL and OpenPhone call by Nic or BT flows in through the acq relay (2+ min = convo, same number within 60 min counts once). Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
