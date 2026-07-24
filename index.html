@@ -59,7 +59,7 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 
 <div class="wrap">
   <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
-  <h1>Acq Tracker <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span></h1>
+  <h1><span id="appTitle">Acq Tracker</span> <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span></h1>
 
   <div id="v_today" class="view on"></div>
   <div id="v_cmd" class="view"></div>
@@ -101,6 +101,16 @@ function buildTabs(){
   nav('today');
 }
 function nav(v){
+  var tt=document.getElementById('appTitle');
+  if(tt){
+    if(v==='today'){
+      var now=new Date();
+      tt.textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    } else {
+      tt.textContent='Acq Tracker';
+    }
+  }
+
   ['today','cmd','metrics','owner','inputs'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
@@ -166,10 +176,10 @@ function renderToday(){
   var n=Math.max(1,reps.length);
   var stats={};reps.forEach(function(rp){stats[rp]=repRange(rp,t)});
   function hm(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
-  var bigSize='min('+Math.max(10,Math.floor(56/n))+'vw,80px)';
-  var smallSize='min('+Math.max(6,Math.floor(34/n))+'vw,44px)';
+  var bigSize='min('+Math.max(11,Math.floor(64/n))+'vw,96px)';
+  var smallSize='min('+Math.max(7,Math.floor(40/n))+'vw,54px)';
 
-  var h='<div class="kpi" style="padding:26px 8px 22px;border-radius:20px">';
+  var h='<div class="kpi" style="padding:24px 8px 18px;border-radius:20px;min-height:calc(100vh - 170px);display:flex;flex-direction:column">';
 
   // rep name header row
   h+='<div style="display:flex;margin-bottom:6px">'+reps.map(function(rp){
@@ -189,7 +199,7 @@ function renderToday(){
     var best=Math.max.apply(null,vals);
     var teamV=vals.reduce(function(a,b){return a+b},0);
     var pct=target?Math.min(100,Math.round(teamV/target*100)):0;
-    h+='<div style="'+(ri>0?'border-top:1px solid var(--line);':'')+'padding:16px 0 14px">'
+    h+='<div style="'+(ri>0?'border-top:1px solid var(--line);':'')+'padding:10px 0;flex:1;display:flex;flex-direction:column;justify-content:center">'
      +'<div style="text-align:center;font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut);margin-bottom:8px">'+label+'</div>'
      +'<div style="display:flex;align-items:baseline">'+reps.map(function(rp,i){
         var v=vals[i], lead=v===best&&v>0;
@@ -198,6 +208,23 @@ function renderToday(){
       }).join('')+'</div>'
      +'</div>';
   });
+  // 6th row: projected revenue (month pace)
+  (function(){
+    var di=daysInfo(), avgFee=T('avgfee',10000);
+    var m=monthStart();
+    var projs=reps.map(function(rp){
+      var ms=repRange(rp,m);
+      return Math.round(((ms.contracts/di.elapsed)*di.total)*avgFee);
+    });
+    var best=Math.max.apply(null,projs);
+    h+='<div style="border-top:1px solid var(--line);padding:10px 0;flex:1;display:flex;flex-direction:column;justify-content:center">'
+     +'<div style="text-align:center;font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut);margin-bottom:8px">\uD83D\uDCC8 PROJECTED REV <span style="font-weight:400">(month pace)</span></div>'
+     +'<div style="display:flex;align-items:baseline">'+reps.map(function(rp,i){
+        var v=projs[i], lead=v===best&&v>0;
+        return '<div style="flex:1;text-align:center"><span style="font-size:'+smallSize+';font-weight:800;line-height:1;color:'+(lead?'var(--gold)':'var(--text)')+'">'+fmt$(v)+'</span>'+(lead?' <span style="font-size:18px">\uD83D\uDC51</span>':'')+'</div>';
+      }).join('')+'</div>'
+     +'</div>';
+  })();
   h+='</div>';
   document.getElementById('v_today').innerHTML=h;
 }
