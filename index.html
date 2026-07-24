@@ -125,10 +125,11 @@ async function loadAll(){
     db.from('acq_spend').select('*'),
     db.from('deals').select('id,address,stage,revenue_closed,contract_price'),
     db.from('stage_history').select('deal_id,stage,entered_on'),
-    db.from('acq_reps').select('*').order('created_at')
+    db.from('acq_reps').select('*').order('created_at'),
+    db.from('acq_calls').select('phone,called_at,rep,counted')
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
-  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];
+  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.calls=(r[8].data||[]);
   D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
   render();
 }
@@ -172,13 +173,7 @@ function renderToday(){
     return '<div class="kpi"><div class="v" style="color:'+col+'">'+k.v+(k.t!=null?'<span style="font-size:11px;color:var(--mut)">/'+k.t+'</span>':'')+'</div><div class="l">'+k.l+(k.sub?'<br>'+k.sub:'')+'</div></div>';
   }).join('')+'</div>';
 
-  h+='<div class="card"><h2>⚡ Log activity</h2><div class="sm mut" style="margin-bottom:8px">Add to today\'s totals — end of a call block, punch it in.</div>'
-   +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
-   +'<div><label>+ Dials</label><input id="qa_d" type="number" inputmode="numeric"></div>'
-   +'<div><label>+ Convos</label><input id="qa_c" type="number" inputmode="numeric"></div>'
-   +'<div><label>+ Talk min</label><input id="qa_t" type="number" inputmode="numeric"></div></div>'
-   +'<label>Who</label><select id="qa_rep">'+D.reps.map(function(rp){return '<option>'+esc(rp)+'</option>'}).join('')+'</select>'
-   +'<button class="btn g big" onclick="quickLog()">Add to today</button></div>';
+  
 
   var due=D.leads.filter(function(l){return l.stage!=='Dead'&&l.stage!=='Under Contract'&&l.next_followup&&l.next_followup<=t});
   h+='<div class="card"><h2>📅 Follow-ups due ('+due.length+')</h2>';
@@ -322,18 +317,6 @@ async function sendToDispo(id){
   alert('🚀 Deal is live in the Dispo pipeline — Reid takes it from here.');
   closeModal();loadAll();
 }
-async function quickLog(){
-  var d=Number(document.getElementById('qa_d').value)||0,c=Number(document.getElementById('qa_c').value)||0,t=Number(document.getElementById('qa_t').value)||0;
-  if(!d&&!c&&!t)return;
-  var who=(document.getElementById('qa_rep')||{}).value||D.reps[0];
-  var ex=D.act.find(function(a){return a.on_date===today()&&(a.rep||D.reps[0])===who});
-  var r=ex?await db.from('acq_activity').update({dials:(ex.dials||0)+d,convos:(ex.convos||0)+c,talk_min:(ex.talk_min||0)+t}).eq('id',ex.id)
-          :await db.from('acq_activity').insert({rep:who,on_date:today(),dials:d,convos:c,talk_min:t});
-  if(r.error)return alert(r.error.message);
-  loadAll();
-}
-
-function setBoard(b){BOARD=b;renderReps()}
 function renderReps(){
   var ranges=[['Today',today()],['Week',daysAgo(6)],['Month',monthStart()],['Quarter',quarterStart()],['Year',yearStart()]];
   var rows=[
@@ -393,6 +376,22 @@ function avgDays(pairs){
   if(!ds.length)return null;
   return Math.round(ds.reduce(function(s,x){return s+x},0)/ds.length);
 }
+function speedToLead(){
+  var ds=[];
+  D.leads.forEach(function(l){
+    if(!l.phone||!l.created_at)return;
+    var p=(l.phone||'').replace(/[^0-9]/g,'').slice(-10);if(p.length<7)return;
+    var t0=new Date(l.created_at).getTime(),best=null;
+    (D.calls||[]).forEach(function(c){
+      if(String(c.phone||'').slice(-10)!==p)return;
+      var ct=new Date(c.called_at).getTime();
+      if(ct>=t0&&(best===null||ct<best))best=ct;
+    });
+    if(best!==null)ds.push((best-t0)/60000);
+  });
+  if(!ds.length)return null;
+  return Math.round(ds.reduce(function(s,x){return s+x},0)/ds.length);
+}
 function renderMetrics(){
   var el=document.getElementById('v_metrics');if(!el)return;
   var m=metChain();
@@ -431,6 +430,7 @@ function renderMetrics(){
    +rrow('Contract → close',avgDays(cc)!=null?avgDays(cc)+' days':'—')
    +rrow('💰 Cash conversion cycle (lead → close)',avgDays(lcl)!=null?'<span style="color:var(--gold)">'+avgDays(lcl)+' days</span>':'—')
    +rrow('Avg assignment fee (range)',avgFee?fmt$(avgFee):'—')
+   +rrow('⚡ Speed to lead (avg mins, lead → first call)',speedToLead()!=null?'<span style="color:'+(speedToLead()<=5?'var(--green)':'var(--red)')+'">'+speedToLead()+' min</span>':'—')
    +'<div class="sm mut" style="margin-top:6px">Timelines fill in as leads you send to Dispo start closing — the lead→close number is how long your money is stuck in a deal.</div></div>';
 
   h+='<div class="card"><h2>🧮 Commission calculator</h2><div id="ccOut"></div>'
@@ -528,7 +528,7 @@ function renderInputs(){
    +D.reps.map(function(rp){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>'+esc(rp)+'</span>'+(ROLE==='owner'?'<button class="btn d" onclick="delRep(\''+esc(rp)+'\')">✕</button>':'')+'</div>'}).join('')
    +(ROLE==='owner'?'<input id="nr_name" placeholder="New rep name"><button class="btn g" onclick="addRep()">+ Add rep</button>':'')
    +'</div>';
-  h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time: punch them in on <b>Today → Log activity</b> after each call block. Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. Leads: <b>Add lead</b> (auto-import from Meta/GHL is the next upgrade — same relay as dispo).</div></div>';
+  h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time count <b>automatically</b> — every GHL and OpenPhone call by Nic or BT flows in through the acq relay (2+ min = convo, same number within 60 min counts once). Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
 }
 async function addRep(){
@@ -556,7 +556,7 @@ async function saveTargets(){
 /* ============ HELP ============ */
 var HELP_TOPICS=[
  {q:'📥 How do leads get in here?',k:'add new lead meta import',a:'V1: tap <b>Leads → ➕ Add lead</b> the moment a Meta lead lands. Auto-import from the Meta/GHL pipeline is the next upgrade — same relay system the dispo app uses.'},
- {q:'📞 How do I log dials, convos, talk time?',k:'activity count kpi punch',a:'<b>Today → ⚡ Log activity</b> — after each call block, punch in the numbers and hit Add. They stack onto today\'s totals and feed every range on the KPIs tab.'},
+ {q:'📞 How do I log dials, convos, talk time?',k:'activity count kpi punch',a:'Automatically — every call Nic or BT makes in GHL or OpenPhone flows in via the acq relay: any answered call = convo (voicemail excluded), same number within 60 min counts once, real conversation minutes add to talk time. Nothing to log, ever.'},
  {q:'💰 How do I log an offer?',k:'record made offer amount',a:'Open the lead → <b>+ Offer</b> → amount. Offers show on the lead (highest gold) and count on the scoreboard. Offers are the leak that costs contracts — the target is '+'weekly.'},
  {q:'📅 How do follow-ups work?',k:'next touch due overdue reminder',a:'Set <b>Next follow-up</b> on any lead. It appears on <b>Today → Follow-ups due</b> when the date arrives, and turns red ⏰ when overdue. Deals die on follow-up 4-6 — this list is the money list.'},
  {q:'📝 How do I mark a contract locked?',k:'under contract signed locked won',a:'Open the lead → Stage → <b>Under Contract</b> → enter contract price + date → Save. It counts on the scoreboard and unlocks the <b>Send to Dispo</b> button.'},
