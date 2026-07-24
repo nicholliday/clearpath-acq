@@ -326,6 +326,7 @@ async function sendToDispo(id){
   alert('🚀 Deal is live in the Dispo pipeline — Reid takes it from here.');
   closeModal();loadAll();
 }
+function setBoard(b){BOARD=b;renderReps()}
 function renderReps(){
   var ranges=[['Today',today()],['Week',daysAgo(6)],['Month',monthStart()],['Quarter',quarterStart()],['Year',yearStart()]];
   var rows=[
