@@ -196,8 +196,6 @@ function renderToday(){
         var disp=fmtFn?fmtFn(v):v;
         return '<div style="flex:1;text-align:center"><span style="font-size:'+(fmtFn?smallSize:bigSize)+';font-weight:800;line-height:1;color:'+(lead?'var(--gold)':'var(--text)')+'">'+disp+'</span>'+(lead?' <span style="font-size:18px">\uD83D\uDC51</span>':'')+'</div>';
       }).join('')+'</div>'
-     +(target?'<div class="sbar" style="height:7px;margin:12px 18% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+(teamV>=target?'var(--green)':'var(--gold)')+'"></i></div>'
-       +'<div style="font-size:11px;color:var(--mut);text-align:center;margin-top:4px">team '+(fmtFn?fmtFn(teamV):teamV)+' / '+(fmtFn?fmtFn(target):target)+(teamV>=target?' \u2713':'')+'</div>':'')
      +'</div>';
   });
   h+='</div>';
