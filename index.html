@@ -162,6 +162,7 @@ async function loadAll(){
 function T(k,d){return D.targets[k]!=null?D.targets[k]:d}
 
 var BOARD=null; // null = total acq, else rep name
+function offerRep(of){if(of.rep)return of.rep;var l=leadById(of.lead_id);return l?repOf(l):null}
 function repOf(l){return l.rep||D.reps[0]}
 function leadRepOk(l){return !BOARD||repOf(l)===BOARD}
 function sumAct(from){
@@ -492,7 +493,7 @@ function repMonth(rep){
   var o={dials:0,convos:0,talk:0,offers:0,contracts:0,rev:0};
   D.act.forEach(function(a){if(a.on_date>=m&&(a.rep||D.reps[0])===rep){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
   o.talkSec=o.talk;o.talk=Math.round(o.talk/60);
-  D.offers.forEach(function(of){var l=leadById(of.lead_id);if(of.offered_on>=m&&l&&repOf(l)===rep)o.offers++});
+  D.offers.forEach(function(of){if(of.offered_on>=m&&offerRep(of)===rep)o.offers++});
   D.leads.forEach(function(l){
     if(repOf(l)!==rep)return;
     if(l.contracted_on&&l.contracted_on>=m)o.contracts++;
@@ -586,7 +587,7 @@ function repRange(rep,from){
   var o={dials:0,convos:0,talk:0,offers:0,contracts:0};
   D.act.forEach(function(a){if((!from||a.on_date>=from)&&(a.rep||D.reps[0])===rep){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
   o.talkSec=o.talk;o.talk=Math.round(o.talk/60);
-  D.offers.forEach(function(of){var l=leadById(of.lead_id);if((!from||of.offered_on>=from)&&l&&repOf(l)===rep)o.offers++});
+  D.offers.forEach(function(of){if((!from||of.offered_on>=from)&&offerRep(of)===rep)o.offers++});
   D.leads.forEach(function(l){if(repOf(l)!==rep)return;if(l.contracted_on&&(!from||l.contracted_on>=from))o.contracts++});
   return o;
 }
@@ -886,7 +887,7 @@ function renderGoal(){
     function hm(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
     // leads count this month for rep
     var leadsHave=(function(){var c=0,m=monthStart();D.leads.forEach(function(l){if(repOf(l)===who&&l.created_at&&l.created_at.slice(0,10)>=m)c++});return c})();
-    var offersHave=(function(){var c=0,m=monthStart();D.offers.forEach(function(of){var l=leadById(of.lead_id);if(of.offered_on>=m&&l&&repOf(l)===who)c++});return c})();
+    var offersHave=(function(){var c=0,m=monthStart();D.offers.forEach(function(of){if(of.offered_on>=m&&offerRep(of)===who)c++});return c})();
     function hmv(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
     var contractsTotal=reqContracts, offersTotal=reqContracts*offerPerContract, convosTotal=reqContracts*convoPerContract, dialsTotal=reqContracts*convoPerContract*dialPerConvo, leadsTotal=reqContracts*leadPerContract, talkTotal=Math.round(convosTotal*talkPerConvo);
     h+='<div class="card"><h2>\uD83D\uDD27 The climb to '+fmt$(lockedTarget)+'</h2>'
