@@ -156,6 +156,8 @@ async function loadAll(){
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
   D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.repPass={};(r[7].data||[]).forEach(function(x){if(x.passcode)D.repPass[x.name]=x.passcode});D.calls=(r[8].data||[]);
   D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
+  if(D.targets.owner_goal!=null)D.ownerGoal=D.targets.owner_goal;
+  if(D.targets.owner_fallout!=null)D.ownerFallout=D.targets.owner_fallout;
   render();
 }
 function T(k,d){return D.targets[k]!=null?D.targets[k]:d}
@@ -482,6 +484,8 @@ var OWNER_REP='Nic Holliday';
 function payReps(){return D.reps.filter(function(r){return r!==OWNER_REP})}
 var CMD_REP=null;
 function setCmdRep(r){CMD_REP=r;renderCommand()}
+var GOAL_REP=null;
+function setGoalRep(r){GOAL_REP=r;renderGoal()}
 function repMonth(rep){
   var m=monthStart();
   var o={dials:0,convos:0,talk:0,offers:0,contracts:0,rev:0};
@@ -599,8 +603,8 @@ function renderScript(){
   function banner(t){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:20px;letter-spacing:.04em;padding:14px 8px;margin:22px 0 14px;border-radius:4px">'+t+'</div>'}
   function sub(t){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:15px;letter-spacing:.04em;padding:9px 8px;margin:18px 12% 12px;border-radius:4px">'+t+'</div>'}
   function hold(){return '<div style="background:'+NAVY+';color:#fff;text-align:center;font-weight:800;font-size:18px;letter-spacing:.14em;padding:16px 8px;margin:24px 6% ;border-radius:4px">3 MIN HOLD</div>'}
-  function b(t){return '<div style="display:flex;gap:10px;margin:0 0 26px;color:'+INK+';font-size:19px;line-height:1.75"><span style="color:'+GOLD+';font-weight:900">\u2022</span><div>'+t+'</div></div>'}
-  function ins(t){return '<div style="color:'+BRONZE+';font-weight:800;font-size:16px;letter-spacing:.02em;margin:8px 0 28px 24px">'+t+'</div>'}
+  function b(t){return '<div style="display:flex;gap:10px;margin:0 0 32px;color:'+INK+';font-size:21px;line-height:1.85"><span style="color:'+GOLD+';font-weight:900">\u2022</span><div>'+t+'</div></div>'}
+  function ins(t){return '<div style="color:'+BRONZE+';font-weight:800;font-size:17px;letter-spacing:.02em;margin:10px 0 34px 26px">'+t+'</div>'}
   function bl(){return '<span style="color:'+GOLD+'">______</span>'}
 
   var h='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)">';
@@ -783,34 +787,67 @@ function renderCommand(){
 function renderGoal(){
   var el=document.getElementById('v_goal');if(!el)return;
   var PR=payReps();if(!PR.length)PR=D.reps;
-  if(ME&&PR.indexOf(ME)>=0)PR=[ME];
-  if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
-  var rep=CMD_REP, di=daysInfo(), avgFee=T('avgfee',10000), fx=T('fx',1.38);
+  var viewer=ME||OWNER_REP;
+  var isOwnerView=(ROLE==='owner');
+  // owner sees their own goal hitter; reps see theirs. Owner can also flip to a rep to inspect.
+  var who = isOwnerView ? OWNER_REP : (ME||PR[0]);
+  if(isOwnerView){ if(GOAL_REP===null) GOAL_REP=OWNER_REP; if(D.reps.indexOf(GOAL_REP)>=0) who=GOAL_REP; }
+
+  var di=daysInfo(), avgFee=T('avgfee',10000), fx=T('fx',1.38);
+  var monthName=new Date().toLocaleDateString('en-US',{month:'long'}).toUpperCase();
   var h='';
-  if(PR.length>1){
-    h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(CMD_REP===rp?'g':'mut')+'" onclick="setCmdRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
+
+  // owner-only: rep switcher to inspect anyone
+  if(isOwnerView){
+    h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+D.reps.map(function(rp){return '<button class="btn '+(who===rp?'g':'mut')+'" onclick="setGoalRep(\''+esc(rp)+'\')">'+esc(rp.split(' ')[0])+'</button>'}).join('')+'</div>';
   }
 
-  var mo=rampMonthOf(rep);
-  var target=RAMP[mo-1];
-  var closed=metMonthRev(rep);
-  var ms=repRange(rep,monthStart());
-  var monthName=new Date().toLocaleDateString('en-US',{month:'long'}).toUpperCase();
-  var pct=target?Math.min(100,Math.round(closed/target*100)):100;
-  var col=closed>=target?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
+  var ownerTarget = (who===OWNER_REP);
+  var ms=repRange(who,monthStart());
 
-  // THE GOAL — from the ramp
-  h+='<div class="card" style="text-align:center;padding:26px 14px">'
-   +'<div class="sm mut" style="letter-spacing:.18em;font-weight:800">'+monthName+' \u00b7 RAMP MONTH '+mo+(mo<=3?' \u00b7 NO PENALTY':'')+'</div>'
-   +'<div style="font-size:15px;color:var(--mut);margin-top:14px">THIS MONTH\u2019S GOAL</div>'
-   +'<div style="font-size:min(16vw,74px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(target)+'</div>'
-   +'<div style="font-size:13px;color:var(--mut)">revenue locked + closed</div>'
-   +'<div class="sbar" style="height:14px;margin:18px 8% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
-   +'<div class="row" style="margin-top:10px;padding:0 6%"><span class="sm mut">CLOSED: <b style="color:'+col+'">'+fmt$(closed)+'</b></span><span class="sm mut">TO GO: <b>'+fmt$(Math.max(0,target-closed))+'</b></span></div>'
+  // ============ TARGET (locked revenue to reverse-engineer against) ============
+  var lockedTarget, fundedGoal, fallout, headerLine, subLine;
+  if(ownerTarget){
+    fundedGoal = Number(D.ownerGoal!=null?D.ownerGoal:T('owner_goal',150000));
+    fallout = Number(D.ownerFallout!=null?D.ownerFallout:T('owner_fallout',50));
+    var keep = Math.max(1,(100-fallout))/100;
+    lockedTarget = Math.round(fundedGoal/keep);
+    headerLine = monthName+' \u00b7 YOUR TARGET';
+    subLine = 'Fund '+fmt$(fundedGoal)+' after '+fallout+'% fallout \u2192 lock '+fmt$(lockedTarget);
+  } else {
+    var mo=rampMonthOf(who);
+    lockedTarget = RAMP[mo-1];
+    fundedGoal = lockedTarget;
+    fallout = 0;
+    headerLine = monthName+' \u00b7 RAMP MONTH '+mo+(mo<=3?' \u00b7 NO PENALTY':'');
+    subLine = 'revenue locked + closed';
+  }
+
+  var closed=metMonthRev(who);
+  var pct=lockedTarget?Math.min(100,Math.round(closed/lockedTarget*100)):100;
+  var col=closed>=lockedTarget?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
+
+  // ============ GOAL CARD ============
+  h+='<div class="card" style="text-align:center;padding:24px 14px">'
+   +'<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>';
+
+  if(ownerTarget && (isOwnerView)){
+    // editable inputs for owner
+    h+='<div style="display:flex;gap:8px;justify-content:center;align-items:flex-end;margin:14px 0 6px;flex-wrap:wrap">'
+     +'<div><div class="sm mut">FUND (CLOSED $)</div><input id="og_fund" type="number" value="'+fundedGoal+'" style="width:150px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+     +'<div><div class="sm mut">FALLOUT %</div><input id="og_fo" type="number" value="'+fallout+'" style="width:80px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+     +'</div>';
+  }
+
+  h+='<div style="font-size:13px;color:var(--mut);margin-top:'+(ownerTarget?'6px':'14px')+'">MUST LOCK</div>'
+   +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>'
+   +'<div style="font-size:12px;color:var(--mut)">'+subLine+'</div>'
+   +'<div class="sbar" style="height:14px;margin:16px 8% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
+   +'<div class="row" style="margin-top:10px;padding:0 6%"><span class="sm mut">LOCKED: <b style="color:'+col+'">'+fmt$(closed)+'</b></span><span class="sm mut">TO GO: <b>'+fmt$(Math.max(0,lockedTarget-closed))+'</b></span></div>'
    +'</div>';
 
-  // REVERSE ENGINEERED
-  var reqContracts=target>0?Math.max(1,Math.ceil(target/avgFee)):0;
+  // ============ REVERSE ENGINEERED ============
+  var reqContracts=lockedTarget>0?Math.max(1,Math.ceil(lockedTarget/avgFee)):0;
   var convoPerContract=ms.contracts>0?Math.max(5,Math.round(ms.convos/ms.contracts)):40;
   var dialPerConvo=ms.convos>0?Math.max(2,Math.round(ms.dials/ms.convos)):5;
   var contractsLeft=Math.max(0,reqContracts-ms.contracts);
@@ -822,34 +859,45 @@ function renderGoal(){
 
   function rrow(l,v,hint){return '<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><div style="font-size:14px;font-weight:700">'+l+'</div>'+(hint?'<div class="sm mut">'+hint+'</div>':'')+'</div><div style="font-size:24px;font-weight:800;text-align:right">'+v+'</div></div>'}
 
-  if(target>0){
+  if(lockedTarget>0){
     h+='<div class="card"><h2>\uD83D\uDD27 Reverse engineered</h2>'
-     +rrow('\uD83D\uDCDD Contracts needed', reqContracts+' <span class="sm mut">('+ms.contracts+' locked)</span>','at '+fmt$(avgFee)+' avg fee')
+     +rrow('\uD83D\uDCDD Contracts to lock', reqContracts+' <span class="sm mut">('+ms.contracts+' locked)</span>','at '+fmt$(avgFee)+' avg fee'+(ownerTarget?' \u00b7 covers '+fallout+'% fallout':''))
      +rrow('\uD83D\uDCAC Convos still needed', convosNeeded, convoPerContract+' convos per contract \u2014 your rate')
      +rrow('\uD83D\uDCDE Dials still needed', dialsNeeded, dialPerConvo+' dials per convo \u2014 your rate')
      +'<div style="text-align:center;padding:18px 0 6px">'
      +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
      +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
      +'<div class="sm mut">dials/day for the next '+di.left+' days \u00b7 you\u2019re averaging '+curDialsDay+'</div>'
-     +(covered?'<div class="sm" style="color:var(--green);margin-top:8px">\u2705 Current volume covers the goal \u2014 keep swinging.</div>':'<div class="sm" style="color:var(--red);margin-top:8px">\u26A0\uFE0F +'+(dialsDay-curDialsDay)+' more dials/day between you and the goal.</div>')
+     +(covered?'<div class="sm" style="color:var(--green);margin-top:8px">\u2705 Current volume covers it \u2014 keep swinging.</div>':'<div class="sm" style="color:var(--red);margin-top:8px">\u26A0\uFE0F +'+(dialsDay-curDialsDay)+' more dials/day between you and the goal.</div>')
      +'</div></div>';
-  } else {
-    h+='<div class="card"><h2>\uD83D\uDD27 Ramp month 1</h2><div class="sm">No revenue target this month \u2014 build pipeline. Every dial, convo, and offer is planting next month\u2019s checks.</div></div>';
   }
 
-  // WHAT HITTING PAYS
-  var baseCAD=Math.round(target*tierPct(target)*fx);
-  var hitCAD=Math.round((target*tierPct(target)+target*0.02)*fx);
-  var missCAD=mo<=3?baseCAD:Math.round((target*tierPct(target)-target*0.02)*fx);
-  if(target>0){
+  // ============ WHAT IT PAYS (reps only; owner economics live elsewhere) ============
+  if(!ownerTarget && lockedTarget>0){
+    var moX=rampMonthOf(who);
+    var baseCAD=Math.round(lockedTarget*tierPct(lockedTarget)*fx);
+    var hitCAD=Math.round((lockedTarget*tierPct(lockedTarget)+lockedTarget*0.02)*fx);
+    var missCAD=moX<=3?baseCAD:Math.round((lockedTarget*tierPct(lockedTarget)-lockedTarget*0.02)*fx);
     h+='<div class="card"><h2>\uD83D\uDCB0 What hitting it pays (CAD)</h2><table>'
      +'<tr><td>Hit the goal (+2% of rev)</td><td style="text-align:right;color:var(--green)"><b>'+fmt$(hitCAD)+'</b></td></tr>'
      +'<tr><td>Base at goal</td><td style="text-align:right"><b>'+fmt$(baseCAD)+'</b></td></tr>'
-     +'<tr><td>Miss ('+(mo<=3?'protected':'\u22122% of rev')+')</td><td style="text-align:right;color:'+(mo<=3?'var(--mut)':'var(--red)')+'"><b>'+fmt$(missCAD)+'</b></td></tr>'
-     +'</table><div class="sm mut" style="margin-top:6px">Full ramp lives on the Comp Plan tab.</div></div>';
+     +'<tr><td>Miss ('+(moX<=3?'protected':'\u22122% of rev')+')</td><td style="text-align:right;color:'+(moX<=3?'var(--mut)':'var(--red)')+'"><b>'+fmt$(missCAD)+'</b></td></tr>'
+     +'</table><div class="sm mut" style="margin-top:6px">Full ramp on the Comp Plan tab.</div></div>';
   }
 
   el.innerHTML=h;
+}
+async function saveOwnerGoal(){
+  var f=document.getElementById('og_fund'), o=document.getElementById('og_fo');
+  if(!f)return;
+  D.ownerGoal=Number(f.value)||0;
+  D.ownerFallout=Number(o.value)||0;
+  clearTimeout(window._ogT);
+  window._ogT=setTimeout(function(){
+    var host=document.getElementById('v_goal');var y=host?host.scrollTop:0;
+    renderGoal();
+    db.from('acq_targets').upsert([{key:'owner_goal',value:D.ownerGoal},{key:'owner_fallout',value:D.ownerFallout}],{onConflict:'key'});
+  },400);
 }
 
 
