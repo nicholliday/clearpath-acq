@@ -750,6 +750,91 @@ function renderScript(){
 
   h+='<div style="border-top:2px solid '+GOLD+';margin-top:22px;padding-top:10px;display:flex;justify-content:space-between;color:'+NAVY+';font-size:11px;font-weight:800"><span>CLEAR PATH PROPERTY SOLUTIONS</span><span>ONE CALL CLOSE</span></div>';
 
+  h+='</div>';
+
+  // ===== PA WALKTHROUGH =====
+  h+='<div style="background:'+NAVY+';padding:30px 12px 26px;text-align:center;margin-top:8px">'
+   +'<div style="color:#fff;font-size:min(8.5vw,44px);font-weight:800;letter-spacing:.12em;line-height:1.18">PURCHASE AGREEMENT<br>WALKTHROUGH</div>'
+   +'<div style="width:180px;height:2px;background:'+GOLD+';margin:12px auto"></div>'
+   +'<div style="color:#B9C4D6;font-size:12px;letter-spacing:.03em;line-height:1.6">(SELLER HAS DOCUSIGN OPEN \u2014 READ THE SECTION NAME<br>OUT LOUD THEN THE SENTENCE BELOW)</div>'
+   +'</div>';
+
+  h+='<div style="padding:6px 18px 26px">';
+
+  h+=banner('OPENING PARAGRAPH \u2014 PARTIES');
+  h+=b('Ok you\u2019ll see at the top is just your name as well as our name with the address of the property');
+
+  h+=banner('PROPERTY / AS-IS');
+  h+=b('Beneath is a short paragraph that states that we are buying the property as is. Meaning the way it sits is how were buying it you don\u2019t need to renovate anything');
+
+  h+=banner('PURCHASE PRICE');
+  h+=b('We have the purchase price that we\u2019ve agreed to');
+
+  h+=banner('1) CLOSING COSTS');
+  h+=b('All closing costs are covered by us.');
+
+  h+=banner('2) ENCUMBRANCES');
+  h+=b('You are responsible for any liens, utilities, and mortgage (if there is one) up until the day we close after that its no longer your responsibility.');
+
+  h+=banner('3) TAX PRORATION');
+  h+=b('Same thing as encumbrances. You are responsible for the taxes on the property until we close. If you have already paid them, a prorated amount will be refunded to you at closing. The title company handles that');
+
+  h+=banner('4) CLOSE OF ESCROW');
+  h+=b('The closing date is set to be as soon as practical but no later than '+bl()+' business days from when we come out to the property which we will schedule after this.');
+
+  h+=banner('5) EARNEST MONEY DEPOSIT');
+  h+=b('This is held with the Titling Company; this is what we put in, so there\u2019s nothing you have to pay.');
+
+  h+=banner('6) INSPECTION PERIOD');
+  h+=b('Same as the close of escrow will begin once we\u2019ve come out to the property.');
+
+  h+=banner('7) BUYER\u2019S CONTINUED ACCESS TO PROPERTY');
+  h+=b('This just allows us to have reasonable access to the property during our inspection period. We will schedule these visits with you and/or the tenants so there won\u2019t be any unannounced visits to the property.');
+
+  h+=banner('8) OCCUPANCY OF PREMISE');
+  h+=b('You\u2019ll see I just checked a box saying its currently '+bl()+' <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(ex. Owner occupied)</span> and '+bl()+' <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(ex. Vacant at close)</span>.');
+
+  h+=banner('9) TITLE DOCUMENTS');
+  h+=b('This means that everything we get copies of, you get copies of from the titling company.');
+
+  h+=banner('10) TITLE DELAYS &amp; EXTENSIONS');
+  h+=b('If there are any liens on the property clouding the title it does not mean we don\u2019t want to purchase the home, this just means we will work with you on obtaining a clear title to continue moving forward.');
+
+  h+=banner('11) TITLE INSURANCE');
+  h+=b('If the title isn\u2019t insurable that means we get our earnest money back');
+
+  h+=banner('12) SELLER REPRESENTATIONS AND WARRANTIES');
+  h+=b('(A) Seller has full right, power and authority to sell the Property');
+  h+=b('(B) Seller will maintain the property in its current condition');
+  h+=b('(C) Seller understands that any personal property left on site will become the buyer\u2019s property after closing. So we just ask you grab all your important belongings before our final closing');
+
+  h+=banner('13) BUYER DISCLOSURE');
+  h+=b('This just says that we are not a realtor in this transaction as you know');
+
+  h+=banner('14) DEFAULT BY SELLER AND 15) DEFAULT BY BUYER');
+  h+=b('Just that obviously both of us have to do our parts in the agreement moving forward');
+
+  h+=banner('16) PRE-MARKETING AGREEMENT');
+  h+=b('This just allows us to notify our financial partners that we are purchasing the home who will be the ones coming out to the property during our inspection period.');
+
+  h+=banner('17) MEMORANDUM OF CONTRACT');
+  h+=b('This is when notify the county we are working together to purchase this property.');
+
+  h+=banner('18) NO ORAL CHANGES OR REPRESENTATIONS');
+  h+=b('Nothing we haven\u2019t already discussed isn\u2019t already in here otherwise it would be listed in additional terms and conditions which has been left blank <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(unless you have added something to it, word it accordingly to your seller)</span>');
+
+  h+=banner('19) ADDITIONAL TERMS &amp; CONDITIONS');
+  h+=b('And then beneath that is just number 16 the premarketing agreement and number 17 the memorandum');
+
+  h+=banner('CLOSE \u2014 AFTER THE WALKTHROUGH');
+  h+=b('\u201CSo you\u2019ll see at the bottom left corner of the first page is a coloured box. Go ahead and click there to initial and then there\u2019s another between number 8 and 9 and the rest are at the bottom left corner of the pages. So go ahead and click through those and ill just make sure I\u2019ve received it back on my end\u2026.\u201D');
+  h+=ins('YOU MAY NEED TO INSTRUCT THEM TO CLCIK FINISH AFTER ALL BOXES ARE CHECKED OFF');
+  h+=ins('DONT LET THEM GO TILL ITS IN OUR INBOX SIGNED');
+  h+=ins('ONCE THEY SIGN:');
+  h+=b('\u201CPerfect got it back on my end it looks good. What time is good for my transaction coordinator to give you a call. He will call to introduce himself and book a time with you for us to come out there\u201D');
+
+  h+='<div style="border-top:2px solid '+GOLD+';margin-top:22px;padding-top:10px;display:flex;justify-content:space-between;color:'+NAVY+';font-size:11px;font-weight:800"><span>CLEAR PATH PROPERTY SOLUTIONS</span><span>PA WALKTHROUGH</span></div>';
+
   h+='</div></div>';
   el.innerHTML=h;
 }
