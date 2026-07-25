@@ -68,7 +68,6 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
   <div id="v_cmd" class="view"></div>
   <div id="v_earn" class="view"></div>
   <div id="v_metrics" class="view"></div>
-  <div id="v_owner" class="view"></div>
   <div id="v_inputs" class="view"></div>
 </div>
 
@@ -110,7 +109,7 @@ function buildTabs(){
    +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\ud83d\udcca</span>KPIs</button>'
    +'<button id="tb_bot" onclick="nav(\'bot\')"><span class="ic">\ud83e\udd16</span>Bot</button>'
    +'<button id="tb_earn" onclick="nav(\'earn\')"><span class="ic">\ud83d\udcb0</span>Comp Plan</button>'
-   +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">\ud83d\udd12</span>Owner</button>':'')
+   
    +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">\u2699\ufe0f</span>Inputs</button>';
   document.getElementById('tabbar').innerHTML=t;
   document.getElementById('roleBadge').style.display=ROLE==='owner'?'inline-block':'none';
@@ -127,7 +126,7 @@ function nav(v){
     }
   }
 
-  ['script','today','goal','cmd','bot','earn','metrics','owner','inputs'].forEach(function(k){
+  ['script','today','goal','cmd','bot','earn','metrics','inputs'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
@@ -186,7 +185,7 @@ function closedStats(from){
 }
 
 /* ============ RENDER ============ */
-function render(){renderScript();renderToday();renderGoal();renderCommand();renderBot();renderEarnings();renderMetrics();if(ROLE==='owner')renderOwner();renderInputs()}
+function render(){renderScript();renderToday();renderGoal();renderCommand();renderBot();renderEarnings();renderMetrics();renderInputs()}
 
 function renderToday(){
   var t=today();
@@ -855,7 +854,18 @@ function renderGoal(){
   var curDialsDay=Math.round(ms.dials/di.elapsed);
   var covered=curDialsDay>=dialsDay;
 
-  function rrow(l,v,hint){return '<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><div style="font-size:14px;font-weight:700">'+l+'</div>'+(hint?'<div class="sm mut">'+hint+'</div>':'')+'</div><div style="font-size:24px;font-weight:800;text-align:right">'+v+'</div></div>'}
+  function bar(pct,col){return '<div class="sbar" style="height:10px;margin-top:8px;border-radius:99px"><i style="width:'+Math.min(100,Math.max(0,pct))+'%;background:'+col+'"></i></div>'}
+  function prow(icon,label,have,need,hint,fmtFn){
+    var f=fmtFn||function(x){return x};
+    var pct=need>0?Math.round(have/need*100):100;
+    var done=have>=need&&need>0;
+    var col=done?'var(--green)':(pct>=60?'var(--gold)':'var(--gold)');
+    return '<div style="padding:14px 0;border-bottom:1px solid var(--line)">'
+      +'<div class="row"><div style="font-size:15px;font-weight:700">'+icon+' '+label+'</div>'
+      +'<div style="font-size:17px;font-weight:800;text-align:right">'+f(have)+' <span class="sm mut">/ '+f(need)+(done?' \u2705':'')+'</span></div></div>'
+      +(hint?'<div class="sm mut">'+hint+'</div>':'')
+      +bar(pct,col)+'</div>';
+  }
 
   if(lockedTarget>0){
     // extra ratios for the full ladder
@@ -870,13 +880,19 @@ function renderGoal(){
     var leadsNeeded=contractsLeft*leadPerContract;
     var talkNeeded=Math.round(convosNeeded*talkPerConvo); // minutes
     function hm(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
-    h+='<div class="card"><h2>\uD83D\uDD27 Reverse engineered</h2>'
-     +rrow('\uD83D\uDCDD Contracts to lock', reqContracts+' <span class="sm mut">('+ms.contracts+' locked)</span>','at '+fmt$(avgFee)+' avg fee'+(ownerTarget?' \u00b7 covers '+fallout+'% fallout':''))
-     +rrow('\uD83D\uDCB0 Offers to make', offersNeeded, offerPerContract+' offers per contract \u2014 your rate')
-     +rrow('\uD83D\uDCAC Convos still needed', convosNeeded, convoPerContract+' convos per contract \u2014 your rate')
-     +rrow('\u23F1 Talk time needed', hm(talkNeeded), talkPerConvo.toFixed(1)+' min per convo \u2014 your rate')
-     +rrow('\uD83D\uDCDE Dials still needed', dialsNeeded, dialPerConvo+' dials per convo \u2014 your rate')
-     +rrow('\uD83D\uDCE5 Leads needed', leadsNeeded, leadPerContract+' leads per contract \u2014 your rate')
+    // leads count this month for rep
+    var leadsHave=(function(){var c=0,m=monthStart();D.leads.forEach(function(l){if(repOf(l)===who&&l.created_at&&l.created_at.slice(0,10)>=m)c++});return c})();
+    var offersHave=(function(){var c=0,m=monthStart();D.offers.forEach(function(of){var l=leadById(of.lead_id);if(of.offered_on>=m&&l&&repOf(l)===who)c++});return c})();
+    function hmv(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
+    var contractsTotal=reqContracts, offersTotal=reqContracts*offerPerContract, convosTotal=reqContracts*convoPerContract, dialsTotal=reqContracts*convoPerContract*dialPerConvo, leadsTotal=reqContracts*leadPerContract, talkTotal=Math.round(convosTotal*talkPerConvo);
+    h+='<div class="card"><h2>\uD83D\uDD27 The climb to '+fmt$(lockedTarget)+'</h2>'
+     +'<div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
+     +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'at '+fmt$(avgFee)+' avg fee'+(ownerTarget?' \u00b7 covers '+fallout+'% fallout':''))
+     +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 your rate')
+     +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 your rate')
+     +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 your rate',hmv)
+     +prow('\uD83D\uDCDE','Dials',ms.dials,dialsTotal,dialPerConvo+' per convo \u2014 your rate')
+     +prow('\uD83D\uDCE5','Leads',leadsHave,leadsTotal,leadPerContract+' per contract \u2014 your rate')
      +'<div style="text-align:center;padding:18px 0 6px">'
      +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
      +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
