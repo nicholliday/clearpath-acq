@@ -601,6 +601,14 @@ function cmdFrom(){
   if(CMD_FROM==='__year__')return yearStart();
   return null;
 }
+function swScript(v){
+  window.SCRIPT_VIEW=v;
+  renderScript();
+  window.scrollTo(0,0);
+  document.documentElement.scrollTop=0;
+  document.body.scrollTop=0;
+  setTimeout(function(){window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0},50);
+}
 function renderScript(){
   var el=document.getElementById('v_script');if(!el)return;
   var NAVY='#22375A', GOLD='#C9A24B', BRONZE='#A67420', INK='#1E2A3D';
@@ -613,7 +621,7 @@ function renderScript(){
 
   if(!window.SCRIPT_VIEW)window.SCRIPT_VIEW='occ';
   var pav=(window.SCRIPT_VIEW==='pa');
-  function tabbtn(label,v,active){return '<button onclick="window.SCRIPT_VIEW=\''+v+'\';renderScript();window.scrollTo(0,0)" style="flex:1;padding:13px 8px;border-radius:8px;font-weight:800;font-size:14px;letter-spacing:.05em;cursor:pointer;border:2px solid '+NAVY+';'+(active?'background:#fff;color:'+NAVY:'background:'+NAVY+';color:#fff')+'">'+label+'</button>'}
+  function tabbtn(label,v,active){return '<button onclick="swScript(\''+v+'\')" style="flex:1;padding:13px 8px;border-radius:8px;font-weight:800;font-size:14px;letter-spacing:.05em;cursor:pointer;border:2px solid '+NAVY+';'+(active?'background:#fff;color:'+NAVY:'background:'+NAVY+';color:#fff')+'">'+label+'</button>'}
   var bar='<div style="display:flex;gap:10px">'+tabbtn('ONE CALL CLOSE','occ',!pav)+tabbtn('PA WALKTHROUGH','pa',pav)+'</div>';
   var h='<div style="margin:0 0 14px">'+bar+'</div>';
   h+='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)">';
