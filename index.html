@@ -53,7 +53,7 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 <div id="lock">
   <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
   <h1 style="margin:6px 0 14px">Acq Tracker</h1>
-  <input id="pw" type="password" placeholder="Passcode" style="max-width:260px" onkeydown="if(event.key==='Enter')tryPass()">
+  <input id="pw" type="password" placeholder="Your personal passcode" style="max-width:260px" onkeydown="if(event.key==='Enter')tryPass()">
   <button class="btn g" onclick="tryPass()" style="max-width:260px;width:100%">Enter</button>
 </div>
 
@@ -85,13 +85,21 @@ var PCLS={'New':'p-new','Contacted':'p-con','Offer Made':'p-off','Follow-Up':'p-
 var ROLE=localStorage.getItem('cp_acq_role')||'';
 var ME=localStorage.getItem('cp_acq_me')||null;
 
-function tryPass(){
+async function tryPass(){
   var v=(document.getElementById('pw').value||'').toLowerCase().trim();
-  if(v==='clearpath'){ROLE='rep';}
-  else if(v==='clearpathowner'){ROLE='owner';}
-  else{alert('Wrong passcode');return;}
-  localStorage.setItem('cp_acq_role',ROLE);
-  if(ROLE==='owner'){ME=null;localStorage.removeItem('cp_acq_me');}
+  if(!v)return;
+  if(v==='clearpathowner'){
+    ROLE='owner';ME=null;
+    localStorage.setItem('cp_acq_role',ROLE);localStorage.removeItem('cp_acq_me');
+    document.getElementById('lock').style.display='none';
+    buildTabs(); loadAll();
+    return;
+  }
+  var r=await db.from('acq_reps').select('name,passcode');
+  var hit=(r.data||[]).find(function(x){return (x.passcode||'').toLowerCase().trim()===v});
+  if(!hit){alert('Wrong passcode');return;}
+  ROLE='rep';ME=hit.name;
+  localStorage.setItem('cp_acq_role',ROLE);localStorage.setItem('cp_acq_me',ME);
   document.getElementById('lock').style.display='none';
   buildTabs(); loadAll();
 }
@@ -146,9 +154,8 @@ async function loadAll(){
     db.from('acq_calls').select('phone,called_at,rep,counted')
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
-  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.calls=(r[8].data||[]);
+  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.repPass={};(r[7].data||[]).forEach(function(x){if(x.passcode)D.repPass[x.name]=x.passcode});D.calls=(r[8].data||[]);
   D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
-  if(ROLE==='rep'&&(!ME||payReps().indexOf(ME)<0))pickIdentity();
   render();
 }
 function T(k,d){return D.targets[k]!=null?D.targets[k]:d}
@@ -993,12 +1000,12 @@ function renderInputs(){
   if(ROLE==='owner')ks.push(['avgfee','Avg fee ($, drives proj revenue)',10000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
-  h+=(ROLE==='rep'?'<div class="card"><h2>\ud83d\udc4b You</h2><div class="sm">Signed in as <b>'+esc(ME||'?')+'</b></div><button class="btn mut" onclick="pickIdentity()">Switch user</button></div>':'')
+  h+=(ROLE==='rep'?'<div class="card"><h2>\ud83d\udc4b Your account</h2><div class="sm">Signed in as <b>'+esc(ME||'?')+'</b> \u2014 your Goal Hitter and Comp Plan are personal to you.</div></div>':'')
    +'<div class="card"><h2>👥 Reps</h2><div class="sm mut" style="margin-bottom:8px">Boards, lead assignment, and the calculator use this list.</div>'
    +D.reps.map(function(rp){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>'+esc(rp)+'</span>'+(ROLE==='owner'?'<button class="btn d" onclick="delRep(\''+esc(rp)+'\')">✕</button>':'')+'</div>'}).join('')
    +(ROLE==='owner'?'<input id="nr_name" placeholder="New rep name"><button class="btn g" onclick="addRep()">+ Add rep</button>':'')
    +'<div style="margin-top:12px"><b class="sm">💰 Monthly commission goals</b></div>'
-   +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+' \u2014 goal + ramp start</label><div style="display:flex;gap:8px"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'"><input id="ramp_'+gid+'" type="month" value="'+(((D.repRamp&&D.repRamp[rp])||monthStart()).slice(0,7))+'"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join('')
+   +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+' \u2014 goal \u00b7 ramp start \u00b7 passcode</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'" style="flex:1;min-width:90px"><input id="ramp_'+gid+'" type="month" value="'+(((D.repRamp&&D.repRamp[rp])||monthStart()).slice(0,7))+'" style="flex:1;min-width:120px"><input id="pass_'+gid+'" placeholder="passcode" value="'+esc((D.repPass&&D.repPass[rp])||'')+'" style="flex:1;min-width:90px"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join('')
    +'</div>';
   h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time count <b>automatically</b> — every GHL and OpenPhone call by Nic or BT flows in through the acq relay (2+ min = convo, same number within 60 min counts once). Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
@@ -1008,6 +1015,8 @@ async function saveGoal(rp){
   var rel=document.getElementById('ramp_'+rp.replace(/[^a-zA-Z0-9]/g,'_'));
   var upd={monthly_goal:Number(el.value)||8000};
   if(rel&&rel.value)upd.ramp_start=rel.value+'-01';
+  var pel=document.getElementById('pass_'+rp.replace(/[^a-zA-Z0-9]/g,'_'));
+  if(pel&&pel.value.trim())upd.passcode=pel.value.trim();
   var r=await db.from('acq_reps').update(upd).eq('name',rp);
   if(r.error)return alert(r.error.message);
   loadAll();
