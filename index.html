@@ -613,8 +613,9 @@ function renderScript(){
 
   if(!window.SCRIPT_VIEW)window.SCRIPT_VIEW='occ';
   var pav=(window.SCRIPT_VIEW==='pa');
-  function tabbtn(label,v,active){return '<button onclick="window.SCRIPT_VIEW=\''+v+'\';renderScript();window.scrollTo(0,0)" style="flex:1;padding:13px 8px;border-radius:8px;font-weight:800;font-size:14px;letter-spacing:.05em;cursor:pointer;border:2px solid '+NAVY+';'+(active?'background:'+NAVY+';color:#fff':'background:#fff;color:'+NAVY)+'">'+label+'</button>'}
-  var h='<div style="display:flex;gap:10px;margin:0 0 14px">'+tabbtn('ONE CALL CLOSE','occ',!pav)+tabbtn('PA WALKTHROUGH','pa',pav)+'</div>';
+  function tabbtn(label,v,active){return '<button onclick="window.SCRIPT_VIEW=\''+v+'\';renderScript();window.scrollTo(0,0)" style="flex:1;padding:13px 8px;border-radius:8px;font-weight:800;font-size:14px;letter-spacing:.05em;cursor:pointer;border:2px solid '+NAVY+';'+(active?'background:#fff;color:'+NAVY:'background:'+NAVY+';color:#fff')+'">'+label+'</button>'}
+  var bar='<div style="display:flex;gap:10px">'+tabbtn('ONE CALL CLOSE','occ',!pav)+tabbtn('PA WALKTHROUGH','pa',pav)+'</div>';
+  var h='<div style="margin:0 0 14px">'+bar+'</div>';
   h+='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)">';
 
   if(!pav){
@@ -845,6 +846,7 @@ function renderScript(){
   }
 
   h+='</div>';
+  h+='<div style="margin:16px 0 6px">'+bar+'</div>';
   el.innerHTML=h;
 }
 function renderBot(){
