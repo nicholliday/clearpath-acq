@@ -228,7 +228,7 @@ function renderToday(){
   });
   // 6th row: projected revenue (month pace)
   (function(){
-    var di=daysInfo(), avgFee=T('avgfee',10000);
+    var di=daysInfo(), avgFee=T('avgfee',15000);
     var m=monthStart();
     var projs=reps.map(function(rp){
       var ms=repRange(rp,m);
@@ -522,7 +522,7 @@ function renderEarnings(){
   var PR=payReps();if(!PR.length)PR=D.reps;
   if(ME&&PR.indexOf(ME)>=0)PR=[ME];
   if(EARN_REP===null||PR.indexOf(EARN_REP)<0)EARN_REP=PR[0];
-  var rep=EARN_REP, fx=T('fx',1.38), avgFee=T('avgfee',10000), di=daysInfo();
+  var rep=EARN_REP, fx=T('fx',1.38), avgFee=T('avgfee',15000), di=daysInfo();
   var mo=rampMonthOf(rep);
   var target=RAMP[mo-1];
   var closed=metMonthRev(rep);
@@ -764,7 +764,7 @@ function renderCommand(){
   var PR=payReps();if(!PR.length)PR=D.reps;
   if(ME&&PR.indexOf(ME)>=0)PR=[ME];
   if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
-  var di=daysInfo(), avgFee=T('avgfee',10000);
+  var di=daysInfo(), avgFee=T('avgfee',15000);
   var from=cmdFrom();
 
   var ranges=[['Day','__day__'],['Week','__week__'],['Month','__month__'],['Quarter','__q__'],['Year','__year__'],['All time','__all__']];
@@ -791,16 +791,14 @@ function renderGoal(){
   var isOwnerView=(ROLE==='owner');
   // owner sees their own goal hitter; reps see theirs. Owner can also flip to a rep to inspect.
   var who = isOwnerView ? OWNER_REP : (ME||PR[0]);
-  if(isOwnerView){ if(GOAL_REP===null) GOAL_REP=OWNER_REP; if(D.reps.indexOf(GOAL_REP)>=0) who=GOAL_REP; }
+  if(isOwnerView){ who=OWNER_REP; }
 
-  var di=daysInfo(), avgFee=T('avgfee',10000), fx=T('fx',1.38);
+  var di=daysInfo(), avgFee=T('avgfee',15000), fx=T('fx',1.38);
   var monthName=new Date().toLocaleDateString('en-US',{month:'long'}).toUpperCase();
   var h='';
 
   // owner-only: rep switcher to inspect anyone
-  if(isOwnerView){
-    h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+D.reps.map(function(rp){return '<button class="btn '+(who===rp?'g':'mut')+'" onclick="setGoalRep(\''+esc(rp)+'\')">'+esc(rp.split(' ')[0])+'</button>'}).join('')+'</div>';
-  }
+
 
   var ownerTarget = (who===OWNER_REP);
   var ms=repRange(who,monthStart());
@@ -860,10 +858,25 @@ function renderGoal(){
   function rrow(l,v,hint){return '<div class="row" style="padding:10px 0;border-bottom:1px solid var(--line)"><div><div style="font-size:14px;font-weight:700">'+l+'</div>'+(hint?'<div class="sm mut">'+hint+'</div>':'')+'</div><div style="font-size:24px;font-weight:800;text-align:right">'+v+'</div></div>'}
 
   if(lockedTarget>0){
+    // extra ratios for the full ladder
+    var offerPerContract=ms.contracts>0?Math.max(1,Math.round(ms.offers/ms.contracts)):3;
+    var talkPerConvo=ms.convos>0?Math.max(1,ms.talk/ms.convos):4; // minutes
+    var leadPerContract=(function(){
+      var lc=0,cc=0,m=monthStart();
+      D.leads.forEach(function(l){if(repOf(l)===who&&l.created_at&&l.created_at.slice(0,10)>=m){lc++;if(l.contracted_on&&l.contracted_on>=m)cc++;}});
+      return cc>0?Math.max(1,Math.round(lc/cc)):(convoPerContract*2);
+    })();
+    var offersNeeded=contractsLeft*offerPerContract;
+    var leadsNeeded=contractsLeft*leadPerContract;
+    var talkNeeded=Math.round(convosNeeded*talkPerConvo); // minutes
+    function hm(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
     h+='<div class="card"><h2>\uD83D\uDD27 Reverse engineered</h2>'
      +rrow('\uD83D\uDCDD Contracts to lock', reqContracts+' <span class="sm mut">('+ms.contracts+' locked)</span>','at '+fmt$(avgFee)+' avg fee'+(ownerTarget?' \u00b7 covers '+fallout+'% fallout':''))
+     +rrow('\uD83D\uDCB0 Offers to make', offersNeeded, offerPerContract+' offers per contract \u2014 your rate')
      +rrow('\uD83D\uDCAC Convos still needed', convosNeeded, convoPerContract+' convos per contract \u2014 your rate')
+     +rrow('\u23F1 Talk time needed', hm(talkNeeded), talkPerConvo.toFixed(1)+' min per convo \u2014 your rate')
      +rrow('\uD83D\uDCDE Dials still needed', dialsNeeded, dialPerConvo+' dials per convo \u2014 your rate')
+     +rrow('\uD83D\uDCE5 Leads needed', leadsNeeded, leadPerContract+' leads per contract \u2014 your rate')
      +'<div style="text-align:center;padding:18px 0 6px">'
      +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
      +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
@@ -1015,7 +1028,7 @@ function renderOwner(){
   var sp=D.spend.find(function(s){return s.month===m});var spend=sp?Number(sp.spend):0;
   var mLeads=countLeadsIn(monthStart()),mOff=countOffers(monthStart()),mCon=countContracts(monthStart());
   var cpl=mLeads?Math.round(spend/mLeads):0, cpc=mCon?Math.round(spend/mCon):0;
-  var proj=mCon*T('avgfee',10000);
+  var proj=mCon*T('avgfee',15000);
   var allLeads=D.leads.length, contacted=D.leads.filter(function(l){return l.stage!=='New'}).length,
       offered=D.leads.filter(function(l){return D.offers.some(function(o){return o.lead_id===l.id})}).length,
       uc=D.leads.filter(function(l){return l.contracted_on}).length;
@@ -1028,7 +1041,7 @@ function renderOwner(){
    +'<div class="kpi"><div class="v">'+mCon+'</div><div class="l">CONTRACTS</div></div>'
    +'<div class="kpi"><div class="v" style="color:var(--gold)">'+fmt$(proj)+'</div><div class="l">PROJ REVENUE</div></div>'
    +'</div><label>This month\'s Meta spend ($)</label><input id="ow_spend" type="number" value="'+(spend||'')+'"><button class="btn g" onclick="saveSpend()">Save spend</button>'
-   +'<div class="sm mut" style="margin-top:6px">Proj revenue = contracts × avg fee target ('+fmt$(T('avgfee',10000))+', editable in Inputs). Only visible with the owner passcode.</div></div>';
+   +'<div class="sm mut" style="margin-top:6px">Proj revenue = contracts × avg fee target ('+fmt$(T('avgfee',15000))+', editable in Inputs). Only visible with the owner passcode.</div></div>';
   h+='<div class="card"><h2>🔻 Acq funnel (all time)</h2>'
    +frow(allLeads,contacted,'Leads','Contacted')+frow(contacted,offered,'Contacted','Offer made')+frow(offered,uc,'Offers','Contract')
    +'</div>';
@@ -1045,7 +1058,7 @@ async function saveSpend(){
 
 function renderInputs(){
   var ks=[['dials_day','Team dials / day',320],['convos_day','Team convos / day',70],['talkmin_day','Team talk min / day (360 = 6 hrs)',360],['offers_day','Team offers / day',10],['contracts_day','Team contracts / day',1],['contracts_month','Contracts / month (pace + calculator)',6]];
-  if(ROLE==='owner')ks.push(['avgfee','Avg fee ($, drives proj revenue)',10000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
+  if(ROLE==='owner')ks.push(['avgfee','Avg assignment fee ($)',15000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
   h+='<div class="card"><h2>\ud83d\udc4b Your account</h2><div class="sm">Signed in as <b>'+(ROLE==='owner'?'Owner':esc(ME||'?'))+'</b>'+(ROLE==='rep'?' \u2014 your Goal Hitter and Comp Plan are personal to you.':'')+'</div><button class="btn mut" onclick="logOut()">Log out</button></div>'
