@@ -1000,15 +1000,20 @@ function renderInputs(){
   if(ROLE==='owner')ks.push(['avgfee','Avg fee ($, drives proj revenue)',10000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
-  h+=(ROLE==='rep'?'<div class="card"><h2>\ud83d\udc4b Your account</h2><div class="sm">Signed in as <b>'+esc(ME||'?')+'</b> \u2014 your Goal Hitter and Comp Plan are personal to you.</div></div>':'')
+  h+='<div class="card"><h2>\ud83d\udc4b Your account</h2><div class="sm">Signed in as <b>'+(ROLE==='owner'?'Owner':esc(ME||'?'))+'</b>'+(ROLE==='rep'?' \u2014 your Goal Hitter and Comp Plan are personal to you.':'')+'</div><button class="btn mut" onclick="logOut()">Log out</button></div>'
    +'<div class="card"><h2>👥 Reps</h2><div class="sm mut" style="margin-bottom:8px">Boards, lead assignment, and the calculator use this list.</div>'
    +D.reps.map(function(rp){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>'+esc(rp)+'</span>'+(ROLE==='owner'?'<button class="btn d" onclick="delRep(\''+esc(rp)+'\')">✕</button>':'')+'</div>'}).join('')
    +(ROLE==='owner'?'<input id="nr_name" placeholder="New rep name"><button class="btn g" onclick="addRep()">+ Add rep</button>':'')
-   +'<div style="margin-top:12px"><b class="sm">💰 Monthly commission goals</b></div>'
-   +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+' \u2014 goal \u00b7 ramp start \u00b7 passcode</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'" style="flex:1;min-width:90px"><input id="ramp_'+gid+'" type="month" value="'+(((D.repRamp&&D.repRamp[rp])||monthStart()).slice(0,7))+'" style="flex:1;min-width:120px"><input id="pass_'+gid+'" placeholder="passcode" value="'+esc((D.repPass&&D.repPass[rp])||'')+'" style="flex:1;min-width:90px"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join('')
+   +(ROLE==='owner'?'<div style="margin-top:12px"><b class="sm">💰 Monthly commission goals</b></div>'
+   +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+' \u2014 goal \u00b7 ramp start \u00b7 passcode</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'" style="flex:1;min-width:90px"><input id="ramp_'+gid+'" type="month" value="'+(((D.repRamp&&D.repRamp[rp])||monthStart()).slice(0,7))+'" style="flex:1;min-width:120px"><input id="pass_'+gid+'" placeholder="passcode" value="'+esc((D.repPass&&D.repPass[rp])||'')+'" style="flex:1;min-width:90px"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join(''):'')
    +'</div>';
   h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time count <b>automatically</b> — every GHL and OpenPhone call by Nic or BT flows in through the acq relay (2+ min = convo, same number within 60 min counts once). Offers: <b>+ Offer</b> on the lead. Contracts: stage → <b>Under Contract</b>. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
+}
+function logOut(){
+  localStorage.removeItem('cp_acq_role');
+  localStorage.removeItem('cp_acq_me');
+  location.reload();
 }
 async function saveGoal(rp){
   var el=document.getElementById('goal_'+rp.replace(/[^a-zA-Z0-9]/g,'_'));if(!el)return;
