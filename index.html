@@ -1118,7 +1118,7 @@ function lockedMonthRev(rep){
     o.n++;
     var d=l.deal_id?linkedDeal(l):null;
     if(d&&d.revenue_closed){o.act+=d.revenue_closed}
-    else{o.proj+=avgFee}
+    else{o.proj+=(Number(l.projected_profit)||avgFee)}
   });
   o.total=o.proj+o.act;
   return o;
