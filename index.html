@@ -1003,7 +1003,7 @@ function renderGoal(){
      +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 your rate')
      +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 your rate',hmv)
      +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 your rate')
-     +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'at '+fmt$(avgFee)+' avg fee'+(ownerTarget?' \u00b7 covers '+fallout+'% fallout':''))
+     +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank'+(ownerTarget?' \u00b7 covers '+fallout+'% fallout':''))
      +'<div style="text-align:center;padding:18px 0 6px">'
      +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
      +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
