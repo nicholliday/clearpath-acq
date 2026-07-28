@@ -973,6 +973,21 @@ function renderGoal(){
   }
   h+='</div>';
 
+  // ============ MONTH-1 REP: metrics so far (no targets yet) ============
+  if(!ownerTarget && lockedTarget<=0){
+    function hm1(min){return Math.floor(min/60)+'h '+(Math.round(min)%60)+'m'}
+    h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY</div><h2>\uD83D\uDCCA Your numbers so far</h2>'
+     +'<table style="width:100%">'
+     +'<tr><td>\uD83D\uDCDE Dials</td><td style="text-align:right"><b>'+(ms.dials||0)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCAC Convos</td><td style="text-align:right"><b>'+(ms.convos||0)+'</b></td></tr>'
+     +'<tr><td>\u23F1 Talk time</td><td style="text-align:right"><b>'+hm1(ms.talk||0)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCB0 Offers</td><td style="text-align:right"><b>'+(ms.offers||0)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCDD Contracts</td><td style="text-align:right"><b>'+(ms.contracts||0)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCC8 Projected revenue</td><td style="text-align:right"><b>'+fmt$(closed)+'</b></td></tr>'
+     +'</table>'
+     +'<div class="sm mut" style="margin-top:8px">Targets kick in next month at '+fmt$(RAMP[rampMonthOf(who)]||0)+' \u2014 these numbers are your baseline.</div></div>';
+  }
+
   // ============ REVERSE ENGINEERED ============
   var reqContracts=lockedTarget>0?Math.max(1,Math.ceil(lockedTarget/avgFee)):0;
   var convoPerContract=ms.contracts>0?Math.max(5,Math.round(ms.convos/ms.contracts)):40;
