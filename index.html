@@ -913,13 +913,16 @@ function renderGoal(){
 
   // ============ TARGET (locked revenue to reverse-engineer against) ============
   var lockedTarget, fundedGoal, fallout, headerLine, subLine;
+  var nGoal=0, feeGoal=avgFee;
   if(ownerTarget){
-    fundedGoal = Number(D.ownerGoal!=null?D.ownerGoal:T('owner_goal',150000));
+    nGoal = Number(D.targets&&D.targets.owner_contracts!=null?D.targets.owner_contracts:20);
+    feeGoal = Number(D.targets&&D.targets.owner_avgfee!=null?D.targets.owner_avgfee:avgFee);
     fallout = Number(D.ownerFallout!=null?D.ownerFallout:T('owner_fallout',50));
-    var keep = Math.max(1,(100-fallout))/100;
-    lockedTarget = Math.round(fundedGoal/keep);
-    headerLine = monthName+' \u00b7 YOUR TARGET';
-    subLine = 'Fund '+fmt$(fundedGoal)+' after '+fallout+'% fallout \u2192 lock '+fmt$(lockedTarget);
+    lockedTarget = Math.round(nGoal*feeGoal)||0;
+    fundedGoal = Math.round(lockedTarget*Math.max(0,100-fallout)/100);
+    avgFee = feeGoal;
+    headerLine = monthName;
+    subLine = nGoal+' contracts \u00d7 '+fmt$(feeGoal)+' \u00b7 ~'+fmt$(fundedGoal)+' expected to close after '+fallout+'% fallout';
   } else {
     var mo=rampMonthOf(who);
     lockedTarget = RAMP[mo-1];
@@ -935,21 +938,28 @@ function renderGoal(){
   var col=closed>=lockedTarget?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
 
   // ============ GOAL CARD ============
-  h+='<div class="card" style="text-align:center;padding:24px 14px">'
-   +'<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>';
+  h+='<div class="card" style="text-align:center;padding:24px 14px">';
 
-  if(ownerTarget && (isOwnerView)){
-    // editable inputs for owner
-    h+='<div style="display:flex;gap:8px;justify-content:center;align-items:flex-end;margin:14px 0 6px;flex-wrap:wrap">'
-     +'<div><div class="sm mut">FUND (CLOSED $)</div><input id="og_fund" type="number" value="'+fundedGoal+'" style="width:150px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
-     +'<div><div class="sm mut">FALLOUT %</div><input id="og_fo" type="number" value="'+fallout+'" style="width:80px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
-     +'</div>';
+  if(ownerTarget){
+    h+='<div style="font-size:min(9vw,42px);font-weight:800;letter-spacing:.1em">'+monthName+'</div>'
+     +'<div style="font-size:12px;color:var(--mut);margin-top:10px;letter-spacing:.16em;font-weight:800">PROJECTED PROFIT GOAL</div>'
+     +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>';
+    if(isOwnerView){
+      h+='<div style="display:flex;gap:10px;justify-content:center;align-items:flex-end;margin:16px 0 4px;flex-wrap:wrap">'
+       +'<div><div class="sm mut">CONTRACTS</div><input id="og_n" type="number" value="'+nGoal+'" style="width:90px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+       +'<div><div class="sm mut">AVG FEE $</div><input id="og_fee" type="number" value="'+feeGoal+'" style="width:120px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+       +'<div><div class="sm mut">FALLOUT %</div><input id="og_fo" type="number" value="'+fallout+'" style="width:80px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+       +'</div>';
+    }
+    h+='<div style="font-size:12px;color:var(--mut)">'+subLine+'</div>';
+  } else {
+    h+='<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>'
+     +'<div style="font-size:13px;color:var(--mut);margin-top:14px">MUST LOCK</div>'
+     +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>'
+     +'<div style="font-size:12px;color:var(--mut)">'+subLine+'</div>';
   }
 
-  h+='<div style="font-size:13px;color:var(--mut);margin-top:'+(ownerTarget?'6px':'14px')+'">MUST LOCK</div>'
-   +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>'
-   +'<div style="font-size:12px;color:var(--mut)">'+subLine+'</div>'
-   +'<div class="sbar" style="height:14px;margin:16px 8% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
+  h+='<div class="sbar" style="height:14px;margin:16px 8% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
    +'<div class="row" style="margin-top:10px;padding:0 6%"><span class="sm mut">LOCKED: <b style="color:'+col+'">'+fmt$(closed)+'</b></span><span class="sm mut">TO GO: <b>'+fmt$(Math.max(0,lockedTarget-closed))+'</b></span></div>'
    +'<div class="sm mut" style="margin-top:6px">'+lr.n+' contract'+(lr.n===1?'':'s')+' locked this month \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed</div>'
    +'</div>';
@@ -1003,7 +1013,8 @@ function renderGoal(){
      +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 your rate')
      +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 your rate',hmv)
      +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 your rate')
-     +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank'+(ownerTarget?' \u00b7 covers '+fallout+'% fallout':''))
+     +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank')
+     +prow('\uD83D\uDCC8','Projected revenue',closed,lockedTarget,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$)
      +'<div style="text-align:center;padding:18px 0 6px">'
      +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
      +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
@@ -1028,15 +1039,22 @@ function renderGoal(){
   el.innerHTML=h;
 }
 async function saveOwnerGoal(){
-  var f=document.getElementById('og_fund'), o=document.getElementById('og_fo');
-  if(!f)return;
-  D.ownerGoal=Number(f.value)||0;
+  var n=document.getElementById('og_n'), fe=document.getElementById('og_fee'), o=document.getElementById('og_fo');
+  if(!n)return;
+  if(!D.targets)D.targets={};
+  D.targets.owner_contracts=Number(n.value)||0;
+  D.targets.owner_avgfee=Number(fe.value)||0;
   D.ownerFallout=Number(o.value)||0;
+  D.targets.owner_fallout=D.ownerFallout;
   clearTimeout(window._ogT);
   window._ogT=setTimeout(function(){
     var host=document.getElementById('v_goal');var y=host?host.scrollTop:0;
     renderGoal();
-    db.from('acq_targets').upsert([{key:'owner_goal',value:D.ownerGoal},{key:'owner_fallout',value:D.ownerFallout}],{onConflict:'key'});
+    db.from('acq_targets').upsert([
+      {key:'owner_contracts',value:D.targets.owner_contracts},
+      {key:'owner_avgfee',value:D.targets.owner_avgfee},
+      {key:'owner_fallout',value:D.ownerFallout}
+    ],{onConflict:'key'});
   },400);
 }
 
