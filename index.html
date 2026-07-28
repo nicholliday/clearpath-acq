@@ -973,23 +973,10 @@ function renderGoal(){
   }
   h+='</div>';
 
-  // ============ MONTH-1 REP: metrics so far (no targets yet) ============
-  if(!ownerTarget && lockedTarget<=0){
-    function hm1(min){return Math.floor(min/60)+'h '+(Math.round(min)%60)+'m'}
-    h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY</div><h2>\uD83D\uDCCA Your numbers so far</h2>'
-     +'<table style="width:100%">'
-     +'<tr><td>\uD83D\uDCDE Dials</td><td style="text-align:right"><b>'+(ms.dials||0)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCAC Convos</td><td style="text-align:right"><b>'+(ms.convos||0)+'</b></td></tr>'
-     +'<tr><td>\u23F1 Talk time</td><td style="text-align:right"><b>'+hm1(ms.talk||0)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCB0 Offers</td><td style="text-align:right"><b>'+(ms.offers||0)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCDD Contracts</td><td style="text-align:right"><b>'+(ms.contracts||0)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCC8 Projected revenue</td><td style="text-align:right"><b>'+fmt$(closed)+'</b></td></tr>'
-     +'</table>'
-     +'<div class="sm mut" style="margin-top:8px">Targets kick in next month at '+fmt$(RAMP[rampMonthOf(who)]||0)+' \u2014 these numbers are your baseline.</div></div>';
-  }
-
   // ============ REVERSE ENGINEERED ============
-  var reqContracts=lockedTarget>0?Math.max(1,Math.ceil(lockedTarget/avgFee)):0;
+  var LT = lockedTarget>0 ? lockedTarget : (!ownerTarget ? (RAMP[rampMonthOf(who)]||20000) : 0);
+  var practicePace = (!ownerTarget && lockedTarget<=0);
+  var reqContracts=LT>0?Math.max(1,Math.ceil(LT/avgFee)):0;
   var convoPerContract=ms.contracts>0?Math.max(5,Math.round(ms.convos/ms.contracts)):40;
   var dialPerConvo=ms.convos>0?Math.max(2,Math.round(ms.dials/ms.convos)):5;
   var contractsLeft=Math.max(0,reqContracts-ms.contracts);
@@ -1012,7 +999,7 @@ function renderGoal(){
       +bar(pct,col)+'</div>';
   }
 
-  if(lockedTarget>0){
+  if(LT>0){
     // extra ratios for the full ladder
     var offerPerContract=ms.contracts>0?Math.max(1,Math.round(ms.offers/ms.contracts)):3;
     var talkPerConvo=ms.convos>0?Math.max(1,(ms.talkSec||ms.talk*60)/60/ms.convos):4; // minutes
@@ -1030,7 +1017,7 @@ function renderGoal(){
     var offersHave=(function(){var c=0,m=monthStart();D.offers.forEach(function(of){if(of.offered_on>=m&&offerRep(of)===who)c++});return c})();
     function hmv(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
     var contractsTotal=reqContracts, offersTotal=reqContracts*offerPerContract, convosTotal=reqContracts*convoPerContract, dialsTotal=reqContracts*convoPerContract*dialPerConvo, leadsTotal=reqContracts*leadPerContract, talkTotal=Math.round(convosTotal*talkPerConvo);
-    h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY</div><h2>\uD83D\uDD27 The climb to '+fmt$(lockedTarget)+'</h2>'
+    h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY'+(practicePace?' \u00b7 PRACTICE PACE':'')+'</div><h2>\uD83D\uDD27 The climb to '+fmt$(LT)+(practicePace?' <span style="font-size:12px;color:var(--mut);font-weight:600">(next month\u2019s target \u2014 build the habit now)</span>':'')+'</h2>'
      +'<div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
      +prow('\uD83D\uDCE5','Leads',leadsHave,leadsTotal,leadPerContract+' per contract \u2014 your rate')
      +prow('\uD83D\uDCDE','Dials',ms.dials,dialsTotal,dialPerConvo+' per convo \u2014 your rate')
@@ -1038,7 +1025,7 @@ function renderGoal(){
      +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 your rate',hmv)
      +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 your rate')
      +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank')
-     +prow('\uD83D\uDCC8','Projected revenue',closed,lockedTarget,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$);
+     +prow('\uD83D\uDCC8','Projected revenue',closed,LT,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$);
 
     // ============ DAILY REQUIREMENTS (separate card) ============
     var workDays=Number(D.targets&&D.targets.workdays!=null?D.targets.workdays:26)||26;
@@ -1055,7 +1042,7 @@ function renderGoal(){
      +'<tr><td>\u23F1 Talk time / day</td><td style="text-align:right"><b>'+Math.floor(talkDayMin/60)+'h '+(talkDayMin%60)+'m</b></td></tr>'
      +'<tr><td>\uD83D\uDCB0 Offers / day</td><td style="text-align:right"><b>'+d1(offersTotal)+'</b></td></tr>'
      +'<tr><td>\uD83D\uDCDD Contracts / day</td><td style="text-align:right"><b>'+d1(contractsTotal)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right"><b>'+fmt$(Math.ceil(lockedTarget/workDays))+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right"><b>'+fmt$(Math.ceil(LT/workDays))+'</b></td></tr>'
      +'</table>';
 
     h+='<div style="text-align:center;padding:18px 0 6px">'
