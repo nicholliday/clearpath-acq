@@ -121,6 +121,8 @@ function nav(v){
     if(v==='today'){
       var now=new Date();
       tt.textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    } else if(v==='goal'){
+      tt.textContent='Month Planner';
     } else {
       tt.textContent='Acq Tracker';
     }
@@ -1004,7 +1006,7 @@ function renderGoal(){
     var offersHave=(function(){var c=0,m=monthStart();D.offers.forEach(function(of){if(of.offered_on>=m&&offerRep(of)===who)c++});return c})();
     function hmv(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
     var contractsTotal=reqContracts, offersTotal=reqContracts*offerPerContract, convosTotal=reqContracts*convoPerContract, dialsTotal=reqContracts*convoPerContract*dialPerConvo, leadsTotal=reqContracts*leadPerContract, talkTotal=Math.round(convosTotal*talkPerConvo);
-    h+='<div class="card"><h2>\uD83D\uDD27 The climb to '+fmt$(lockedTarget)+'</h2>'
+    h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY</div><h2>\uD83D\uDD27 The climb to '+fmt$(lockedTarget)+'</h2>'
      +'<div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
      +prow('\uD83D\uDCE5','Leads',leadsHave,leadsTotal,leadPerContract+' per contract \u2014 your rate')
      +prow('\uD83D\uDCDE','Dials',ms.dials,dialsTotal,dialPerConvo+' per convo \u2014 your rate')
@@ -1014,13 +1016,14 @@ function renderGoal(){
      +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank')
      +prow('\uD83D\uDCC8','Projected revenue',closed,lockedTarget,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$);
 
-    // ============ DAILY REQUIREMENTS (monthly / days worked) ============
+    // ============ DAILY REQUIREMENTS (separate card) ============
     var workDays=Number(D.targets&&D.targets.workdays!=null?D.targets.workdays:26)||26;
     function d1(x){var v=x/workDays;return v>=10?String(Math.ceil(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')}
     var talkDayMin=Math.round(talkTotal/workDays);
-    h+='<div style="padding:18px 0 4px">'
-     +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.12em;font-weight:800">DAILY REQUIREMENTS</div>'
+    var dailyCard=''
+     +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.16em;font-weight:800">DAILY</div>'
      +'<div class="sm mut">days worked/mo <input id="og_wd" type="number" value="'+workDays+'" style="width:56px;text-align:center;font-size:15px;font-weight:800" oninput="saveWorkDays()"></div></div>'
+     +'<h2 style="margin:0 0 6px">\u2600\uFE0F What that takes each day</h2>'
      +'<table style="width:100%">'
      +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right"><b>'+d1(leadsTotal)+'</b></td></tr>'
      +'<tr><td>\uD83D\uDCDE Dials / day</td><td style="text-align:right"><b>'+d1(dialsTotal)+'</b></td></tr>'
@@ -1029,7 +1032,7 @@ function renderGoal(){
      +'<tr><td>\uD83D\uDCB0 Offers / day</td><td style="text-align:right"><b>'+d1(offersTotal)+'</b></td></tr>'
      +'<tr><td>\uD83D\uDCDD Contracts / day</td><td style="text-align:right"><b>'+d1(contractsTotal)+'</b></td></tr>'
      +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right"><b>'+fmt$(Math.ceil(lockedTarget/workDays))+'</b></td></tr>'
-     +'</table></div>';
+     +'</table>';
 
     h+='<div style="text-align:center;padding:18px 0 6px">'
      +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
@@ -1037,6 +1040,8 @@ function renderGoal(){
      +'<div class="sm mut">dials/day for the next '+di.left+' days \u00b7 you\u2019re averaging '+curDialsDay+'</div>'
      +(covered?'<div class="sm" style="color:var(--green);margin-top:8px">\u2705 Current volume covers it \u2014 keep swinging.</div>':'<div class="sm" style="color:var(--red);margin-top:8px">\u26A0\uFE0F +'+(dialsDay-curDialsDay)+' more dials/day between you and the goal.</div>')
      +'</div></div>';
+
+    h+='<div class="card">'+dailyCard+'</div>';
   }
 
   // ============ WHAT IT PAYS (reps only; owner economics live elsewhere) ============
