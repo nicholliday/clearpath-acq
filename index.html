@@ -951,7 +951,6 @@ function renderGoal(){
        +'<div><div class="sm mut">FALLOUT %</div><input id="og_fo" type="number" value="'+fallout+'" style="width:80px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
        +'</div>';
     }
-    h+='<div style="font-size:12px;color:var(--mut)">'+subLine+'</div>';
   } else {
     h+='<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>'
      +'<div style="font-size:13px;color:var(--mut);margin-top:14px">MUST LOCK</div>'
@@ -961,7 +960,6 @@ function renderGoal(){
 
   h+='<div class="sbar" style="height:14px;margin:16px 8% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
    +'<div class="row" style="margin-top:10px;padding:0 6%"><span class="sm mut">LOCKED: <b style="color:'+col+'">'+fmt$(closed)+'</b></span><span class="sm mut">TO GO: <b>'+fmt$(Math.max(0,lockedTarget-closed))+'</b></span></div>'
-   +'<div class="sm mut" style="margin-top:6px">'+lr.n+' contract'+(lr.n===1?'':'s')+' locked this month \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed</div>'
    +'</div>';
 
   // ============ REVERSE ENGINEERED ============
@@ -1014,8 +1012,26 @@ function renderGoal(){
      +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 your rate',hmv)
      +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 your rate')
      +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank')
-     +prow('\uD83D\uDCC8','Projected revenue',closed,lockedTarget,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$)
-     +'<div style="text-align:center;padding:18px 0 6px">'
+     +prow('\uD83D\uDCC8','Projected revenue',closed,lockedTarget,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$);
+
+    // ============ DAILY REQUIREMENTS (monthly / days worked) ============
+    var workDays=Number(D.targets&&D.targets.workdays!=null?D.targets.workdays:26)||26;
+    function d1(x){var v=x/workDays;return v>=10?String(Math.ceil(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')}
+    var talkDayMin=Math.round(talkTotal/workDays);
+    h+='<div style="padding:18px 0 4px">'
+     +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.12em;font-weight:800">DAILY REQUIREMENTS</div>'
+     +'<div class="sm mut">days worked/mo <input id="og_wd" type="number" value="'+workDays+'" style="width:56px;text-align:center;font-size:15px;font-weight:800" oninput="saveWorkDays()"></div></div>'
+     +'<table style="width:100%">'
+     +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right"><b>'+d1(leadsTotal)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCDE Dials / day</td><td style="text-align:right"><b>'+d1(dialsTotal)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCAC Convos / day</td><td style="text-align:right"><b>'+d1(convosTotal)+'</b></td></tr>'
+     +'<tr><td>\u23F1 Talk time / day</td><td style="text-align:right"><b>'+Math.floor(talkDayMin/60)+'h '+(talkDayMin%60)+'m</b></td></tr>'
+     +'<tr><td>\uD83D\uDCB0 Offers / day</td><td style="text-align:right"><b>'+d1(offersTotal)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCDD Contracts / day</td><td style="text-align:right"><b>'+d1(contractsTotal)+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right"><b>'+fmt$(Math.ceil(lockedTarget/workDays))+'</b></td></tr>'
+     +'</table></div>';
+
+    h+='<div style="text-align:center;padding:18px 0 6px">'
      +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
      +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
      +'<div class="sm mut">dials/day for the next '+di.left+' days \u00b7 you\u2019re averaging '+curDialsDay+'</div>'
@@ -1037,6 +1053,17 @@ function renderGoal(){
   }
 
   el.innerHTML=h;
+}
+async function saveWorkDays(){
+  var w=document.getElementById('og_wd');
+  if(!w)return;
+  if(!D.targets)D.targets={};
+  D.targets.workdays=Math.max(1,Number(w.value)||26);
+  clearTimeout(window._wdT);
+  window._wdT=setTimeout(function(){
+    renderGoal();
+    db.from('acq_targets').upsert([{key:'workdays',value:D.targets.workdays}],{onConflict:'key'});
+  },500);
 }
 async function saveOwnerGoal(){
   var n=document.getElementById('og_n'), fe=document.getElementById('og_fee'), o=document.getElementById('og_fo');
