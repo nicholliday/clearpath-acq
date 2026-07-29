@@ -1045,7 +1045,10 @@ function renderGoal(){
   // ============ REVERSE ENGINEERED ============
   var LT = lockedTarget>0 ? lockedTarget : (!ownerTarget ? (RAMP[rampMonthOf(who)]||20000) : 0);
   var practicePace = (!ownerTarget && lockedTarget<=0);
-  var reqContracts=LT>0?Math.max(1,Math.ceil(LT/avgFee)):0;
+  // Reps: contracts needed accounts for fallout (only ~47% of locked contracts pay out).
+  // Owner view keeps raw locked math (fallout is its own dial there).
+  var perContract$ = ownerTarget ? avgFee : (avgFee*STD.closeRate);
+  var reqContracts=LT>0?Math.max(1,Math.ceil(LT/perContract$)):0;
   var BR = repBench(ownerTarget ? (D.reps[0]||'') : who);
   var dialPerConvo=Math.max(2,Math.round(BR.dialsPerConvo.v*10)/10);
   var convoPerContract=Math.max(5,Math.round(BR.convosPerOffer.v*BR.offersPerContract.v));
