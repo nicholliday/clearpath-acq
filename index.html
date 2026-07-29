@@ -113,6 +113,7 @@ function buildTabs(){
    +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">\u2699\ufe0f</span>Inputs</button>';
   document.getElementById('tabbar').innerHTML=t;
   document.getElementById('roleBadge').style.display=ROLE==='owner'?'inline-block':'none';
+  var tbE=document.getElementById('tb_earn'); if(tbE) tbE.style.display=(ROLE==='owner')?'none':'';
   var wb=document.getElementById('whoBadge');
   if(wb) wb.textContent = ROLE==='owner' ? '\uD83D\uDC64 Owner' : (ME ? '\uD83D\uDC64 '+ME : '');
   nav('today');
@@ -527,29 +528,21 @@ function rampMonthOf(rep){
 var EARN_REP=null;
 function setEarnRep(r){EARN_REP=r;renderEarnings()}
 function stdCard(){
-  function tile(v,l){return '<div class="kpi"><div class="v" style="color:var(--gold)">'+v+'</div><div class="l">'+l+'</div></div>'}
-  return '<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">THE STANDARD</div>'
-   +'<h2>\uD83C\uDFC6 The $20K CAD / Month Closer</h2>'
-   +'<div class="sm mut" style="margin:-4px 0 12px">Company benchmark.</div>'
-   +'<div style="text-align:center;margin-bottom:14px">'
-   +'<div class="sm mut" style="letter-spacing:.1em">ASSIGNMENT FEES / MONTH</div>'
-   +'<div style="font-size:min(11vw,44px);font-weight:800;color:var(--gold);line-height:1.15">$105,000</div>'
-   +'<div class="sm mut">15 contracts \u2192 7 close \u00d7 $15K</div>'
-   +'</div>'
-   +'<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">'
-   +tile('280','LEADS / MONTH')
-   +tile('3,050','DIALS / MONTH')
-   +tile('490','CONVOS / MONTH')
-   +tile('162','OFFERS / MONTH')
-   +'</div>'
-   +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800;margin:14px 0 6px;text-align:center">EVERY DAY (26 DAYS)</div>'
-   +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'
-   +tile('117','DIALS')
-   +tile('19','CONVOS')
-   +tile('6','OFFERS')
-   +tile('2.7h','TALK')
-   +'</div>'
-   +'</div>';
+  function r(lbl,mo,day,gold){
+    return '<tr><td>'+lbl+'</td>'
+      +'<td style="text-align:right'+(gold?';color:var(--gold);font-weight:800':'')+'">'+mo+'</td>'
+      +'<td style="text-align:right;color:var(--mut)">'+day+'</td></tr>';
+  }
+  return '<div class="card"><h2>\uD83C\uDFC6 The $20K CAD / Month Closer</h2>'
+   +'<table><tr><th></th><th style="text-align:right">MONTHLY</th><th style="text-align:right">DAILY</th></tr>'
+   +r('\uD83D\uDCB5 Assignment fees','$105,000','',true)
+   +r('\uD83D\uDCDD Contracts','15','',true)
+   +r('\uD83D\uDCE5 Leads','280','11')
+   +r('\uD83D\uDCDE Dials','3,050','117')
+   +r('\uD83D\uDCAC Convos','490','19')
+   +r('\uD83D\uDCB0 Offers','162','6')
+   +r('\u23F1 Talk time','71h','2.7h')
+   +'</table></div>';
 }
 function compPlanCard(){
   function tierRow(range,pct,hot){
