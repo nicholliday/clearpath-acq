@@ -997,12 +997,12 @@ function renderGoal(){
        +'<div class="sm mut">= '+nGoal+' contracts at '+fmt$(feeGoal)+' \u00b7 ~'+fmt$(fundedGoal)+' after '+fallout+'% fallout</div>';
     }
   } else if(lockedTarget>0){
+    var commGoalV=Number((D.repGoals&&D.repGoals[who])||8000);
     h+='<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>'
-     +'<div style="margin:14px 0 4px"><div class="sm mut">I WANT TO MAKE (CAD)</div>'
-     +'<input id="rg_c" type="number" value="'+Number((D.repGoals&&D.repGoals[who])||8000)+'" style="width:150px;text-align:center;font-size:22px;font-weight:800" oninput="saveRepComm(\''+esc(who)+'\')"></div>'
-     +'<div style="font-size:13px;color:var(--mut);margin-top:8px">MUST LOCK</div>'
-     +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>'
-     +'<div style="font-size:12px;color:var(--mut)">'+subLine+'</div>';
+     +'<div style="font-size:13px;color:var(--mut);margin-top:14px">MY CHECK THIS MONTH (CAD) \u2014 tap to change</div>'
+     +'<input id="rg_c" type="number" value="'+commGoalV+'" oninput="saveRepComm(\''+esc(who)+'\')" '
+     +'style="width:100%;max-width:420px;background:transparent;border:none;text-align:center;font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold);padding:0;margin:0">'
+     +'<div style="font-size:13px;color:var(--mut);margin-top:6px">lock <b style="color:var(--text)">'+fmt$(lockedTarget)+'</b> in revenue to get there'+(subLine.indexOf('ramp floor')>-1?' \u00b7 ramp floor applies':'')+'</div>';
   } else {
     var moN=rampMonthOf(who);
     h+='<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>'
