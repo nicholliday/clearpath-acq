@@ -591,7 +591,7 @@ function renderEarnings(){
   var estIfHit=hitCAD(effRev>=target?Math.max(closed,target):closed);
 
   // check estimate card
-  h+='<div class="card"><h2>\uD83D\uDCC8 Ramp \u2014 the 12-month climb</h2><table><tr><th>MO</th><th>ASSIGNMENTS</th><th>LOCK</th><th>CAD COMISSION</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
+  h+='<div class="card"><h2>\uD83D\uDCC8 Ramp \u2014 the 12-month climb</h2><table><tr><th>MO</th><th>CONTRACTS</th><th>ASSIGNMENTS</th><th>CAD COMISSION</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
   var perClose=STD.closeRate*STD.avgFee; // expected $ closed per contract locked
   for(var i=0;i<12;i++){
     var tv=RAMP[i], cur=(i+1)===mo;
@@ -599,14 +599,14 @@ function renderEarnings(){
     var lockN=perClose>0?Math.ceil(feedTarget/perClose):0;
     h+='<tr style="'+(cur?'background:rgba(212,175,55,.12);font-weight:800':'')+'">'
      +'<td>'+(i+1)+((i+1)<=3?' <span class="sm mut">np</span>':'')+(cur?' \u25C0':'')+'</td>'
-     +'<td style="text-align:right">'+fmt$(tv)+'</td>'
      +'<td style="text-align:right;color:var(--gold)"><b>'+lockN+'</b></td>'
+     +'<td style="text-align:right">'+fmt$(tv)+'</td>'
      +'<td style="text-align:right">'+fmt$(Math.round(baseCAD(tv)))+'</td>'
      +'<td style="text-align:right;color:var(--green)">'+fmt$(Math.round(hitCAD(tv)))+'</td>'
      +'<td style="text-align:right;color:'+((i+1)<=3?'var(--mut)':'var(--red)')+'">'+fmt$(Math.round(missCAD(tv,i+1)))+'</td>'
      +'</tr>';
   }
-  h+='</table><div class="sm mut" style="margin-top:6px">LOCK = contracts to sign this month. Deals take ~40 days contract \u2192 close, so this month\u2019s contracts fund next month\u2019s target.</div></div>';
+  h+='</table><div class="sm mut" style="margin-top:6px">CONTRACTS = signed this month. Deals take ~40 days contract \u2192 close, so this month\u2019s contracts fund next month\u2019s target.</div></div>';
   h+=stdCard();
 
   el.innerHTML=h;
