@@ -522,6 +522,19 @@ function rampMonthOf(rep){
 }
 var EARN_REP=null;
 function setEarnRep(r){EARN_REP=r;renderEarnings()}
+function stdCard(){
+  return '<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">THE STANDARD</div>'
+   +'<h2>\uD83C\uDFC6 The $100K / Month Closer</h2>'
+   +'<div class="sm mut" style="margin:-4px 0 10px">Company benchmark \u2014 measured from real Meta-era data (Mar\u2013Jul 2026). This is the bar.</div>'
+   +'<table style="width:100%">'
+   +'<tr><td>\uD83D\uDCB5 Funded / month</td><td style="text-align:right"><b>$105,000</b> <span class="sm mut">(15 contracts \u2192 7 close \u00d7 $15K)</span></td></tr>'
+   +'<tr><td>\uD83D\uDCE5 Lead flow</td><td style="text-align:right"><b>280 leads</b> <span class="sm mut">\u00b7 ~$11.4K spend \u00b7 $41/lead</span></td></tr>'
+   +'<tr><td>\uD83D\uDCDE Monthly activity</td><td style="text-align:right"><b>3,050 dials \u00b7 490 convos \u00b7 162 offers \u00b7 71h talk</b></td></tr>'
+   +'<tr><td>\u2600\uFE0F Daily (26 days)</td><td style="text-align:right"><b>117 dials \u00b7 19 convos \u00b7 6 offers \u00b7 2.7h talk</b></td></tr>'
+   +'<tr><td>\uD83D\uDD01 Conversion chain</td><td style="text-align:right"><b>6.2 dials \u2192 convo \u00b7 3.1 convos \u2192 offer \u00b7 10.8 offers \u2192 contract</b></td></tr>'
+   +'<tr><td>\uD83C\uDFAF Close economics</td><td style="text-align:right"><b>47% close \u00b7 $15K avg fee \u00b7 $761/contract ad cost</b></td></tr>'
+   +'</table></div>';
+}
 function renderEarnings(){
   var el=document.getElementById('v_earn');if(!el)return;
   var PR=payReps();if(!PR.length)PR=D.reps;
@@ -542,7 +555,7 @@ function renderEarnings(){
   function hitCAD(rev){return baseCAD(rev)+rev*0.02*fx}
   function missCAD(rev,m){return m<=3?baseCAD(rev):baseCAD(rev)-rev*0.02*fx}
 
-  var h='';
+  var h=stdCard()+'';
   if(PR.length>1){
     h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(EARN_REP===rp?'g':'mut')+'" onclick="setEarnRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
   }
@@ -603,6 +616,31 @@ function cmdFrom(){
   if(CMD_FROM==='__year__')return yearStart();
   return null;
 }
+// ===== THE $100K STANDARD (company benchmark, measured Mar-Jul 2026 Meta era) =====
+var STD = {dialsPerConvo:6.2, convosPerOffer:3.1, offersPerContract:10.8, leadsPerContract:18.6,
+           talkPerConvo:8.8, closeRate:0.47, avgFee:15000,
+           contracts:15, closes:7, funded:105000, leads:280, spend:11400, cpl:41,
+           dials:3050, convos:490, talkH:71, offers:162};
+// Per-rep trailing-90-day ratios; falls back to STD until enough personal sample
+function repBench(rep){
+  var from = new Date(Date.now()-90*86400000).toISOString().slice(0,10);
+  var tr = repRange(rep, from);
+  var lc=0, cc=0;
+  D.leads.forEach(function(l){
+    if(repOf(l)!==rep) return;
+    if(l.created_at && l.created_at.slice(0,10)>=from) lc++;
+    if(l.contracted_on && l.contracted_on>=from) cc++;
+  });
+  function pick(persVal, ok, stdVal){ return ok ? {v:persVal, you:true} : {v:stdVal, you:false}; }
+  return {
+    dialsPerConvo:     pick(tr.convos>0? tr.dials/tr.convos : 0,            tr.convos>=30,    STD.dialsPerConvo),
+    convosPerOffer:    pick(tr.offers>0? tr.convos/tr.offers : 0,           tr.offers>=10,    STD.convosPerOffer),
+    offersPerContract: pick(tr.contracts>0? tr.offers/tr.contracts : 0,     tr.contracts>=3,  STD.offersPerContract),
+    leadsPerContract:  pick(cc>0? lc/cc : 0,                                cc>=3 && lc>=20,  STD.leadsPerContract),
+    talkPerConvo:      pick(tr.convos>0? (tr.talkSec||0)/tr.convos : 0,     tr.convos>=30,    STD.talkPerConvo)
+  };
+}
+function rsrc(r){ return r.you ? 'your rate' : 'standard'; }
 function swScript(v){
   window.SCRIPT_VIEW=v;
   renderScript();
@@ -977,8 +1015,9 @@ function renderGoal(){
   var LT = lockedTarget>0 ? lockedTarget : (!ownerTarget ? (RAMP[rampMonthOf(who)]||20000) : 0);
   var practicePace = (!ownerTarget && lockedTarget<=0);
   var reqContracts=LT>0?Math.max(1,Math.ceil(LT/avgFee)):0;
-  var convoPerContract=ms.contracts>0?Math.max(5,Math.round(ms.convos/ms.contracts)):40;
-  var dialPerConvo=ms.convos>0?Math.max(2,Math.round(ms.dials/ms.convos)):5;
+  var BR = repBench(ownerTarget ? (D.reps[0]||'') : who);
+  var dialPerConvo=Math.max(2,Math.round(BR.dialsPerConvo.v*10)/10);
+  var convoPerContract=Math.max(5,Math.round(BR.convosPerOffer.v*BR.offersPerContract.v));
   var contractsLeft=Math.max(0,reqContracts-ms.contracts);
   var convosNeeded=contractsLeft*convoPerContract;
   var dialsNeeded=convosNeeded*dialPerConvo;
@@ -1000,14 +1039,10 @@ function renderGoal(){
   }
 
   if(LT>0){
-    // extra ratios for the full ladder
-    var offerPerContract=ms.contracts>0?Math.max(1,Math.round(ms.offers/ms.contracts)):3;
-    var talkPerConvo=ms.convos>0?Math.max(1,(ms.talkSec||ms.talk*60)/60/ms.convos):4; // minutes
-    var leadPerContract=(function(){
-      var lc=0,cc=0,m=monthStart();
-      D.leads.forEach(function(l){if(repOf(l)===who&&l.created_at&&l.created_at.slice(0,10)>=m){lc++;if(l.contracted_on&&l.contracted_on>=m)cc++;}});
-      return cc>0?Math.max(1,Math.round(lc/cc)):(convoPerContract*2);
-    })();
+    // extra ratios for the full ladder (personal trailing 90d, standard fallback)
+    var offerPerContract=Math.max(1,Math.round(BR.offersPerContract.v*10)/10);
+    var talkPerConvo=Math.max(1,Math.round(BR.talkPerConvo.v*10)/10); // minutes
+    var leadPerContract=Math.max(1,Math.round(BR.leadsPerContract.v*10)/10);
     var offersNeeded=contractsLeft*offerPerContract;
     var leadsNeeded=contractsLeft*leadPerContract;
     var talkNeeded=Math.round(convosNeeded*talkPerConvo); // minutes
@@ -1019,11 +1054,11 @@ function renderGoal(){
     var contractsTotal=reqContracts, offersTotal=reqContracts*offerPerContract, convosTotal=reqContracts*convoPerContract, dialsTotal=reqContracts*convoPerContract*dialPerConvo, leadsTotal=reqContracts*leadPerContract, talkTotal=Math.round(convosTotal*talkPerConvo);
     h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY'+(practicePace?' \u00b7 PRACTICE PACE':'')+'</div><h2>\uD83D\uDD27 The climb to '+fmt$(LT)+(practicePace?' <span style="font-size:12px;color:var(--mut);font-weight:600">(next month\u2019s target \u2014 build the habit now)</span>':'')+'</h2>'
      +'<div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
-     +prow('\uD83D\uDCE5','Leads',leadsHave,leadsTotal,leadPerContract+' per contract \u2014 your rate')
-     +prow('\uD83D\uDCDE','Dials',ms.dials,dialsTotal,dialPerConvo+' per convo \u2014 your rate')
-     +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 your rate')
-     +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 your rate',hmv)
-     +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 your rate')
+     +prow('\uD83D\uDCE5','Leads',leadsHave,leadsTotal,leadPerContract+' per contract \u2014 '+rsrc(BR.leadsPerContract))
+     +prow('\uD83D\uDCDE','Dials',ms.dials,dialsTotal,dialPerConvo+' per convo \u2014 '+rsrc(BR.dialsPerConvo))
+     +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 '+rsrc(BR.offersPerContract))
+     +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 '+rsrc(BR.talkPerConvo),hmv)
+     +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 '+rsrc(BR.offersPerContract))
      +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank')
      +prow('\uD83D\uDCC8','Projected revenue',closed,LT,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$);
 
