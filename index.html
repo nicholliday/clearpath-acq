@@ -582,24 +582,13 @@ function renderEarnings(){
   function hitCAD(rev){return baseCAD(rev)+rev*0.02*fx}
   function missCAD(rev,m){return m<=3?baseCAD(rev):baseCAD(rev)-rev*0.02*fx}
 
-  var h=compPlanCard()+stdCard()+'';
+  var h=compPlanCard()+'';
   if(PR.length>1){
     h+='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+PR.map(function(rp){return '<button class="btn '+(EARN_REP===rp?'g':'mut')+'" onclick="setEarnRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')+'</div>';
   }
 
-  // this month card
   var estBase=baseCAD(closed);
   var estIfHit=hitCAD(effRev>=target?Math.max(closed,target):closed);
-  h+='<div class="card"><h2>\uD83D\uDCB0 '+esc(rep.split(' ')[0])+' \u2014 ramp month '+mo+(protectedMo?' <span class="pill p-uc">NO PENALTY</span>':'')+'</h2>'
-   +'<div class="row" style="margin-top:6px"><div><div class="sm mut">THIS MONTH\u2019S TARGET</div><div style="font-size:34px;font-weight:800">'+fmt$(target)+'</div></div>'
-   +'<div style="text-align:right"><div class="sm mut">CLOSED SO FAR</div><div style="font-size:34px;font-weight:800;color:'+(closed>=target?'var(--green)':'var(--gold)')+'">'+fmt$(closed)+'</div></div></div>'
-   +'<div class="sbar" style="height:12px;margin-top:12px"><i style="width:'+(target?Math.min(100,Math.round(closed/target*100)):100)+'%;background:'+(closed>=target?'var(--green)':'var(--gold)')+'"></i></div>'
-   +'<div class="sm" style="margin-top:10px;line-height:1.8">'
-   +'Pace (contracts locked \u00d7 avg fee): <b>'+fmt$(projRev)+'</b><br>'
-   +(closed>=target
-     ?'\u2705 <b>Target hit</b> \u2014 +2% of revenue bonus is yours.'
-     :(onTrack?'\uD83D\uDFE1 On pace to hit \u2014 close what\u2019s locked.':(protectedMo?'\u26AA Trailing target \u2014 no penalty this month, but the bonus is on the table.':'\uD83D\uDD34 Trailing target \u2014 miss costs \u22122% of revenue.')))
-   +'</div></div>';
 
   // check estimate card
   h+='<div class="card"><h2>\uD83E\uDDFE Check estimate (CAD)</h2><table>'
@@ -621,6 +610,7 @@ function renderEarnings(){
      +'</tr>';
   }
   h+='</table><div class="sm mut" style="margin-top:6px">np = no penalty months. Sliding scale: \u2264$50K\u219210% \u00b7 \u2264$100K\u219212% \u00b7 \u2264$150K\u219214% \u00b7 \u2264$200K\u219216% \u00b7 $200K+\u219217%.</div></div>';
+  h+=stdCard();
 
   el.innerHTML=h;
 }
