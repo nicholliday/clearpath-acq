@@ -544,8 +544,8 @@ function compPlanCard(){
   }
   return '<div class="card" style="border:1px solid var(--gold)">'
    +'<div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">COMPENSATION PLAN</div>'
-   +'<h2>\uD83D\uDCB0 How you get paid</h2>'
    +'<div class="sm mut" style="margin:-4px 0 10px">Base commission \u2014 % of revenue locked + closed this month. Paid in CAD.</div>'
+   +'<div style="font-size:14px;font-weight:800;letter-spacing:.06em;margin:4px 0 2px">ASSIGNMENT FEES</div>'
    +'<table style="width:100%">'
    +tierRow('Up to $50,000','10%',false)
    +tierRow('$50,000 \u2013 $100,000','12%',false)
@@ -591,13 +591,6 @@ function renderEarnings(){
   var estIfHit=hitCAD(effRev>=target?Math.max(closed,target):closed);
 
   // check estimate card
-  h+='<div class="card"><h2>\uD83E\uDDFE Check estimate (CAD)</h2><table>'
-   +'<tr><td>Base on closed ('+fmt$(closed)+')</td><td style="text-align:right"><b>'+fmt$(Math.round(estBase))+'</b></td></tr>'
-   +'<tr><td>If target hit (+2% of rev)</td><td style="text-align:right;color:var(--green)"><b>'+fmt$(Math.round(hitCAD(Math.max(closed,target))))+'</b></td></tr>'
-   +'<tr><td>If missed ('+(protectedMo?'protected':'\u22122% of rev')+')</td><td style="text-align:right;color:'+(protectedMo?'var(--mut)':'var(--red)')+'"><b>'+fmt$(Math.round(missCAD(closed,mo)))+'</b></td></tr>'
-   +'</table><div class="sm mut" style="margin-top:6px">Paid on the month it funds. USD\u2192CAD at '+fx+'.</div></div>';
-
-  // ramp table
   h+='<div class="card"><h2>\uD83D\uDCC8 Ramp \u2014 the 12-month climb</h2><table><tr><th>MO</th><th>TARGET</th><th>BASE CAD</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
   for(var i=0;i<12;i++){
     var tv=RAMP[i], cur=(i+1)===mo;
