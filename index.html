@@ -212,6 +212,13 @@ function renderToday(){
     return '<div style="flex:1;text-align:center;font-size:min('+Math.max(4,Math.floor(10/n*2))+'vw,18px);font-weight:800;letter-spacing:.08em;color:var(--gold)">'+esc(rp.split(' ')[0]).toUpperCase()+'</div>';
   }).join('')+'</div>';
 
+  var leadsToday=0;
+  (D.leads||[]).forEach(function(l){ if(l.created_at && l.created_at.slice(0,10)===t) leadsToday++; });
+  h+='<div style="text-align:center;padding:6px 0 10px;border-bottom:1px solid var(--line)">'
+   +'<span style="font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut)">\uD83D\uDCE5 LEADS TODAY </span>'
+   +'<span style="font-size:26px;font-weight:800;color:var(--gold);margin-left:8px">'+leadsToday+'</span>'
+   +'</div>';
+
   var rows=[
     ['\uD83D\uDCDE DIALS','dials',T('dials_day',320),null],
     ['\uD83D\uDCAC CONVOS','convos',T('convos_day',70),null],
