@@ -529,14 +529,12 @@ function setEarnRep(r){EARN_REP=r;renderEarnings()}
 function stdCard(){
   return '<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">THE STANDARD</div>'
    +'<h2>\uD83C\uDFC6 The $100K / Month Closer</h2>'
-   +'<div class="sm mut" style="margin:-4px 0 10px">Company benchmark \u2014 measured from real Meta-era data (Mar\u2013Jul 2026). This is the bar.</div>'
+   +'<div class="sm mut" style="margin:-4px 0 10px">Company benchmark.</div>'
    +'<table style="width:100%">'
-   +'<tr><td>\uD83D\uDCB5 Funded / month</td><td style="text-align:right"><b>$105,000</b> <span class="sm mut">(15 contracts \u2192 7 close \u00d7 $15K)</span></td></tr>'
+   +'<tr><td>\uD83D\uDCB5 Assignment fees</td><td style="text-align:right"><b>$105,000</b> <span class="sm mut">(15 contracts \u2192 7 close \u00d7 $15K)</span></td></tr>'
    +'<tr><td>\uD83D\uDCE5 Lead flow</td><td style="text-align:right"><b>280 leads / month</b></td></tr>'
    +'<tr><td>\uD83D\uDCDE Monthly activity</td><td style="text-align:right"><b>3,050 dials \u00b7 490 convos \u00b7 162 offers \u00b7 71h talk</b></td></tr>'
    +'<tr><td>\u2600\uFE0F Daily (26 days)</td><td style="text-align:right"><b>117 dials \u00b7 19 convos \u00b7 6 offers \u00b7 2.7h talk</b></td></tr>'
-   +'<tr><td>\uD83D\uDD01 Conversion chain</td><td style="text-align:right"><b>6.2 dials \u2192 convo \u00b7 3.1 convos \u2192 offer \u00b7 10.8 offers \u2192 contract</b></td></tr>'
-   +'<tr><td>\uD83C\uDFAF Close economics</td><td style="text-align:right"><b>47% close \u00b7 $15K avg fee</b></td></tr>'
    +'</table></div>';
 }
 function compPlanCard(){
@@ -604,7 +602,7 @@ function renderEarnings(){
      +'<td style="text-align:right;color:'+((i+1)<=3?'var(--mut)':'var(--red)')+'">'+fmt$(Math.round(missCAD(tv,i+1)))+'</td>'
      +'</tr>';
   }
-  h+='</table><div class="sm mut" style="margin-top:6px">np = no penalty months. Sliding scale: \u2264$50K\u219210% \u00b7 \u2264$100K\u219212% \u00b7 \u2264$150K\u219214% \u00b7 \u2264$200K\u219216% \u00b7 $200K+\u219217%.</div></div>';
+  h+='</table></div>';
   h+=stdCard();
 
   el.innerHTML=h;
