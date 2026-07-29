@@ -591,7 +591,7 @@ function renderEarnings(){
   var estIfHit=hitCAD(effRev>=target?Math.max(closed,target):closed);
 
   // check estimate card
-  h+='<div class="card"><h2>\uD83D\uDCC8 Ramp \u2014 the 12-month climb</h2><table><tr><th>MO</th><th>TARGET</th><th>LOCK</th><th>BASE CAD</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
+  h+='<div class="card"><h2>\uD83D\uDCC8 Ramp \u2014 the 12-month climb</h2><table><tr><th>MO</th><th>ASSIGNMENTS</th><th>LOCK</th><th>CAD COMISSION</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
   var perClose=STD.closeRate*STD.avgFee; // expected $ closed per contract locked
   for(var i=0;i<12;i++){
     var tv=RAMP[i], cur=(i+1)===mo;
