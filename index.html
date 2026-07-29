@@ -122,7 +122,7 @@ function nav(v){
       var now=new Date();
       tt.textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
     } else if(v==='goal'){
-      tt.textContent='Month Planner';
+      tt.textContent='Comission Calculator';
     } else {
       tt.textContent='Acq Tracker';
     }
@@ -528,11 +528,11 @@ function stdCard(){
    +'<div class="sm mut" style="margin:-4px 0 10px">Company benchmark \u2014 measured from real Meta-era data (Mar\u2013Jul 2026). This is the bar.</div>'
    +'<table style="width:100%">'
    +'<tr><td>\uD83D\uDCB5 Funded / month</td><td style="text-align:right"><b>$105,000</b> <span class="sm mut">(15 contracts \u2192 7 close \u00d7 $15K)</span></td></tr>'
-   +'<tr><td>\uD83D\uDCE5 Lead flow</td><td style="text-align:right"><b>280 leads</b> <span class="sm mut">\u00b7 ~$11.4K spend \u00b7 $41/lead</span></td></tr>'
+   +'<tr><td>\uD83D\uDCE5 Lead flow</td><td style="text-align:right"><b>280 leads / month</b></td></tr>'
    +'<tr><td>\uD83D\uDCDE Monthly activity</td><td style="text-align:right"><b>3,050 dials \u00b7 490 convos \u00b7 162 offers \u00b7 71h talk</b></td></tr>'
    +'<tr><td>\u2600\uFE0F Daily (26 days)</td><td style="text-align:right"><b>117 dials \u00b7 19 convos \u00b7 6 offers \u00b7 2.7h talk</b></td></tr>'
    +'<tr><td>\uD83D\uDD01 Conversion chain</td><td style="text-align:right"><b>6.2 dials \u2192 convo \u00b7 3.1 convos \u2192 offer \u00b7 10.8 offers \u2192 contract</b></td></tr>'
-   +'<tr><td>\uD83C\uDFAF Close economics</td><td style="text-align:right"><b>47% close \u00b7 $15K avg fee \u00b7 $761/contract ad cost</b></td></tr>'
+   +'<tr><td>\uD83C\uDFAF Close economics</td><td style="text-align:right"><b>47% close \u00b7 $15K avg fee</b></td></tr>'
    +'</table></div>';
 }
 function renderEarnings(){
@@ -619,7 +619,7 @@ function cmdFrom(){
 // ===== THE $100K STANDARD (company benchmark, measured Mar-Jul 2026 Meta era) =====
 var STD = {dialsPerConvo:6.2, convosPerOffer:3.1, offersPerContract:10.8, leadsPerContract:18.6,
            talkPerConvo:8.8, closeRate:0.47, avgFee:15000,
-           contracts:15, closes:7, funded:105000, leads:280, spend:11400, cpl:41,
+           contracts:15, closes:7, funded:105000, leads:280,
            dials:3050, convos:490, talkH:71, offers:162};
 // Per-rep trailing-90-day ratios; falls back to STD until enough personal sample
 function repBench(rep){
@@ -955,21 +955,25 @@ function renderGoal(){
   var lockedTarget, fundedGoal, fallout, headerLine, subLine;
   var nGoal=0, feeGoal=avgFee;
   if(ownerTarget){
-    nGoal = Number(D.targets&&D.targets.owner_contracts!=null?D.targets.owner_contracts:20);
     feeGoal = Number(D.targets&&D.targets.owner_avgfee!=null?D.targets.owner_avgfee:avgFee);
     fallout = Number(D.ownerFallout!=null?D.ownerFallout:T('owner_fallout',50));
-    lockedTarget = Math.round(nGoal*feeGoal)||0;
+    lockedTarget = Number(D.targets&&D.targets.owner_target!=null?D.targets.owner_target
+                   :(D.targets&&D.targets.owner_contracts!=null?D.targets.owner_contracts*feeGoal:300000))||0;
+    nGoal = feeGoal>0?Math.ceil(lockedTarget/feeGoal):0;
     fundedGoal = Math.round(lockedTarget*Math.max(0,100-fallout)/100);
     avgFee = feeGoal;
     headerLine = monthName;
-    subLine = nGoal+' contracts \u00d7 '+fmt$(feeGoal)+' \u00b7 ~'+fmt$(fundedGoal)+' expected to close after '+fallout+'% fallout';
+    subLine = '';
   } else {
     var mo=rampMonthOf(who);
-    lockedTarget = RAMP[mo-1];
+    var commGoal = Number((D.repGoals&&D.repGoals[who])||8000);
+    var revGoal = commGoal>0?revForCommission(commGoal):0;
+    var rampT = RAMP[mo-1];
+    lockedTarget = Math.max(rampT, revGoal);
     fundedGoal = lockedTarget;
     fallout = 0;
     headerLine = monthName+' \u00b7 RAMP MONTH '+mo+(mo<=3?' \u00b7 NO PENALTY':'');
-    subLine = 'revenue locked + closed';
+    subLine = 'to bank \u2248'+fmt$(commGoal)+' CAD \u2192 lock '+fmt$(revGoal)+(rampT>revGoal?' \u00b7 ramp floor '+fmt$(rampT):'');
   }
 
   var lr=lockedMonthRev(who);
@@ -986,14 +990,17 @@ function renderGoal(){
      +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>';
     if(isOwnerView){
       h+='<div style="display:flex;gap:10px;justify-content:center;align-items:flex-end;margin:16px 0 4px;flex-wrap:wrap">'
-       +'<div><div class="sm mut">CONTRACTS</div><input id="og_n" type="number" value="'+nGoal+'" style="width:90px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
-       +'<div><div class="sm mut">AVG FEE $</div><input id="og_fee" type="number" value="'+feeGoal+'" style="width:120px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+       +'<div><div class="sm mut">TARGET $</div><input id="og_t" type="number" value="'+lockedTarget+'" style="width:130px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+       +'<div><div class="sm mut">AVG FEE $</div><input id="og_fee" type="number" value="'+feeGoal+'" style="width:110px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
        +'<div><div class="sm mut">FALLOUT %</div><input id="og_fo" type="number" value="'+fallout+'" style="width:80px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
-       +'</div>';
+       +'</div>'
+       +'<div class="sm mut">= '+nGoal+' contracts at '+fmt$(feeGoal)+' \u00b7 ~'+fmt$(fundedGoal)+' after '+fallout+'% fallout</div>';
     }
   } else if(lockedTarget>0){
     h+='<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>'
-     +'<div style="font-size:13px;color:var(--mut);margin-top:14px">MUST LOCK</div>'
+     +'<div style="margin:14px 0 4px"><div class="sm mut">I WANT TO MAKE (CAD)</div>'
+     +'<input id="rg_c" type="number" value="'+Number((D.repGoals&&D.repGoals[who])||8000)+'" style="width:150px;text-align:center;font-size:22px;font-weight:800" oninput="saveRepComm(\''+esc(who)+'\')"></div>'
+     +'<div style="font-size:13px;color:var(--mut);margin-top:8px">MUST LOCK</div>'
      +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>'
      +'<div style="font-size:12px;color:var(--mut)">'+subLine+'</div>';
   } else {
@@ -1116,24 +1123,34 @@ async function saveWorkDays(){
     db.from('acq_targets').upsert([{key:'workdays',value:D.targets.workdays}],{onConflict:'key'});
   },500);
 }
+async function saveRepComm(rep){
+  var el=document.getElementById('rg_c');if(!el)return;
+  var v=Number(el.value)||0;
+  if(!D.repGoals)D.repGoals={};
+  D.repGoals[rep]=v;
+  clearTimeout(window._rcT);
+  window._rcT=setTimeout(function(){
+    renderGoal();
+    db.from('acq_reps').update({monthly_goal:v}).eq('name',rep);
+  },600);
+}
 async function saveOwnerGoal(){
-  var n=document.getElementById('og_n'), fe=document.getElementById('og_fee'), o=document.getElementById('og_fo');
-  if(!n)return;
+  var t=document.getElementById('og_t'), fe=document.getElementById('og_fee'), o=document.getElementById('og_fo');
+  if(!t)return;
   if(!D.targets)D.targets={};
-  D.targets.owner_contracts=Number(n.value)||0;
+  D.targets.owner_target=Number(t.value)||0;
   D.targets.owner_avgfee=Number(fe.value)||0;
   D.ownerFallout=Number(o.value)||0;
   D.targets.owner_fallout=D.ownerFallout;
   clearTimeout(window._ogT);
   window._ogT=setTimeout(function(){
-    var host=document.getElementById('v_goal');var y=host?host.scrollTop:0;
     renderGoal();
     db.from('acq_targets').upsert([
-      {key:'owner_contracts',value:D.targets.owner_contracts},
+      {key:'owner_target',value:D.targets.owner_target},
       {key:'owner_avgfee',value:D.targets.owner_avgfee},
       {key:'owner_fallout',value:D.ownerFallout}
     ],{onConflict:'key'});
-  },400);
+  },600);
 }
 
 
