@@ -220,6 +220,7 @@ function renderToday(){
    +'</div>';
 
   var rows=[
+    ['\uD83C\uDD95 NEW LEADS CLAIMED','claimed',null,null],
     ['\uD83D\uDCDE DIALS','dials',T('dials_day',320),null],
     ['\uD83D\uDCAC CONVOS','convos',T('convos_day',70),null],
     ['\u23F1 TALK TIME','talk',T('talkmin_day',420),hm],
@@ -631,11 +632,11 @@ function renderEarnings(){
 }
 
 function repRange(rep,from){
-  var o={dials:0,convos:0,talk:0,offers:0,contracts:0};
+  var o={dials:0,convos:0,talk:0,offers:0,contracts:0,claimed:0};
   D.act.forEach(function(a){if((!from||a.on_date>=from)&&(a.rep||D.reps[0])===rep){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
   o.talkSec=o.talk;o.talk=Math.round(o.talk/60);
   D.offers.forEach(function(of){if((!from||of.offered_on>=from)&&offerRep(of)===rep)o.offers++});
-  D.leads.forEach(function(l){if(repOf(l)!==rep)return;if(l.contracted_on&&(!from||l.contracted_on>=from))o.contracts++});
+  D.leads.forEach(function(l){if(repOf(l)!==rep)return;if(l.contracted_on&&(!from||l.contracted_on>=from))o.contracts++;if(l.claimed_on&&(!from||l.claimed_on>=from))o.claimed++});
   return o;
 }
 var CMD_FROM='__month__';
@@ -955,7 +956,7 @@ function renderCommand(){
 
   var stats={};D.reps.forEach(function(rp){stats[rp]=repRange(rp,from)});
   h+='<div class="card"><h2>\uD83D\uDCCA SALES TRACKER</h2><table><tr><th></th>'+D.reps.map(function(rp){return '<th>'+esc(rp.split(' ')[0]).toUpperCase()+'</th>'}).join('')+'</tr>';
-  [['\uD83D\uDCDE Dials','dials'],['\uD83D\uDCAC Convos','convos'],['\u23F1 Talk (min)','talk'],['\uD83D\uDCB0 Offers','offers'],['\uD83D\uDCDD Contracts','contracts']].forEach(function(row){
+  [['\uD83C\uDD95 Leads claimed','claimed'],['\uD83D\uDCDE Dials','dials'],['\uD83D\uDCAC Convos','convos'],['\u23F1 Talk (min)','talk'],['\uD83D\uDCB0 Offers','offers'],['\uD83D\uDCDD Contracts','contracts']].forEach(function(row){
     var best=Math.max.apply(null,D.reps.map(function(rp){return stats[rp][row[1]]}));
     h+='<tr><td>'+row[0]+'</td>'+D.reps.map(function(rp){var v=stats[rp][row[1]];return '<td style="'+(v===best&&v>0?'color:var(--gold);font-weight:800':'')+'">'+v+'</td>'}).join('')+'</tr>';
   });
