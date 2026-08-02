@@ -1108,22 +1108,30 @@ function renderGoal(){
      +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank')
      +prow('\uD83D\uDCC8','Projected revenue',closed,LT,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$);
 
-    // ============ DAILY REQUIREMENTS (separate card) ============
+    // ============ DAILY REQUIREMENTS (catch-up pace: remaining work / remaining workdays) ============
     var workDays=Number(D.targets&&D.targets.workdays!=null?D.targets.workdays:26)||26;
-    function d1(x){var v=x/workDays;return v>=10?String(Math.ceil(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')}
-    var talkDayMin=Math.round(talkTotal/workDays);
+    var workLeft=Math.max(1,Math.round(di.left*workDays/di.total));
+    function dleft(total,have){
+      var rem=Math.max(0,total-have);
+      if(rem===0)return '<span style="color:var(--green)">\u2705 done</span>';
+      var v=rem/workLeft;
+      return '<b>'+(v>=10?String(Math.ceil(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,''))+'</b> <span class="sm mut">('+rem+' left)</span>';
+    }
+    var talkRem=Math.max(0,talkTotal-ms.talk), talkDayMin=Math.ceil(talkRem/workLeft);
+    var revRem=Math.max(0,LT-closed);
     var dailyCard=''
-     +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.16em;font-weight:800">DAILY</div>'
+     +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.16em;font-weight:800">DAILY \u00b7 AUTO-ADJUSTS</div>'
      +'<div class="sm mut">days worked/mo <input id="og_wd" type="number" value="'+workDays+'" style="width:56px;text-align:center;font-size:15px;font-weight:800" oninput="saveWorkDays()" onchange="renderGoal()"></div></div>'
-     +'<h2 style="margin:0 0 6px">\u2600\uFE0F What that takes each day</h2>'
+     +'<h2 style="margin:0 0 6px">\u2600\uFE0F What today takes</h2>'
+     +'<div class="sm mut" style="margin:-2px 0 8px">Live pace: what\u2019s left \u00f7 your remaining '+workLeft+' work day'+(workLeft===1?'':'s')+'. Fall behind and these climb \u2014 get ahead and they drop.</div>'
      +'<table style="width:100%">'
-     +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right"><b>'+d1(leadsTotal)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCDE Dials / day</td><td style="text-align:right"><b>'+d1(dialsTotal)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCAC Convos / day</td><td style="text-align:right"><b>'+d1(convosTotal)+'</b></td></tr>'
-     +'<tr><td>\u23F1 Talk time / day</td><td style="text-align:right"><b>'+Math.floor(talkDayMin/60)+'h '+(talkDayMin%60)+'m</b></td></tr>'
-     +'<tr><td>\uD83D\uDCB0 Offers / day</td><td style="text-align:right"><b>'+d1(offersTotal)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCDD Contracts / day</td><td style="text-align:right"><b>'+d1(contractsTotal)+'</b></td></tr>'
-     +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right"><b>'+fmt$(Math.ceil(LT/workDays))+'</b></td></tr>'
+     +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right">'+dleft(leadsTotal,leadsHave)+'</td></tr>'
+     +'<tr><td>\uD83D\uDCDE Dials / day</td><td style="text-align:right">'+dleft(dialsTotal,ms.dials)+'</td></tr>'
+     +'<tr><td>\uD83D\uDCAC Convos / day</td><td style="text-align:right">'+dleft(convosTotal,ms.convos)+'</td></tr>'
+     +'<tr><td>\u23F1 Talk time / day</td><td style="text-align:right">'+(talkRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+Math.floor(talkDayMin/60)+'h '+(talkDayMin%60)+'m</b>')+'</td></tr>'
+     +'<tr><td>\uD83D\uDCB0 Offers / day</td><td style="text-align:right">'+dleft(offersTotal,offersHave)+'</td></tr>'
+     +'<tr><td>\uD83D\uDCDD Contracts / day</td><td style="text-align:right">'+dleft(contractsTotal,ms.contracts)+'</td></tr>'
+     +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right">'+(revRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+fmt$(Math.ceil(revRem/workLeft))+'</b>')+'</td></tr>'
      +'</table>';
 
     h+='<div style="text-align:center;padding:18px 0 6px">'
