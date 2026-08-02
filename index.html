@@ -1023,9 +1023,9 @@ function renderGoal(){
      +'<div style="font-size:min(15vw,68px);font-weight:800;line-height:1.1;color:var(--gold)">'+fmt$(lockedTarget)+'</div>';
     if(isOwnerView){
       h+='<div style="display:flex;gap:10px;justify-content:center;align-items:flex-end;margin:16px 0 4px;flex-wrap:wrap">'
-       +'<div><div class="sm mut">TARGET $</div><input id="og_t" type="number" value="'+lockedTarget+'" style="width:130px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
-       +'<div><div class="sm mut">AVG FEE $</div><input id="og_fee" type="number" value="'+feeGoal+'" style="width:110px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
-       +'<div><div class="sm mut">FALLOUT %</div><input id="og_fo" type="number" value="'+fallout+'" style="width:80px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()"></div>'
+       +'<div><div class="sm mut">TARGET $</div><input id="og_t" type="number" value="'+lockedTarget+'" style="width:130px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()" onchange="renderGoal()"></div>'
+       +'<div><div class="sm mut">AVG FEE $</div><input id="og_fee" type="number" value="'+feeGoal+'" style="width:110px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()" onchange="renderGoal()"></div>'
+       +'<div><div class="sm mut">FALLOUT %</div><input id="og_fo" type="number" value="'+fallout+'" style="width:80px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()" onchange="renderGoal()"></div>'
        +'</div>'
        +'<div class="sm mut">= '+nGoal+' contracts at '+fmt$(feeGoal)+' \u00b7 ~'+fmt$(fundedGoal)+' after '+fallout+'% fallout</div>';
     }
@@ -1034,7 +1034,7 @@ function renderGoal(){
     h+='<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>'
      +'<div style="font-size:13px;color:var(--mut);margin-top:14px">MY CHECK THIS MONTH (CAD)</div>'
      +'<div style="display:inline-block;border:2px dashed var(--gold);border-radius:14px;padding:6px 18px;margin-top:6px;background:rgba(212,175,55,.06)">'
-     +'<input id="rg_c" type="number" value="'+commGoalV+'" oninput="saveRepComm(\''+esc(who)+'\')" '
+     +'<input id="rg_c" type="number" value="'+commGoalV+'" oninput="saveRepComm(\''+esc(who)+'\')" onchange="renderGoal()" '
      +'style="width:100%;max-width:380px;background:transparent;border:none;text-align:center;font-size:min(13vw,60px);font-weight:800;line-height:1.1;color:var(--gold);padding:0;margin:0">'
      +'</div>'
      +'<div class="sm" style="color:var(--gold);margin-top:6px">\u270F\uFE0F Tap the number \u2014 type what you want to make</div>'
@@ -1114,7 +1114,7 @@ function renderGoal(){
     var talkDayMin=Math.round(talkTotal/workDays);
     var dailyCard=''
      +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.16em;font-weight:800">DAILY</div>'
-     +'<div class="sm mut">days worked/mo <input id="og_wd" type="number" value="'+workDays+'" style="width:56px;text-align:center;font-size:15px;font-weight:800" oninput="saveWorkDays()"></div></div>'
+     +'<div class="sm mut">days worked/mo <input id="og_wd" type="number" value="'+workDays+'" style="width:56px;text-align:center;font-size:15px;font-weight:800" oninput="saveWorkDays()" onchange="renderGoal()"></div></div>'
      +'<h2 style="margin:0 0 6px">\u2600\uFE0F What that takes each day</h2>'
      +'<table style="width:100%">'
      +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right"><b>'+d1(leadsTotal)+'</b></td></tr>'
@@ -1158,7 +1158,6 @@ async function saveWorkDays(){
   D.targets.workdays=Math.max(1,Number(w.value)||26);
   clearTimeout(window._wdT);
   window._wdT=setTimeout(function(){
-    renderGoal();
     db.from('acq_targets').upsert([{key:'workdays',value:D.targets.workdays}],{onConflict:'key'});
   },500);
 }
@@ -1169,7 +1168,6 @@ async function saveRepComm(rep){
   D.repGoals[rep]=v;
   clearTimeout(window._rcT);
   window._rcT=setTimeout(function(){
-    renderGoal();
     db.from('acq_reps').update({monthly_goal:v}).eq('name',rep);
   },600);
 }
@@ -1183,7 +1181,6 @@ async function saveOwnerGoal(){
   D.targets.owner_fallout=D.ownerFallout;
   clearTimeout(window._ogT);
   window._ogT=setTimeout(function(){
-    renderGoal();
     db.from('acq_targets').upsert([
       {key:'owner_target',value:D.targets.owner_target},
       {key:'owner_avgfee',value:D.targets.owner_avgfee},
