@@ -1130,7 +1130,7 @@ function renderGoal(){
      +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right">'+dleft(leadsTotal,leadsHave)+'</td></tr>'
      +'<tr><td>\uD83D\uDCDE Dials / day</td><td style="text-align:right">'+dleft(dialsTotal,ms.dials)+'</td></tr>'
      +'<tr><td>\uD83D\uDCAC Convos / day</td><td style="text-align:right">'+dleft(convosTotal,ms.convos)+'</td></tr>'
-     +'<tr><td>\u23F1 Talk time / day</td><td style="text-align:right">'+(talkRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+Math.floor(talkDayMin/60)+'h '+(talkDayMin%60)+'m</b>')+'</td></tr>'
+     +'<tr><td>\u23F1 Talk time / day</td><td style="text-align:right">'+(talkRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+Math.floor(talkDayMin/60)+'h '+(talkDayMin%60)+'m</b> <span class="sm mut">('+Math.floor(talkRem/60)+'h '+(talkRem%60)+'m left)</span>')+'</td></tr>'
      +'<tr><td>\uD83D\uDCB0 Offers / day</td><td style="text-align:right">'+dleft(offersTotal,offersHave)+'</td></tr>'
      +'<tr><td>\uD83D\uDCDD Contracts / day</td><td style="text-align:right">'+dleft(contractsTotal,ms.contracts)+'</td></tr>'
      +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right">'+(revRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+fmt$(Math.ceil(Math.max(LT/workDays, revRem/workLeft)))+'</b>')+'</td></tr>'
