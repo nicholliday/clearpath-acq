@@ -650,13 +650,15 @@ function cmdFrom(){
   return null;
 }
 // ===== THE $100K STANDARD (company benchmark, measured Mar-Jul 2026 Meta era) =====
-var STD = {dialsPerConvo:6.2, convosPerOffer:3.1, offersPerContract:10.8, leadsPerContract:18.6,
-           talkPerConvo:8.8, closeRate:0.47, avgFee:15000,
+// META-ONLY baseline, measured from Nic's Mar-Jul 2026 sheets (6111 dials, 995 convos, 329 offers, ~148h talk, 28 contracts)
+var STD = {dialsPerConvo:6.1, convosPerOffer:3.0, offersPerContract:11.8, leadsPerContract:18.6,
+           talkPerConvo:8.9, closeRate:0.47, avgFee:15000,
            contracts:15, closes:7, funded:105000, leads:280,
            dials:3050, convos:490, talkH:71, offers:162};
 // Per-rep trailing-90-day ratios; falls back to STD until enough personal sample
 function repBench(rep){
   var from = new Date(Date.now()-90*86400000).toISOString().slice(0,10);
+  if(from < '2026-08-02') from = '2026-08-02'; // only clean v19-era data feeds personal rates (pre-fix talk was ring-inflated)
   var tr = repRange(rep, from);
   var lc=0, cc=0;
   D.leads.forEach(function(l){
