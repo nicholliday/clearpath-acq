@@ -1114,16 +1114,16 @@ function renderGoal(){
     function dleft(total,have){
       var rem=Math.max(0,total-have);
       if(rem===0)return '<span style="color:var(--green)">\u2705 done</span>';
-      var v=rem/workLeft;
+      var v=Math.max(total/workDays, rem/workLeft); // never below day-1 plan; climbs if behind
       return '<b>'+(v>=10?String(Math.ceil(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,''))+'</b> <span class="sm mut">('+rem+' left)</span>';
     }
-    var talkRem=Math.max(0,talkTotal-ms.talk), talkDayMin=Math.ceil(talkRem/workLeft);
+    var talkRem=Math.max(0,talkTotal-ms.talk), talkDayMin=Math.ceil(Math.max(talkTotal/workDays, talkRem/workLeft));
     var revRem=Math.max(0,LT-closed);
     var dailyCard=''
      +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.16em;font-weight:800">DAILY \u00b7 AUTO-ADJUSTS</div>'
      +'<div class="sm mut">days worked/mo <input id="og_wd" type="number" value="'+workDays+'" style="width:56px;text-align:center;font-size:15px;font-weight:800" oninput="saveWorkDays()" onchange="renderGoal()"></div></div>'
      +'<h2 style="margin:0 0 6px">\u2600\uFE0F What today takes</h2>'
-     +'<div class="sm mut" style="margin:-2px 0 8px">Live pace: what\u2019s left \u00f7 your remaining '+workLeft+' work day'+(workLeft===1?'':'s')+'. Fall behind and these climb \u2014 get ahead and they drop.</div>'
+     +'<div class="sm mut" style="margin:-2px 0 8px">Live pace over your remaining '+workLeft+' work day'+(workLeft===1?'':'s')+'. Fall behind and these climb \u2014 they never drop below the plan.</div>'
      +'<table style="width:100%">'
      +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right">'+dleft(leadsTotal,leadsHave)+'</td></tr>'
      +'<tr><td>\uD83D\uDCDE Dials / day</td><td style="text-align:right">'+dleft(dialsTotal,ms.dials)+'</td></tr>'
@@ -1131,15 +1131,10 @@ function renderGoal(){
      +'<tr><td>\u23F1 Talk time / day</td><td style="text-align:right">'+(talkRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+Math.floor(talkDayMin/60)+'h '+(talkDayMin%60)+'m</b>')+'</td></tr>'
      +'<tr><td>\uD83D\uDCB0 Offers / day</td><td style="text-align:right">'+dleft(offersTotal,offersHave)+'</td></tr>'
      +'<tr><td>\uD83D\uDCDD Contracts / day</td><td style="text-align:right">'+dleft(contractsTotal,ms.contracts)+'</td></tr>'
-     +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right">'+(revRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+fmt$(Math.ceil(revRem/workLeft))+'</b>')+'</td></tr>'
+     +'<tr><td>\uD83D\uDCC8 Projected rev / day</td><td style="text-align:right">'+(revRem===0?'<span style="color:var(--green)">\u2705 done</span>':'<b>'+fmt$(Math.ceil(Math.max(LT/workDays, revRem/workLeft)))+'</b>')+'</td></tr>'
      +'</table>';
 
-    h+='<div style="text-align:center;padding:18px 0 6px">'
-     +'<div class="sm mut" style="letter-spacing:.12em;font-weight:800">YOUR DAILY NUMBER</div>'
-     +'<div style="font-size:min(15vw,68px);font-weight:800;color:'+(covered?'var(--green)':'var(--gold)')+'">'+dialsDay+'</div>'
-     +'<div class="sm mut">dials/day for the next '+di.left+' days \u00b7 you\u2019re averaging '+curDialsDay+'</div>'
-     +(covered?'<div class="sm" style="color:var(--green);margin-top:8px">\u2705 Current volume covers it \u2014 keep swinging.</div>':'<div class="sm" style="color:var(--red);margin-top:8px">\u26A0\uFE0F +'+(dialsDay-curDialsDay)+' more dials/day between you and the goal.</div>')
-     +'</div></div>';
+    h+='</div>';
 
     h+='<div class="card">'+dailyCard+'</div>';
   }
