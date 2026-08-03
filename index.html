@@ -470,7 +470,7 @@ function renderReps(){
 
 
 /* ============ PHASE 1: METRICS + CALCULATOR ============ */
-var MET_FROM=null; // null = all time
+var MET_FROM=monthStart(); // synced to top range chips
 function setMetRange(f){MET_FROM=f;renderMetrics()}
 function linkedDeal(l){if(!l.deal_id)return null;return D.ddeals.find(function(d){return d.id===l.deal_id})||null}
 function stageMoveOn(dealId,stage){
@@ -640,7 +640,7 @@ function repRange(rep,from){
   return o;
 }
 var CMD_FROM='__month__';
-function setCmdRange(f){CMD_FROM=f;renderCommand();renderMetrics()}
+function setCmdRange(f){CMD_FROM=f;MET_FROM=cmdFrom();renderCommand();renderMetrics()}
 function cmdFrom(){
   if(CMD_FROM==='__day__')return today();
   if(CMD_FROM==='__week__')return daysAgo(6);
@@ -1213,11 +1213,7 @@ function speedToLead(){
 function renderMetrics(){
   var el=document.getElementById('metricsHost')||document.getElementById('v_metrics');if(!el)return;
   var m=metChain();
-  var ranges=[['Month',monthStart()],['Quarter',quarterStart()],['Year',yearStart()],['All time',null]];
-  var h='<div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">'+ranges.map(function(r){
-    var on=(MET_FROM===r[1]);
-    return '<button class="btn '+(on?'g':'mut')+'" onclick="setMetRange('+(r[1]?"'"+r[1]+"'":'null')+')">'+r[0]+'</button>';
-  }).join('')+'</div>';
+  var h='';
 
   var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💵 Assignment fees',fmt$(m.revenue)]];
   h+='<div class="card"><h2>⛓ The chain</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
