@@ -478,17 +478,18 @@ function stageMoveOn(dealId,stage){
   return h.length?h[0].entered_on:null;
 }
 function inR(dt){if(!dt)return false;var d=(dt+'').slice(0,10);return !MET_FROM||d>=MET_FROM}
-function metChain(){
-  var leads=D.leads.filter(function(l){return inR(l.created_at)});
+function metChain(rep){
+  var leads=D.leads.filter(function(l){return inR(l.created_at)&&(!rep||repOf(l)===rep)});
   var bad=leads.filter(function(l){return l.stage==='Dead'&&l.dead_reason==='Bad lead'}).length;
   var a={dials:0,convos:0,talk:0};
-  D.act.forEach(function(x){if(inR(x.on_date)){a.dials+=x.dials||0;a.convos+=x.convos||0;a.talk+=x.talk_min||0}});
+  D.act.forEach(function(x){if(inR(x.on_date)&&(!rep||(x.rep||D.reps[0])===rep)){a.dials+=x.dials||0;a.convos+=x.convos||0;a.talk+=x.talk_min||0}});
   a.talk=Math.round(a.talk/60);
-  var offers=D.offers.filter(function(o){return inR(o.offered_on)}).length;
-  var contracts=D.leads.filter(function(l){return l.contracted_on&&inR(l.contracted_on)}).length;
+  var offers=D.offers.filter(function(o){return inR(o.offered_on)&&(!rep||offerRep(o)===rep)}).length;
+  var contracts=D.leads.filter(function(l){return l.contracted_on&&inR(l.contracted_on)&&(!rep||repOf(l)===rep)}).length;
   var assigned=0,closed=0,revenue=0,fees=[];
   D.leads.forEach(function(l){
     if(!l.deal_id)return;
+    if(rep&&repOf(l)!==rep)return;
     var em=stageMoveOn(l.deal_id,'EMD In'), cl=stageMoveOn(l.deal_id,'Closed');
     if(em&&inR(em))assigned++;
     if(cl&&inR(cl)){closed++;var d=linkedDeal(l);var f=d&&(d.revenue_closed||0);if(f){revenue+=f;fees.push(f)}}
@@ -1212,7 +1213,7 @@ function speedToLead(){
 }
 function renderMetrics(){
   var el=document.getElementById('metricsHost')||document.getElementById('v_metrics');if(!el)return;
-  var m=metChain();
+  var m=metChain(ROLE==='owner'?null:ME);
   var h='';
 
   var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💵 Assignment fees',fmt$(m.revenue)]];
@@ -1248,8 +1249,8 @@ function renderMetrics(){
    +'<div class="sm mut" style="margin-top:6px">Timelines fill in as leads you send to Dispo start closing — the lead→close number is how long your money is stuck in a deal.</div></div>';
 
   h+='<div class="card"><h2>🧮 Commission calculator</h2><div id="ccOut"></div>'
-   +'<label>Rep</label><select id="cc_rep" onchange="ccFillRev()">'+D.reps.map(function(rp){return '<option>'+esc(rp)+'</option>'}).join('')+'</select>'
-   +'<label>Month assignment fees (auto from their closed deals — edit to model)</label><input id="cc_rev" type="number" value="'+(metMonthRev(D.reps[0])||'')+'" oninput="calcComm()">'
+   +'<label>Rep</label><select id="cc_rep" onchange="ccFillRev()">'+(ROLE==='owner'?D.reps:[ME||D.reps[0]]).map(function(rp){return '<option>'+esc(rp)+'</option>'}).join('')+'</select>'
+   +'<label>Month assignment fees (auto from their closed deals — edit to model)</label><input id="cc_rev" type="number" value="'+(metMonthRev(ROLE==='owner'?D.reps[0]:(ME||D.reps[0]))||'')+'" oninput="calcComm()">'
    +'<label>Ramp month (1-12)</label><select id="cc_mo" onchange="calcComm()">'+[1,2,3,4,5,6,7,8,9,10,11,12].map(function(n){return '<option'+(n===rampMonthGuess()?' selected':'')+'>'+n+'</option>'}).join('')+'</select>'
    +'<label>Strikes this month</label><input id="cc_str" type="number" value="0" oninput="calcComm()">'
    +'<label>$ per strike (USD)</label><input id="cc_strv" type="number" value="'+T('strike_value',500)+'" oninput="calcComm()">'
