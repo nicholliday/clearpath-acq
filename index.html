@@ -147,6 +147,41 @@ function monthStart(){return today().slice(0,8)+'01'}
 function quarterStart(){var d=new Date();var q=Math.floor(d.getMonth()/3)*3;return d.getFullYear()+'-'+String(q+1).padStart(2,'0')+'-01'}
 function yearStart(){return today().slice(0,4)+'-01-01'}
 function stlFmt(m){return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+'m'}
+function pbHTML(){
+  if(!ME) return '';
+  var t=today();
+  function weekKey(d){var x=new Date(d+'T12:00:00');var dow=(x.getDay()+6)%7;x.setDate(x.getDate()-dow);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+  var curW=weekKey(t), curM=t.slice(0,7);
+  // per-day totals for ME: dials, convos, talk(sec), offers, contracts
+  var days={};
+  function bump(d,k,v){if(!days[d])days[d]={dials:0,convos:0,talk:0,offers:0,contracts:0};days[d][k]+=v}
+  (D.act||[]).forEach(function(a){if((a.rep||D.reps[0])!==ME||!a.on_date)return;bump(a.on_date,'dials',a.dials||0);bump(a.on_date,'convos',a.convos||0);bump(a.on_date,'talk',a.talk_min||0)});
+  (D.offers||[]).forEach(function(o){if(offerRep(o)!==ME||!o.offered_on)return;bump(String(o.offered_on).slice(0,10),'offers',1)});
+  (D.leads||[]).forEach(function(l){if(repOf(l)!==ME||!l.contracted_on)return;bump(String(l.contracted_on).slice(0,10),'contracts',1)});
+  var METS=[['dials','dials',null],['convos','convos',null],['talk','talk time',function(v){return stlFmt(Math.round(v/60))}],['offers','offers',null],['contracts','contracts',null]];
+  var wins=[];
+  // aggregate helper: {key->totals} for a keyFn
+  function agg(keyFn){var o={};Object.keys(days).forEach(function(d){var k=keyFn(d);if(!o[k])o[k]={dials:0,convos:0,talk:0,offers:0,contracts:0};METS.forEach(function(m){o[k][m[0]]+=days[d][m[0]]})});return o}
+  var byDay=days, byWeek=agg(weekKey), byMonth=agg(function(d){return d.slice(0,7)});
+  function check(map,curKey,label){
+    var prior=Object.keys(map).filter(function(k){return k<curKey});
+    if(!prior.length)return; // new rep guard: need a completed prior period
+    METS.forEach(function(m){
+      var best=0; prior.forEach(function(k){best=Math.max(best,map[k][m[0]])});
+      var cur=(map[curKey]||{})[m[0]]||0;
+      if(best>0&&cur>best){
+        var f=m[2]||function(v){return String(v)};
+        wins.push(f(cur)+' '+m[1]+' \u2014 best '+label+' <span class="sm mut">(old '+f(best)+')</span>');
+      }
+    });
+  }
+  check(byDay,t,'DAY'); check(byWeek,curW,'WEEK'); check(byMonth,curM,'MONTH');
+  if(!wins.length)return '';
+  return '<div style="background:linear-gradient(90deg,rgba(212,175,55,.18),rgba(212,175,55,.06));border:1px solid var(--gold);border-radius:14px;padding:10px 14px;margin-bottom:10px;text-align:center">'
+    +'<div style="font-weight:800;letter-spacing:.12em;color:var(--gold)">\uD83C\uDFC6 NEW PERSONAL BEST</div>'
+    +'<div class="sm" style="margin-top:4px">'+wins.join(' \u00b7 ')+'</div></div>';
+}
+
 function stlAvgFor(rep,from){
   var tot=0,n=0;
   (D.leads||[]).forEach(function(l){
@@ -227,6 +262,7 @@ function renderToday(){
   var smallSize='min('+Math.max(7,Math.floor(40/n))+'vw,54px)';
 
   var h='<div class="kpi" style="padding:24px 8px 18px;border-radius:20px;min-height:calc(100vh - 170px);display:flex;flex-direction:column">';
+  h+=pbHTML();
 
   // rep name header row
   h+='<div style="display:flex;margin-bottom:6px">'+reps.map(function(rp){
