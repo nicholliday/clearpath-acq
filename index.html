@@ -558,11 +558,13 @@ function metChain(rep){
   var claimed=D.leads.filter(function(l){return l.claimed_on&&inR(l.claimed_on)&&(!rep||repOf(l)===rep)}).length;
   var assigned=0,closed=0,revenue=0,fees=[];
   D.leads.forEach(function(l){
-    if(!l.deal_id)return;
     if(rep&&repOf(l)!==rep)return;
-    var em=stageMoveOn(l.deal_id,'EMD In'), cl=stageMoveOn(l.deal_id,'Closed');
-    if(em&&inR(em))assigned++;
-    if(cl&&inR(cl)){closed++;var d=linkedDeal(l);var f=d&&(d.revenue_closed||0);if(f){revenue+=f;fees.push(f)}}
+    // assigned: GHL stage tracker first, legacy dispo link as fallback
+    if(l.assigned_on){ if(inR(l.assigned_on))assigned++; }
+    else if(l.deal_id){ var em=stageMoveOn(l.deal_id,'EMD In'); if(em&&inR(em))assigned++; }
+    // closed: GHL closed tag first, legacy dispo link as fallback
+    if(l.closed_on){ if(inR(l.closed_on)){closed++;var f=Number(l.revenue_closed)||0;if(f){revenue+=f;fees.push(f)}} }
+    else if(l.deal_id){ var cl=stageMoveOn(l.deal_id,'Closed'); if(cl&&inR(cl)){closed++;var d=linkedDeal(l);var f2=d&&(d.revenue_closed||0);if(f2){revenue+=f2;fees.push(f2)}} }
   });
   return {claimed:claimed,leads:leads.length,net:leads.length-bad,dials:a.dials,convos:a.convos,talk:a.talk,offers:offers,contracts:contracts,assigned:assigned,closed:closed,revenue:revenue,fees:fees};
 }
