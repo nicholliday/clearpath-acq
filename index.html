@@ -1209,8 +1209,8 @@ function renderMetrics(){
   var m=metChain(ROLE==='owner'?null:ME);
   var h='';
 
-  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['🆕 Leads claimed',m.claimed],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💵 Assignment fees',fmt$(m.revenue)]];
-  h+='<div class="card"><h2>⛓ The chain</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
+  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['🆕 Leads claimed',m.claimed],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💰 Earned (CAD)',fmt$(Math.round(commissionOf(m.revenue)))]];
+  h+='<div class="card"><h2>📊 Metrics</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
 
   function rrow(l,v){return '<div class="row sm" style="padding:5px 0"><span class="mut">'+l+'</span><b>'+v+'</b></div>'}
   h+='<div class="card"><h2>🔀 Ratios</h2>'
