@@ -146,6 +146,22 @@ function daysAgo(n){var d=new Date();d.setDate(d.getDate()-n);return d.getFullYe
 function monthStart(){return today().slice(0,8)+'01'}
 function quarterStart(){var d=new Date();var q=Math.floor(d.getMonth()/3)*3;return d.getFullYear()+'-'+String(q+1).padStart(2,'0')+'-01'}
 function yearStart(){return today().slice(0,4)+'-01-01'}
+function stlMin(iso){return Math.max(0,Math.round((Date.now()-new Date(iso).getTime())/60000))}
+function stlFmt(m){return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+'m'}
+function stlHTML(){
+  var t=today();
+  var un=(D.leads||[]).filter(function(l){return !l.claimed_on&&l.created_at&&stlMin(l.created_at)<2880});
+  un.sort(function(a,b){return a.created_at<b.created_at?-1:1});
+  var cl=(D.leads||[]).filter(function(l){return l.claimed_on&&l.created_at&&String(l.claimed_on).slice(0,10)===t});
+  if(!un.length&&!cl.length)return '<div id="stlBlock"></div>';
+  var h='<div id="stlBlock" style="padding:8px 0 4px;border-bottom:1px solid var(--line)"><div class="sm mut" style="letter-spacing:.14em;font-weight:800;margin-bottom:4px;text-align:center">\u26A1 SPEED TO LEAD</div>';
+  un.slice(0,6).forEach(function(l){var m=stlMin(l.created_at);var col=m>5?'var(--red)':'var(--gold)';
+    h+='<div class="row sm" style="padding:3px 0"><span>'+esc(l.name||'Lead')+'</span><span style="color:'+col+';font-weight:800">'+stlFmt(m)+' unclaimed</span></div>'});
+  cl.forEach(function(l){var sp=null;if(String(l.claimed_on).length>10)sp=Math.round((new Date(l.claimed_on)-new Date(l.created_at))/60000);
+    h+='<div class="row sm" style="padding:3px 0"><span>'+esc(l.name||'Lead')+'</span><span style="color:var(--green);font-weight:800">'+(sp!=null&&sp>=0?'claimed in '+stlFmt(sp):'claimed \u2705')+'</span></div>'});
+  return h+'</div>';
+}
+if(!window._stlInt)window._stlInt=setInterval(function(){var el=document.getElementById('stlBlock');if(el)el.outerHTML=stlHTML()},30000);
 
 async function loadAll(){
   var r=await Promise.all([
@@ -218,6 +234,7 @@ function renderToday(){
    +'<span style="font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut)">\uD83D\uDCE5 LEADS TODAY </span>'
    +'<span style="font-size:26px;font-weight:800;color:var(--gold);margin-left:8px">'+leadsToday+'</span>'
    +'</div>';
+  h+=stlHTML();
 
   var rows=[
     ['\uD83C\uDD95 NEW LEADS CLAIMED','claimed',null,null],
