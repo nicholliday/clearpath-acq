@@ -1256,15 +1256,30 @@ function renderMetrics(){
   var avgCommClose=m.closed?fmt$(Math.round(commissionOf(m.revenue)/m.closed)):'—';
   var stdComm=fmt$(Math.round(commissionOf(STD.avgFee)));
   h+='<div class="card"><h2>🔀 Ratios — step by step</h2>'
-   +srow('Net leads → claimed', m.net?Math.round(m.claimed/m.net*100)+'%':'—', null)
-   +srow('Claimed → dials (per lead)', m.claimed?r1(m.dials/m.claimed):'—', null)
-   +srow('Dials → convo (dials per)', m.convos?r1(m.dials/m.convos):'—', r1(STD.dialsPerConvo))
-   +srow('Convo → talk time (per convo)', m.convos?tmin(m.talk/m.convos):'—', tmin(STD.talkPerConvo))
-   +srow('Talk time → offer (per offer)', m.offers?tmin(m.talk/m.offers):'—', tmin(stdTalkPerOffer))
-   +srow('Offers → contract (per)', m.contracts?r1(m.offers/m.contracts):'—', r1(STD.offersPerContract))
-   +srow('Contracts → assigned', m.contracts?Math.round(m.assigned/m.contracts*100)+'%':'—', null)
-   +srow('Assigned → closed', m.assigned?Math.round(m.closed/m.assigned*100)+'%':'—', Math.round(STD.closeRate*100)+'%')
-   +srow('Closed → avg commission (CAD)', avgCommClose, stdComm)
+   +'<div class="sm mut" style="margin:-2px 0 6px">Green = at or better than standard (within 5%) \u00b7 red = 10%+ worse.</div>';
+  function stCol(v,s,dir){
+    if(v==null||!s)return '';
+    var r=v/s;
+    if(dir==='low'){ if(r<=1.05)return 'var(--green)'; if(r>1.10)return 'var(--red)'; }
+    else { if(r>=0.95)return 'var(--green)'; if(r<0.90)return 'var(--red)'; }
+    return '';
+  }
+  function crow(lbl,vDisp,vNum,std,dir,stdDisp){
+    var col=stCol(vNum,std,dir);
+    return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="mut">'+lbl+'</span><span style="text-align:right"><b'+(col?' style="color:'+col+'"':'')+'>'+vDisp+'</b>'+(stdDisp?' <span class="sm mut">\u00b7 standard '+stdDisp+'</span>':'')+'</span></div>';
+  }
+  var vDC=m.convos?m.dials/m.convos:null, vCT=m.convos?m.talk/m.convos:null, vTO=m.offers?m.talk/m.offers:null,
+      vOC=m.contracts?m.offers/m.contracts:null, vAC=m.assigned?m.closed/m.assigned:null,
+      vCC=m.closed?commissionOf(m.revenue)/m.closed:null, sCC=commissionOf(STD.avgFee);
+  h+=crow('Net leads \u2192 claimed', m.net?Math.round(m.claimed/m.net*100)+'%':'\u2014', null,null,null,null)
+   +crow('Claimed \u2192 dials (per lead)', m.claimed?r1(m.dials/m.claimed):'\u2014', null,null,null,null)
+   +crow('Dials \u2192 convo (dials per)', vDC!=null?r1(vDC):'\u2014', vDC, STD.dialsPerConvo,'low', r1(STD.dialsPerConvo))
+   +crow('Convo \u2192 talk time (per convo)', vCT!=null?tmin(vCT):'\u2014', vCT, STD.talkPerConvo,'high', tmin(STD.talkPerConvo))
+   +crow('Talk time \u2192 offer (per offer)', vTO!=null?tmin(vTO):'\u2014', vTO, stdTalkPerOffer,'low', tmin(stdTalkPerOffer))
+   +crow('Offers \u2192 contract (per)', vOC!=null?r1(vOC):'\u2014', vOC, STD.offersPerContract,'low', r1(STD.offersPerContract))
+   +crow('Contracts \u2192 assigned', m.contracts?Math.round(m.assigned/m.contracts*100)+'%':'\u2014', null,null,null,null)
+   +crow('Assigned \u2192 closed', vAC!=null?Math.round(vAC*100)+'%':'\u2014', vAC, STD.closeRate,'high', Math.round(STD.closeRate*100)+'%')
+   +crow('Closed \u2192 avg commission (CAD)', vCC!=null?fmt$(Math.round(vCC)):'\u2014', vCC, sCC,'high', fmt$(Math.round(sCC)))
    +'</div>';
 
   // any-to-any lookup, live from the same scoped data
