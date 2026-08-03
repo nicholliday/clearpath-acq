@@ -504,7 +504,7 @@ function avgDays(pairs){
 var OWNER_REP='Nic Holliday';
 function payReps(){return D.reps.filter(function(r){return r!==OWNER_REP})}
 var CMD_REP=null;
-function setCmdRep(r){CMD_REP=r;renderCommand()}
+function setCmdRep(r){CMD_REP=r;renderCommand();renderMetrics()}
 var GOAL_REP=null;
 function setGoalRep(r){GOAL_REP=r;renderGoal()}
 function repMonth(rep){
@@ -640,7 +640,7 @@ function repRange(rep,from){
   return o;
 }
 var CMD_FROM='__month__';
-function setCmdRange(f){CMD_FROM=f;renderCommand()}
+function setCmdRange(f){CMD_FROM=f;renderCommand();renderMetrics()}
 function cmdFrom(){
   if(CMD_FROM==='__day__')return today();
   if(CMD_FROM==='__week__')return daysAgo(6);
