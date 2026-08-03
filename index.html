@@ -1221,12 +1221,13 @@ function renderMetrics(){
   var m=metChain(ROLE==='owner'?null:ME);
   var h='';
 
-  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['🆕 Leads claimed',m.claimed],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💰 Earned (CAD)',fmt$(Math.round(commissionOf(m.revenue)))]];
+  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['🆕 Leads claimed',m.claimed],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk time',(m.talk<60?m.talk+'m':Math.floor(m.talk/60)+'h '+(m.talk%60)+'m')],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💰 Earned (CAD)',fmt$(Math.round(commissionOf(m.revenue)))]];
   h+='<div class="card"><h2>📊 Metrics</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
 
   function rrow(l,v){return '<div class="row sm" style="padding:5px 0"><span class="mut">'+l+'</span><b>'+v+'</b></div>'}
   // step ratios: each stage vs the next, personal vs company standard
   function r1(v){return v>=10?String(Math.round(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')}
+  function tmin(v){v=Math.round(v);if(v<60)return v+'m';return Math.floor(v/60)+'h '+(v%60)+'m'}
   function srow(lbl,val,std){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="mut">'+lbl+'</span><span style="text-align:right"><b>'+val+'</b>'+(std?' <span class="sm mut">· standard '+std+'</span>':'')+'</span></div>'}
   var stdTalkPerOffer=Math.round(STD.convosPerOffer*STD.talkPerConvo);
   var avgCommClose=m.closed?fmt$(Math.round(commissionOf(m.revenue)/m.closed)):'—';
@@ -1235,8 +1236,8 @@ function renderMetrics(){
    +srow('Net leads → claimed', m.net?Math.round(m.claimed/m.net*100)+'%':'—', null)
    +srow('Claimed → dials (per lead)', m.claimed?r1(m.dials/m.claimed):'—', null)
    +srow('Dials → convo (dials per)', m.convos?r1(m.dials/m.convos):'—', r1(STD.dialsPerConvo))
-   +srow('Convo → talk (min per)', m.convos?r1(m.talk/m.convos):'—', r1(STD.talkPerConvo))
-   +srow('Talk → offer (min per)', m.offers?r1(m.talk/m.offers):'—', String(stdTalkPerOffer))
+   +srow('Convo → talk time (per convo)', m.convos?tmin(m.talk/m.convos):'—', tmin(STD.talkPerConvo))
+   +srow('Talk time → offer (per offer)', m.offers?tmin(m.talk/m.offers):'—', tmin(stdTalkPerOffer))
    +srow('Offers → contract (per)', m.contracts?r1(m.offers/m.contracts):'—', r1(STD.offersPerContract))
    +srow('Contracts → assigned', m.contracts?Math.round(m.assigned/m.contracts*100)+'%':'—', null)
    +srow('Assigned → closed', m.assigned?Math.round(m.closed/m.assigned*100)+'%':'—', Math.round(STD.closeRate*100)+'%')
@@ -1245,7 +1246,7 @@ function renderMetrics(){
 
   // any-to-any lookup, live from the same scoped data
   window._M=m;
-  var stages=[['Net leads','net'],['Leads claimed','claimed'],['Dials','dials'],['Convos','convos'],['Talk min','talk'],['Offers','offers'],['Contracts','contracts'],['Assigned','assigned'],['Closed','closed']];
+  var stages=[['Net leads','net'],['Leads claimed','claimed'],['Dials','dials'],['Convos','convos'],['Talk time (min)','talk'],['Offers','offers'],['Contracts','contracts'],['Assigned','assigned'],['Closed','closed']];
   window._STDC={net:STD.leadsPerContract,claimed:null,dials:Math.round(STD.offersPerContract*STD.convosPerOffer*STD.dialsPerConvo),convos:Math.round(STD.offersPerContract*STD.convosPerOffer*10)/10,talk:Math.round(STD.offersPerContract*STD.convosPerOffer*STD.talkPerConvo),offers:STD.offersPerContract,contracts:1,assigned:null,closed:STD.closeRate};
   function opts(sel){return stages.map(function(s){return '<option value="'+s[1]+'"'+(s[1]===sel?' selected':'')+'>'+s[0]+'</option>'}).join('')}
   if(!window._PF)window._PF='convos'; if(!window._PT)window._PT='contracts';
