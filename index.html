@@ -62,6 +62,7 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
   <h1><span id="appTitle">Acq Tracker</span> <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span> <span id="whoBadge" class="sm mut" style="float:right;font-weight:700;margin-top:6px"></span></h1>
 
   <div id="v_script" class="view"></div>
+  <div id="v_owner" class="view"></div>
   <div id="v_today" class="view on"></div>
   <div id="v_goal" class="view"></div>
   <div id="v_bot" class="view"></div>
@@ -110,6 +111,7 @@ function buildTabs(){
    +'<button id="tb_bot" onclick="nav(\'bot\')"><span class="ic">\ud83e\udd16</span>Bot</button>'
    +'<button id="tb_earn" onclick="nav(\'earn\')"><span class="ic">\ud83d\udcb0</span>Comp Plan</button>'
    
+   +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">\ud83d\udc51</span>Owner</button>':'')
    +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">\u2699\ufe0f</span>Inputs</button>';
   document.getElementById('tabbar').innerHTML=t;
   document.getElementById('roleBadge').style.display=ROLE==='owner'?'inline-block':'none';
@@ -133,7 +135,7 @@ function nav(v){
     }
   }
 
-  ['script','today','goal','cmd','bot','earn','metrics','inputs'].forEach(function(k){
+  ['script','today','goal','cmd','bot','earn','metrics','inputs','owner'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
@@ -213,10 +215,12 @@ async function loadAll(){
     db.from('deals').select('id,address,stage,revenue_closed,contract_price'),
     db.from('stage_history').select('deal_id,stage,entered_on'),
     db.from('acq_reps').select('*').order('created_at'),
-    db.from('acq_calls').select('phone,called_at,rep,counted')
+    db.from('acq_calls').select('phone,called_at,rep,counted'),
+    db.from('master_monthly').select('*').order('month'),
+    db.from('master_expenses').select('*')
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
-  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.repPass={};(r[7].data||[]).forEach(function(x){if(x.passcode)D.repPass[x.name]=x.passcode});D.calls=(r[8].data||[]);
+  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.repPass={};(r[7].data||[]).forEach(function(x){if(x.passcode)D.repPass[x.name]=x.passcode});D.calls=(r[8].data||[]);D.master=(r[9].data||[]);D.mexp=(r[10].data||[]);
   D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
   if(D.targets.owner_goal!=null)D.ownerGoal=D.targets.owner_goal;
   if(D.targets.owner_fallout!=null)D.ownerFallout=D.targets.owner_fallout;
@@ -250,7 +254,7 @@ function closedStats(from){
 }
 
 /* ============ RENDER ============ */
-function render(){renderScript();renderToday();renderGoal();renderCommand();renderBot();renderEarnings();renderMetrics();renderInputs()}
+function render(){renderScript();renderToday();renderGoal();renderCommand();renderBot();renderEarnings();renderMetrics();renderInputs();renderOwner()}
 
 function renderToday(){
   var t=today();
@@ -1436,6 +1440,174 @@ async function saveSpend(){
   var r=await db.from('acq_spend').upsert({month:m,spend:v});
   if(r.error)return alert(r.error.message);
   loadAll();
+}
+
+
+// ==================== OWNER DASHBOARDS ====================
+var OWN_VIEW = localStorage.getItem('cp_own_view')||'nic';
+function setOwnView(v){OWN_VIEW=v;localStorage.setItem('cp_own_view',v);renderOwner()}
+function ownAgg(from){
+  var o={leads:0,dials:0,convos:0,talk:0,offers:0,contracts:0,assigned:0,closed:0,rev:0,pipeDeals:0,pipeRev:0,cycleDays:[],falls:0};
+  (D.leads||[]).forEach(function(l){
+    var c=(l.created_at||'').slice(0,10);
+    if(c>=from)o.leads++;
+    if(l.contracted_on&&l.contracted_on>=from)o.contracts++;
+    if(l.assigned_on&&l.assigned_on>=from)o.assigned++;
+    if(l.stage==='Fallout')o.falls++;
+    if(l.closed_on&&l.closed_on>=from){o.closed++;o.rev+=Number(l.revenue_closed)||0;
+      if(c)o.cycleDays.push(Math.round((new Date(l.closed_on)-new Date(c))/86400000));}
+    if(l.contracted_on&&!l.closed_on&&l.stage!=='Fallout'){o.pipeDeals++;o.pipeRev+=Number(l.projected_profit)||0}
+  });
+  (D.act||[]).forEach(function(a){if(a.on_date>=from){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
+  (D.offers||[]).forEach(function(x){if(x.offered_on&&String(x.offered_on).slice(0,10)>=from)o.offers++});
+  o.talk=Math.round(o.talk/60);
+  return o;
+}
+function ownTile(lbl,val,sub,col){return '<div style="flex:1;min-width:140px;background:var(--card);border:1px solid '+(col||'var(--line)')+';border-radius:14px;padding:12px"><div class="sm mut">'+lbl+'</div><div style="font-size:24px;font-weight:800;'+(col?'color:'+col:'')+'">'+val+'</div>'+(sub?'<div class="sm mut" style="margin-top:2px">'+sub+'</div>':'')+'</div>'}
+async function saveOwnSpend(){
+  var curM=monthStart().slice(0,7);
+  var v=Number(document.getElementById('own_spend').value)||0;
+  await db.from('master_monthly').upsert([{month:curM,source:'meta',spend:v}],{onConflict:'month,source'});
+  await loadAll();
+}
+async function saveOwnExp(){
+  var curM=monthStart().slice(0,7);
+  var row={month:curM,tools:Number(document.getElementById('oe_tools').value)||0,comp:Number(document.getElementById('oe_comp').value)||0,other:Number(document.getElementById('oe_other').value)||0};
+  await db.from('master_expenses').upsert([row],{onConflict:'month'});
+  await loadAll();
+}
+function renderOwner(){
+  var el=document.getElementById('v_owner'); if(!el)return;
+  if(ROLE!=='owner'){el.innerHTML='';return}
+  var m0=monthStart(), curM=m0.slice(0,7);
+  var L=ownAgg(m0);
+  var mRow=(D.master||[]).filter(function(r){return r.month===curM}).reduce(function(a,r){a.spend+=Number(r.spend)||0;return a},{spend:0});
+  var spend=mRow.spend;
+  var exp=(D.mexp||[]).filter(function(r){return r.month===curM})[0]||{tools:0,comp:0,other:0};
+  var expTot=(Number(exp.tools)||0)+(Number(exp.comp)||0)+(Number(exp.other)||0);
+  var net=L.rev-spend-expTot;
+  // lifetime meta history (incl current month live leads/contracts merged visually in table only)
+  var hist=(D.master||[]).filter(function(r){return r.source==='meta'});
+  var HT=hist.reduce(function(a,r){['spend','leads','dials','convos','offers','contracts','closed_rev'].forEach(function(k){a[k]=(a[k]||0)+(Number(r[k])||0)});return a},{});
+
+  var h='<div style="display:flex;gap:8px;margin-bottom:14px">'
+   +'<button class="btn '+(OWN_VIEW==='nic'?'g':'mut')+'" style="flex:1" onclick="setOwnView(\'nic\')">Nic Growth Dashboard</button>'
+   +'<button class="btn '+(OWN_VIEW==='hormozi'?'g':'mut')+'" style="flex:1" onclick="setOwnView(\'hormozi\')">Hormozi Dashboard</button>'
+   +'</div>';
+
+  if(OWN_VIEW==='nic'){
+    // ---------- NIC GROWTH DASHBOARD ----------
+    h+='<div class="card"><h2>\ud83c\udfe0 Command \u2014 '+curM+'</h2><div style="display:flex;gap:8px;flex-wrap:wrap">'
+     +ownTile('Ad spend',fmt$(spend),'update below')
+     +ownTile('Leads',L.leads,spend&&L.leads?fmt$(Math.round(spend/L.leads))+' CPL':'')
+     +ownTile('Contracts',L.contracts,spend&&L.contracts?fmt$(Math.round(spend/L.contracts))+' per contract':'')
+     +ownTile('Closed',fmt$(L.rev),L.closed+' deal'+(L.closed===1?'':'s'))
+     +ownTile('Pipeline',fmt$(L.pipeRev),L.pipeDeals+' in flight')
+     +ownTile('NET',fmt$(net),'after spend + expenses',net>=0?'var(--green)':'var(--red)')
+     +'</div></div>';
+
+    h+='<div class="card"><h2>\ud83d\udce3 Marketing (Meta)</h2><table style="width:100%"><tr><th style="text-align:left">Month</th><th>Spend</th><th>Leads</th><th>CPL</th><th>Contracts</th><th>$/Contract</th></tr>';
+    hist.forEach(function(r){
+      var cpl=r.leads?Math.round(r.spend/r.leads):null, cpc=r.contracts?Math.round(r.spend/r.contracts):null;
+      h+='<tr><td>'+r.month+'</td><td style="text-align:center">'+fmt$(r.spend)+'</td><td style="text-align:center">'+r.leads+'</td><td style="text-align:center">'+(cpl?fmt$(cpl):'\u2014')+'</td><td style="text-align:center">'+r.contracts+'</td><td style="text-align:center">'+(cpc?fmt$(cpc):'\u2014')+'</td></tr>';
+    });
+    var hcpl=HT.leads?Math.round(HT.spend/HT.leads):0, hcpc=HT.contracts?Math.round(HT.spend/HT.contracts):0;
+    h+='<tr style="font-weight:800;border-top:2px solid var(--line)"><td>ALL</td><td style="text-align:center">'+fmt$(HT.spend)+'</td><td style="text-align:center">'+HT.leads+'</td><td style="text-align:center">'+fmt$(hcpl)+'</td><td style="text-align:center">'+HT.contracts+'</td><td style="text-align:center">'+fmt$(hcpc)+'</td></tr></table>'
+     +'<div class="row" style="margin-top:10px;gap:8px"><input id="own_spend" type="number" placeholder="'+curM+' ad spend $" value="'+(spend||'')+'" style="flex:1"><button class="btn g" onclick="saveOwnSpend()">Save spend</button></div></div>';
+
+    h+='<div class="card"><h2>\ud83d\udcde Acq reps \u2014 '+curM+'</h2><table style="width:100%"><tr><th style="text-align:left">Rep</th><th>Dials</th><th>Convos</th><th>Talk</th><th>Offers</th><th>Contracts</th><th>Closed</th></tr>';
+    (D.reps||[]).forEach(function(rp){
+      var rr=repRange(rp,m0);
+      var ctr=0,cls=0;(D.leads||[]).forEach(function(l){if(repOf(l)!==rp)return;if(l.contracted_on&&l.contracted_on>=m0)ctr++;if(l.closed_on&&l.closed_on>=m0)cls++});
+      h+='<tr><td>'+esc(rp)+'</td><td style="text-align:center">'+rr.dials+'</td><td style="text-align:center">'+rr.convos+'</td><td style="text-align:center">'+stlFmt(rr.talk)+'</td><td style="text-align:center">'+rr.offers+'</td><td style="text-align:center">'+ctr+'</td><td style="text-align:center">'+cls+'</td></tr>';
+    });
+    h+='</table></div>';
+
+    var avgFeeR=L.fees&&L.fees.length?Math.round(L.rev/L.closed):null;
+    h+='<div class="card"><h2>\ud83c\udff7 Dispo \u2014 '+curM+'</h2><div style="display:flex;gap:8px;flex-wrap:wrap">'
+     +ownTile('Contracts in',L.contracts,'')
+     +ownTile('Assigned',L.assigned,'')
+     +ownTile('Closed',L.closed,L.closed?fmt$(Math.round(L.rev/L.closed))+' avg fee':'')
+     +ownTile('Fallout (all)',L.falls,'')
+     +'</div></div>';
+
+    h+='<div class="card"><h2>\ud83d\udcb0 Money \u2014 '+curM+'</h2>'
+     +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">'
+     +ownTile('Revenue',fmt$(L.rev),'closed this month')
+     +ownTile('Spend',fmt$(spend),'ads')
+     +ownTile('Expenses',fmt$(expTot),'tools+comp+other')
+     +ownTile('NET',fmt$(net),(L.rev?Math.round(net/L.rev*100)+'% margin':''),net>=0?'var(--green)':'var(--red)')
+     +'</div>'
+     +'<label>Tools $</label><input id="oe_tools" type="number" value="'+(exp.tools||'')+'">'
+     +'<label>Comp $</label><input id="oe_comp" type="number" value="'+(exp.comp||'')+'">'
+     +'<label>Other $</label><input id="oe_other" type="number" value="'+(exp.other||'')+'">'
+     +'<button class="btn g" style="margin-top:8px;width:100%" onclick="saveOwnExp()">Save expenses</button></div>';
+  } else {
+    // ---------- HORMOZI DASHBOARD ----------
+    var avgFee=T('avgfee',15000);
+    // 1. UNIT ECONOMICS
+    var cpc=HT.contracts?HT.spend/HT.contracts:0;
+    var cpcl=cpc/ (STD.closeRate||0.47);
+    var ratio=cpcl?avgFee/cpcl:0;
+    var ruleTxt = ratio>=3 ? 'RAISE META BUDGET 20% THIS WEEK' : (ratio>=2 ? 'HOLD \u2014 watch close rate' : 'STOP \u2014 fix funnel before more spend');
+    var ruleCol = ratio>=3 ? 'var(--green)' : (ratio>=2 ? 'var(--gold)' : 'var(--red)');
+    h+='<div class="card"><h2>1\ufe0f\u20e3 Unit economics (Meta, all-time)</h2><div style="display:flex;gap:8px;flex-wrap:wrap">'
+     +ownTile('Cost / contract',fmt$(Math.round(cpc)),'')
+     +ownTile('Est. cost / close',fmt$(Math.round(cpcl)),'at '+Math.round((STD.closeRate||0.47)*100)+'% close')
+     +ownTile('Avg fee',fmt$(avgFee),'')
+     +ownTile('Return ratio',(Math.round(ratio*10)/10)+':1','',ruleCol)
+     +'</div><div style="margin-top:10px;font-weight:800;color:'+ruleCol+'">\u25b6 '+ruleTxt+'</div>'
+     +'<div class="sm mut">Rule: \u22653:1 raise budget \u00b7 2\u20133:1 hold \u00b7 <2:1 fix before spending.</div></div>';
+
+    // 2. CONSTRAINT FINDER (live month vs standard)
+    var steps=[
+      {n:'Dials \u2192 convo', v:L.convos?L.dials/L.convos:null, s:STD.dialsPerConvo, dir:'low', downConvos:function(){return L.dials/STD.dialsPerConvo - L.convos}},
+      {n:'Convos \u2192 offer', v:L.offers?L.convos/L.offers:null, s:STD.convosPerOffer, dir:'low', downConvos:null},
+      {n:'Offers \u2192 contract', v:L.contracts?L.offers/L.contracts:null, s:STD.offersPerContract, dir:'low', downConvos:null}
+    ];
+    var worst=null;
+    steps.forEach(function(st){
+      if(st.v==null||!st.s)return;
+      var gap=(st.v-st.s)/st.s; // positive = worse for 'low'
+      if(gap>0.05&&(!worst||gap>worst.gap))worst={st:st,gap:gap};
+    });
+    var conH;
+    if(!worst){conH='<div style="color:var(--green);font-weight:800">\u2705 No stage more than 5% below standard '+(L.contracts?'' : '(thin data \u2014 early month)')+'</div>';}
+    else{
+      var stx=worst.st, extra$=0, why='';
+      if(stx.n==='Offers \u2192 contract'){var extraC=L.offers/STD.offersPerContract - L.contracts; extra$=Math.max(0,extraC)*avgFee*(STD.closeRate||0.47); why=Math.round(extraC*10)/10+' more contracts at standard';}
+      else if(stx.n==='Convos \u2192 offer'){var extraO=L.convos/STD.convosPerOffer - L.offers; extra$=Math.max(0,extraO)/STD.offersPerContract*avgFee*(STD.closeRate||0.47); why=Math.round(extraO)+' more offers at standard';}
+      else {var extraCv=L.dials/STD.dialsPerConvo - L.convos; extra$=Math.max(0,extraCv)/STD.convosPerOffer/STD.offersPerContract*avgFee*(STD.closeRate||0.47); why=Math.round(extraCv)+' more convos at standard';}
+      conH='<div style="font-weight:800;color:var(--red)">\ud83d\udd12 Bottleneck: '+stx.n+' \u2014 '+(Math.round(stx.v*10)/10)+' vs standard '+stx.s+'</div>'
+        +'<div class="sm" style="margin-top:4px">At standard: '+why+' \u2248 <b>'+fmt$(Math.round(extra$))+'</b> more expected revenue this month. Fix THIS before anything else.</div>';
+    }
+    h+='<div class="card"><h2>2\ufe0f\u20e3 The constraint \u2014 '+curM+'</h2>'+conH+'</div>';
+
+    // 3. CASH VELOCITY
+    var cyc=L.cycleDays.length?Math.round(L.cycleDays.reduce(function(a,b){return a+b},0)/L.cycleDays.length):null;
+    h+='<div class="card"><h2>3\ufe0f\u20e3 Cash velocity</h2><div style="display:flex;gap:8px;flex-wrap:wrap">'
+     +ownTile('Stuck in pipe',fmt$(L.pipeRev),L.pipeDeals+' deals contracted, not closed')
+     +ownTile('Collected \u2014 '+curM,fmt$(L.rev),'')
+     +ownTile('Lead \u2192 close',cyc!=null?cyc+' days':'\u2014','avg this month')
+     +'</div><div class="sm mut" style="margin-top:8px">Faster cash funds next month\u2019s budget. Chase the oldest pipe deals first.</div></div>';
+
+    // 4. CAPACITY / HIRE MATH
+    var dayN=Math.max(1,new Date().getDate());
+    var lpd=L.leads/dayN, reps=(D.reps||[]).length||1, perRep=lpd/reps;
+    var capCol=perRep>12?'var(--red)':(perRep>9?'var(--gold)':'var(--green)');
+    h+='<div class="card"><h2>4\ufe0f\u20e3 Capacity</h2><div style="display:flex;gap:8px;flex-wrap:wrap">'
+     +ownTile('Leads / day',Math.round(lpd*10)/10,'month pace')
+     +ownTile('Per rep / day',Math.round(perRep*10)/10,reps+' reps',capCol)
+     +'</div><div class="sm mut" style="margin-top:8px">Rule of thumb: past ~12 fresh leads/rep/day, follow-up quality collapses \u2014 that\u2019s your hire trigger.</div></div>';
+
+    // 5. NET + REINVEST
+    var reinvest=L.rev?Math.round(spend/L.rev*100):null;
+    h+='<div class="card"><h2>5\ufe0f\u20e3 Net + reinvestment</h2><div style="display:flex;gap:8px;flex-wrap:wrap">'
+     +ownTile('NET \u2014 '+curM,fmt$(net),'after everything',net>=0?'var(--green)':'var(--red)')
+     +ownTile('Reinvest rate',reinvest!=null?reinvest+'%':'\u2014','spend \u00f7 revenue')
+     +'</div><div class="sm mut" style="margin-top:8px">Growth mode: keep return ratio \u22653:1 and push reinvest hard \u2014 profit hiding in the pipe, not the bank.</div></div>';
+  }
+  el.innerHTML=h;
 }
 
 function renderInputs(){
