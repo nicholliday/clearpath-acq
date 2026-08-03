@@ -472,6 +472,18 @@ function renderReps(){
 /* ============ PHASE 1: METRICS + CALCULATOR ============ */
 var MET_FROM=monthStart(); // synced to top range chips
 function setMetRange(f){MET_FROM=f;renderMetrics()}
+function metPair(){
+  var a=document.getElementById('pf_a'),b=document.getElementById('pf_b'),o=document.getElementById('pfOut');
+  if(!a||!b||!o||!window._M)return;
+  window._PF=a.value; window._PT=b.value;
+  var m=window._M, va=m[a.value]||0, vb=m[b.value]||0;
+  var la=a.options[a.selectedIndex].text, lb=b.options[b.selectedIndex].text;
+  var res = vb? (Math.round(va/vb*10)/10) : null;
+  var out = res!=null? ('<b>'+ (res>=10?Math.round(res):res) +'</b> '+la+' per 1 '+lb) : '— (no '+lb+' yet in this range)';
+  var sa=window._STDC[a.value], sb=window._STDC[b.value];
+  if(sa!=null&&sb!=null&&sb!==0){var sr=Math.round(sa/sb*10)/10; out+=' <span class="sm mut">· std '+(sr>=10?Math.round(sr):sr)+'</span>';}
+  o.innerHTML=out;
+}
 function linkedDeal(l){if(!l.deal_id)return null;return D.ddeals.find(function(d){return d.id===l.deal_id})||null}
 function stageMoveOn(dealId,stage){
   var h=D.dhist.filter(function(x){return x.deal_id===dealId&&x.stage===stage}).sort(function(a,b){return a.entered_on<b.entered_on?-1:1});
@@ -1213,17 +1225,37 @@ function renderMetrics(){
   h+='<div class="card"><h2>📊 Metrics</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
 
   function rrow(l,v){return '<div class="row sm" style="padding:5px 0"><span class="mut">'+l+'</span><b>'+v+'</b></div>'}
-  h+='<div class="card"><h2>🔀 Ratios</h2>'
-   +rrow('Contact rate (convos / dials)',ratio(m.dials,m.convos))
-   +rrow('Dials per offer',m.offers?Math.round(m.dials/m.offers):'—')
-   +rrow('Convos per offer',m.offers?Math.round(m.convos/m.offers*10)/10:'—')
-   +rrow('Offers per contract',m.contracts?Math.round(m.offers/m.contracts*10)/10:'—')
-   +rrow('Lead → contract',ratio(m.net,m.contracts))
-   +rrow('Contract → close',ratio(m.contracts,m.closed))
-   +rrow('Offer → close',ratio(m.offers,m.closed))
-   +rrow('Assignment fees per dial',m.dials?fmt$(Math.round(m.revenue/m.dials)):'—')
-   +rrow('Assignment fees per lead',m.leads?fmt$(Math.round(m.revenue/m.leads)):'—')
+  // step ratios: each stage vs the next, personal vs company standard
+  function r1(v){return v>=10?String(Math.round(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')}
+  function srow(lbl,val,std){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="mut">'+lbl+'</span><span style="text-align:right"><b>'+val+'</b>'+(std?' <span class="sm mut">· std '+std+'</span>':'')+'</span></div>'}
+  var stdTalkPerOffer=Math.round(STD.convosPerOffer*STD.talkPerConvo);
+  var avgCommClose=m.closed?fmt$(Math.round(commissionOf(m.revenue)/m.closed)):'—';
+  var stdComm=fmt$(Math.round(commissionOf(STD.avgFee)));
+  h+='<div class="card"><h2>🔀 Ratios — step by step</h2>'
+   +srow('Net leads → claimed', m.net?Math.round(m.claimed/m.net*100)+'%':'—', null)
+   +srow('Claimed → dials (per lead)', m.claimed?r1(m.dials/m.claimed):'—', null)
+   +srow('Dials → convo (dials per)', m.convos?r1(m.dials/m.convos):'—', r1(STD.dialsPerConvo))
+   +srow('Convo → talk (min per)', m.convos?r1(m.talk/m.convos):'—', r1(STD.talkPerConvo))
+   +srow('Talk → offer (min per)', m.offers?r1(m.talk/m.offers):'—', String(stdTalkPerOffer))
+   +srow('Offers → contract (per)', m.contracts?r1(m.offers/m.contracts):'—', r1(STD.offersPerContract))
+   +srow('Contracts → assigned', m.contracts?Math.round(m.assigned/m.contracts*100)+'%':'—', null)
+   +srow('Assigned → closed', m.assigned?Math.round(m.closed/m.assigned*100)+'%':'—', Math.round(STD.closeRate*100)+'%')
+   +srow('Closed → avg commission (CAD)', avgCommClose, stdComm)
    +'</div>';
+
+  // any-to-any lookup, live from the same scoped data
+  window._M=m;
+  var stages=[['Net leads','net'],['Leads claimed','claimed'],['Dials','dials'],['Convos','convos'],['Talk min','talk'],['Offers','offers'],['Contracts','contracts'],['Assigned','assigned'],['Closed','closed']];
+  window._STDC={net:STD.leadsPerContract,claimed:null,dials:Math.round(STD.offersPerContract*STD.convosPerOffer*STD.dialsPerConvo),convos:Math.round(STD.offersPerContract*STD.convosPerOffer*10)/10,talk:Math.round(STD.offersPerContract*STD.convosPerOffer*STD.talkPerConvo),offers:STD.offersPerContract,contracts:1,assigned:null,closed:STD.closeRate};
+  function opts(sel){return stages.map(function(s){return '<option value="'+s[1]+'"'+(s[1]===sel?' selected':'')+'>'+s[0]+'</option>'}).join('')}
+  if(!window._PF)window._PF='convos'; if(!window._PT)window._PT='contracts';
+  h+='<div class="card"><h2>🔎 Ratio finder</h2>'
+   +'<div class="sm mut" style="margin-bottom:8px">How many of one thing per one of another — updates live as your data grows.</div>'
+   +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+   +'<select id="pf_a" onchange="metPair()">'+opts(window._PF)+'</select>'
+   +'<span class="mut">per 1</span>'
+   +'<select id="pf_b" onchange="metPair()">'+opts(window._PT)+'</select>'
+   +'</div><div id="pfOut" style="margin-top:10px;font-size:22px;font-weight:800"></div></div>';
 
   var lc=[],cc=[],lcl=[];
   D.leads.forEach(function(l){
@@ -1242,6 +1274,7 @@ function renderMetrics(){
    +'<div class="sm mut" style="margin-top:6px">Timelines fill in as leads you send to Dispo start closing — the lead→close number is how long your money is stuck in a deal.</div></div>';
 
   el.innerHTML=h;
+  metPair();
 }
 function lockedMonthRev(rep){
   var ms=monthStart(), avgFee=T('avgfee',15000);
