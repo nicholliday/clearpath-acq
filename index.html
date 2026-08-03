@@ -481,7 +481,7 @@ function metPair(){
   var res = vb? (Math.round(va/vb*10)/10) : null;
   var out = res!=null? ('<b>'+ (res>=10?Math.round(res):res) +'</b> '+la+' per 1 '+lb) : '— (no '+lb+' yet in this range)';
   var sa=window._STDC[a.value], sb=window._STDC[b.value];
-  if(sa!=null&&sb!=null&&sb!==0){var sr=Math.round(sa/sb*10)/10; out+=' <span class="sm mut">· std '+(sr>=10?Math.round(sr):sr)+'</span>';}
+  if(sa!=null&&sb!=null&&sb!==0){var sr=Math.round(sa/sb*10)/10; out+=' <span class="sm mut">· standard '+(sr>=10?Math.round(sr):sr)+'</span>';}
   o.innerHTML=out;
 }
 function linkedDeal(l){if(!l.deal_id)return null;return D.ddeals.find(function(d){return d.id===l.deal_id})||null}
@@ -1227,7 +1227,7 @@ function renderMetrics(){
   function rrow(l,v){return '<div class="row sm" style="padding:5px 0"><span class="mut">'+l+'</span><b>'+v+'</b></div>'}
   // step ratios: each stage vs the next, personal vs company standard
   function r1(v){return v>=10?String(Math.round(v)):(Math.round(v*10)/10).toFixed(1).replace(/\.0$/,'')}
-  function srow(lbl,val,std){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="mut">'+lbl+'</span><span style="text-align:right"><b>'+val+'</b>'+(std?' <span class="sm mut">· std '+std+'</span>':'')+'</span></div>'}
+  function srow(lbl,val,std){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span class="mut">'+lbl+'</span><span style="text-align:right"><b>'+val+'</b>'+(std?' <span class="sm mut">· standard '+std+'</span>':'')+'</span></div>'}
   var stdTalkPerOffer=Math.round(STD.convosPerOffer*STD.talkPerConvo);
   var avgCommClose=m.closed?fmt$(Math.round(commissionOf(m.revenue)/m.closed)):'—';
   var stdComm=fmt$(Math.round(commissionOf(STD.avgFee)));
@@ -1266,12 +1266,10 @@ function renderMetrics(){
   });
   var avgFee=m.fees.length?Math.round(m.fees.reduce(function(s,x){return s+x},0)/m.fees.length):null;
   h+='<div class="card"><h2>⏳ Timelines (avg days, all time)</h2>'
-   +rrow('Lead → contract',avgDays(lc)!=null?avgDays(lc)+' days':'—')
+   +rrow('Lead in → contract',avgDays(lc)!=null?avgDays(lc)+' days':'—')
    +rrow('Contract → close',avgDays(cc)!=null?avgDays(cc)+' days':'—')
-   +rrow('💰 Cash conversion cycle (lead → close)',avgDays(lcl)!=null?'<span style="color:var(--gold)">'+avgDays(lcl)+' days</span>':'—')
-   +rrow('Avg assignment fee (range)',avgFee?fmt$(avgFee):'—')
-   +rrow('⚡ Speed to lead (avg mins, lead → first call)',speedToLead()!=null?'<span style="color:'+(speedToLead()<=5?'var(--green)':'var(--red)')+'">'+speedToLead()+' min</span>':'—')
-   +'<div class="sm mut" style="margin-top:6px">Timelines fill in as leads you send to Dispo start closing — the lead→close number is how long your money is stuck in a deal.</div></div>';
+   +rrow('Lead in → closed',avgDays(lcl)!=null?'<span style="color:var(--gold)">'+avgDays(lcl)+' days</span>':'—')
+   +'</div>';
 
   el.innerHTML=h;
   metPair();
