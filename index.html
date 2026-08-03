@@ -156,25 +156,36 @@ function stlStart(iso){
   return s.getTime();
 }
 function stlHTML(){
-  var t=today(), now=Date.now();
-  var un=(D.leads||[]).filter(function(l){return !l.claimed_on&&l.created_at&&(now-new Date(l.created_at).getTime())<48*3600000});
-  un.sort(function(a,b){return a.created_at<b.created_at?-1:1});
-  var cl=(D.leads||[]).filter(function(l){return l.claimed_on&&l.created_at&&String(l.claimed_on).slice(0,10)===t});
-  if(!un.length&&!cl.length)return '<div id="stlBlock"></div>';
-  var h='<div id="stlBlock" style="padding:8px 0 4px;border-bottom:1px solid var(--line)"><div class="sm mut" style="letter-spacing:.14em;font-weight:800;margin-bottom:4px;text-align:center">\u26A1 SPEED TO LEAD <span style="font-weight:600;letter-spacing:0">(9am\u20138pm clock)</span></div>';
-  un.slice(0,6).forEach(function(l){
-    var st=stlStart(l.created_at);
-    if(now<st){
+  var now=Date.now();
+  var recent=(D.leads||[]).filter(function(l){return l.created_at&&(now-new Date(l.created_at).getTime())<48*3600000});
+  if(!recent.length)return '<div id="stlBlock"></div>';
+  recent.sort(function(a,b){return a.created_at<b.created_at?-1:1});
+  function firstCall(l){
+    if(!l.phone)return null;
+    var t0=new Date(l.created_at).getTime(), best=null;
+    (D.calls||[]).forEach(function(c){
+      if(c.phone!==l.phone)return;
+      var ct=new Date(c.called_at).getTime();
+      if(ct>=t0-60000&&(best==null||ct<best))best=ct;
+    });
+    return best;
+  }
+  var h='<div id="stlBlock" style="padding:8px 0 4px;border-bottom:1px solid var(--line)"><div class="sm mut" style="letter-spacing:.14em;font-weight:800;margin-bottom:4px;text-align:center">\u26A1 SPEED TO LEAD <span style="font-weight:600;letter-spacing:0">(first call \u00b7 9am\u20138pm clock)</span></div>';
+  var shown=0;
+  recent.forEach(function(l){
+    var st=stlStart(l.created_at), fc=firstCall(l);
+    if(fc!=null){
+      var sp=Math.max(0,Math.round((fc-st)/60000));
+      h+='<div class="row sm" style="padding:3px 0"><span>'+esc(l.name||'Lead')+'</span><span style="color:var(--green);font-weight:800">called in '+stlFmt(sp)+'</span></div>';
+      shown++;
+    }else if(now<st){
       h+='<div class="row sm" style="padding:3px 0"><span>'+esc(l.name||'Lead')+'</span><span class="mut" style="font-weight:800">\uD83C\uDF19 due 9:00am</span></div>';
-    }else{
+      shown++;
+    }else if(shown<10){
       var m=Math.round((now-st)/60000), col=m>5?'var(--red)':'var(--gold)';
-      h+='<div class="row sm" style="padding:3px 0"><span>'+esc(l.name||'Lead')+'</span><span style="color:'+col+';font-weight:800">'+stlFmt(m)+' unclaimed</span></div>';
+      h+='<div class="row sm" style="padding:3px 0"><span>'+esc(l.name||'Lead')+(l.phone?'':' <span class="sm mut">(no #)</span>')+'</span><span style="color:'+col+';font-weight:800">'+stlFmt(m)+' \u2014 not called</span></div>';
+      shown++;
     }
-  });
-  cl.forEach(function(l){
-    var sp=null;
-    if(String(l.claimed_on).length>10)sp=Math.max(0,Math.round((new Date(l.claimed_on).getTime()-stlStart(l.created_at))/60000));
-    h+='<div class="row sm" style="padding:3px 0"><span>'+esc(l.name||'Lead')+'</span><span style="color:var(--green);font-weight:800">'+(sp!=null?'claimed in '+stlFmt(sp):'claimed \u2705')+'</span></div>';
   });
   return h+'</div>';
 }
