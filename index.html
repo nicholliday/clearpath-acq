@@ -486,6 +486,7 @@ function metChain(rep){
   a.talk=Math.round(a.talk/60);
   var offers=D.offers.filter(function(o){return inR(o.offered_on)&&(!rep||offerRep(o)===rep)}).length;
   var contracts=D.leads.filter(function(l){return l.contracted_on&&inR(l.contracted_on)&&(!rep||repOf(l)===rep)}).length;
+  var claimed=D.leads.filter(function(l){return l.claimed_on&&inR(l.claimed_on)&&(!rep||repOf(l)===rep)}).length;
   var assigned=0,closed=0,revenue=0,fees=[];
   D.leads.forEach(function(l){
     if(!l.deal_id)return;
@@ -494,7 +495,7 @@ function metChain(rep){
     if(em&&inR(em))assigned++;
     if(cl&&inR(cl)){closed++;var d=linkedDeal(l);var f=d&&(d.revenue_closed||0);if(f){revenue+=f;fees.push(f)}}
   });
-  return {leads:leads.length,net:leads.length-bad,dials:a.dials,convos:a.convos,talk:a.talk,offers:offers,contracts:contracts,assigned:assigned,closed:closed,revenue:revenue,fees:fees};
+  return {claimed:claimed,leads:leads.length,net:leads.length-bad,dials:a.dials,convos:a.convos,talk:a.talk,offers:offers,contracts:contracts,assigned:assigned,closed:closed,revenue:revenue,fees:fees};
 }
 function ratio(a,b,dec){if(!a)return '—';var v=b/a;return dec?Math.round(v*Math.pow(10,dec))/Math.pow(10,dec):Math.round(v*100)+'%'}
 function avgDays(pairs){
@@ -957,15 +958,7 @@ function renderCommand(){
     return '<button class="btn '+(on?'g':'mut')+'" onclick="setCmdRange(\''+r[1]+'\')">'+r[0]+'</button>';
   }).join('')+'</div>';
 
-  var stats={};D.reps.forEach(function(rp){stats[rp]=repRange(rp,from)});
-  h+='<div class="card"><h2>\uD83D\uDCCA SALES TRACKER</h2><table><tr><th></th>'+D.reps.map(function(rp){return '<th>'+esc(rp.split(' ')[0]).toUpperCase()+'</th>'}).join('')+'</tr>';
-  [['\uD83C\uDD95 Leads claimed','claimed'],['\uD83D\uDCDE Dials','dials'],['\uD83D\uDCAC Convos','convos'],['\u23F1 Talk (min)','talk'],['\uD83D\uDCB0 Offers','offers'],['\uD83D\uDCDD Contracts','contracts']].forEach(function(row){
-    var best=Math.max.apply(null,D.reps.map(function(rp){return stats[rp][row[1]]}));
-    h+='<tr><td>'+row[0]+'</td>'+D.reps.map(function(rp){var v=stats[rp][row[1]];return '<td style="'+(v===best&&v>0?'color:var(--gold);font-weight:800':'')+'">'+v+'</td>'}).join('')+'</tr>';
-  });
-  h+='</table></div>';
-
-  h+='<div style="height:8px"></div><div class="sm mut" style="margin:6px 2px">FULL METRICS</div><div id="metricsHost"></div>';
+  h+='<div id="metricsHost"></div>';
   el.innerHTML=h;
 }
 function renderGoal(){
@@ -1216,7 +1209,7 @@ function renderMetrics(){
   var m=metChain(ROLE==='owner'?null:ME);
   var h='';
 
-  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💵 Assignment fees',fmt$(m.revenue)]];
+  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['🆕 Leads claimed',m.claimed],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk min',m.talk],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💵 Assignment fees',fmt$(m.revenue)]];
   h+='<div class="card"><h2>⛓ The chain</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
 
   function rrow(l,v){return '<div class="row sm" style="padding:5px 0"><span class="mut">'+l+'</span><b>'+v+'</b></div>'}
