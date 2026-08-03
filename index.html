@@ -147,6 +147,17 @@ function monthStart(){return today().slice(0,8)+'01'}
 function quarterStart(){var d=new Date();var q=Math.floor(d.getMonth()/3)*3;return d.getFullYear()+'-'+String(q+1).padStart(2,'0')+'-01'}
 function yearStart(){return today().slice(0,4)+'-01-01'}
 function stlFmt(m){return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+'m'}
+function stlAvgFor(rep,from){
+  var tot=0,n=0;
+  (D.leads||[]).forEach(function(l){
+    if(!l.phone||!l.created_at)return;
+    if(l.created_at.slice(0,10)<from)return;
+    var t0=new Date(l.created_at).getTime(),best=null,bRep=null;
+    (D.calls||[]).forEach(function(c){if(c.phone===l.phone){var ct=new Date(c.called_at).getTime();if(ct>=t0-60000&&(best==null||ct<best)){best=ct;bRep=c.rep}}});
+    if(best!=null&&(!rep||bRep===rep)){tot+=Math.max(0,Math.round((best-stlStart(l.created_at))/60000));n++}
+  });
+  return n?Math.round(tot/n):null;
+}
 // speed-to-lead clock starts inside business hours (9am-8pm, 7 days):
 // day lead -> clock starts at arrival; night/early lead -> clock starts 9:00am next window
 function stlStart(iso){
@@ -1117,6 +1128,8 @@ function renderGoal(){
     function hmv(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
     var contractsTotal=reqContracts, offersTotal=Math.ceil(reqContracts*offerPerContract), convosTotal=Math.ceil(reqContracts*convoPerContract), dialsTotal=Math.ceil(reqContracts*convoPerContract*dialPerConvo), leadsTotal=Math.ceil(reqContracts*leadPerContract), talkTotal=Math.round(convosTotal*talkPerConvo);
     h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY'+(practicePace?' \u00b7 PRACTICE PACE':'')+'</div><div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
+     +(function(){var a=stlAvgFor(who,monthStart());
+        return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>\u26A1 <b>Speed to lead</b> <span class="sm mut">(first call \u00b7 target under 2m)</span></span><span style="font-weight:800;color:'+(a==null?'var(--mut)':(a<=2?'var(--green)':'var(--red)'))+'">'+(a==null?'\u2014':stlFmt(a))+'</span></div>';})()
      +prow('\uD83D\uDCE5','Leads',leadsHave,leadsTotal,leadPerContract+' per contract \u2014 '+rsrc(BR.leadsPerContract))
      +prow('\uD83D\uDCDE','Dials',ms.dials,dialsTotal,dialPerConvo+' per convo \u2014 '+rsrc(BR.dialsPerConvo))
      +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 '+rsrc(BR.offersPerContract))
@@ -1280,20 +1293,8 @@ function renderMetrics(){
    +rrow('Lead in → contract',avgDays(lc)!=null?avgDays(lc)+' days':'—')
    +rrow('Contract → close',avgDays(cc)!=null?avgDays(cc)+' days':'—')
    +rrow('Lead in → closed',avgDays(lcl)!=null?'<span style="color:var(--gold)">'+avgDays(lcl)+' days</span>':'—')
-   +rrow('\u26A1 Avg speed to lead (first call, 9\u20138 clock)',(function(){
-      var reps2=(ROLE==='owner')?null:ME, tot=0,n=0;
-      (D.leads||[]).forEach(function(l){
-        if(!l.phone||!l.created_at)return;
-        if(reps2&&repOf(l)!==reps2&&l.claimed_on)return;
-        if(!inR(l.created_at))return;
-        var t0=new Date(l.created_at).getTime(),best=null;
-        (D.calls||[]).forEach(function(c){if(c.phone===l.phone){var ct=new Date(c.called_at).getTime();if(ct>=t0-60000&&(best==null||ct<best))best=ct}});
-        if(best!=null){tot+=Math.max(0,Math.round((best-stlStart(l.created_at))/60000));n++}
-      });
-      if(!n)return '\u2014';
-      var a=Math.round(tot/n);
-      return '<span style="color:'+(a<=5?'var(--green)':'var(--red)')+'">'+stlFmt(a)+'</span>';
-    })())
+   +(function(){var a=stlAvgFor(ROLE==='owner'?null:ME, MET_FROM||'1970-01-01');
+      return rrow('\u26A1 Avg speed to lead (target under 2m)', a==null?'\u2014':'<span style="color:'+(a<=2?'var(--green)':'var(--red)')+'">'+stlFmt(a)+'</span>');})()
    +'</div>';
 
   el.innerHTML=h;
