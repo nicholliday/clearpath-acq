@@ -1040,7 +1040,7 @@ function renderGoal(){
      +'style="width:100%;max-width:380px;background:transparent;border:none;text-align:center;font-size:min(13vw,60px);font-weight:800;line-height:1.1;color:var(--gold);padding:0;margin:0">'
      +'</div>'
      +'<div class="sm" style="color:var(--gold);margin-top:6px">\u270F\uFE0F Tap the number \u2014 type what you want to make</div>'
-     +'<div style="font-size:13px;color:var(--mut);margin-top:6px">lock <b style="color:var(--text)">'+fmt$(lockedTarget)+'</b> in assignment fees to get there'+(subLine.indexOf('ramp floor')>-1?' \u00b7 ramp floor applies':'')+'</div>';
+     +'<div style="font-size:13px;color:var(--mut);margin-top:6px">lock up <b style="color:var(--text)">'+fmt$(lockedTarget)+'</b> in assignment fees to get there'+(subLine.indexOf('ramp floor')>-1?' \u00b7 ramp floor applies':'')+'</div>';
   } else {
     var moN=rampMonthOf(who);
     h+='<div class="sm mut" style="letter-spacing:.16em;font-weight:800">'+headerLine+'</div>'
@@ -1100,8 +1100,7 @@ function renderGoal(){
     var offersHave=(function(){var c=0,m=monthStart();D.offers.forEach(function(of){if(of.offered_on>=m&&offerRep(of)===who)c++});return c})();
     function hmv(min){return Math.floor(min/60)+'h '+(min%60)+'m'}
     var contractsTotal=reqContracts, offersTotal=Math.ceil(reqContracts*offerPerContract), convosTotal=Math.ceil(reqContracts*convoPerContract), dialsTotal=Math.ceil(reqContracts*convoPerContract*dialPerConvo), leadsTotal=Math.ceil(reqContracts*leadPerContract), talkTotal=Math.round(convosTotal*talkPerConvo);
-    h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY'+(practicePace?' \u00b7 PRACTICE PACE':'')+'</div><h2>\uD83D\uDD27 The climb to '+fmt$(LT)+(practicePace?' <span style="font-size:12px;color:var(--mut);font-weight:600">(next month\u2019s target \u2014 build the habit now)</span>':'')+'</h2>'
-     +'<div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
+    h+='<div class="card"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY'+(practicePace?' \u00b7 PRACTICE PACE':'')+'</div><div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
      +prow('\uD83D\uDCE5','Leads',leadsHave,leadsTotal,leadPerContract+' per contract \u2014 '+rsrc(BR.leadsPerContract))
      +prow('\uD83D\uDCDE','Dials',ms.dials,dialsTotal,dialPerConvo+' per convo \u2014 '+rsrc(BR.dialsPerConvo))
      +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 '+rsrc(BR.offersPerContract))
