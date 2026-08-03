@@ -1150,9 +1150,8 @@ function renderGoal(){
     var talkRem=Math.max(0,talkTotal-ms.talk), talkDayMin=Math.ceil(Math.max(talkTotal/workDays, talkRem/workLeft));
     var revRem=Math.max(0,LT-closed);
     var dailyCard=''
-     +'<div class="row" style="align-items:center;margin-bottom:8px"><div class="sm mut" style="letter-spacing:.16em;font-weight:800">DAILY \u00b7 AUTO-ADJUSTS</div>'
+     +'<div class="row" style="align-items:center;margin-bottom:8px"><div style="letter-spacing:.16em;font-weight:800;font-size:18px">DAILY \u00b7 AUTO-ADJUSTS</div>'
      +'<div class="sm mut">days worked/mo <input id="og_wd" type="number" value="'+workDays+'" style="width:56px;text-align:center;font-size:15px;font-weight:800" oninput="saveWorkDays()" onchange="renderGoal()"></div></div>'
-     +'<h2 style="margin:0 0 6px">\u2600\uFE0F What today takes</h2>'
      +'<div class="sm mut" style="margin:-2px 0 8px">Live pace over your remaining '+workLeft+' work day'+(workLeft===1?'':'s')+'. Fall behind and these climb \u2014 they never drop below the plan.</div>'
      +'<table style="width:100%">'
      +'<tr><td>\uD83D\uDCE5 Leads / day</td><td style="text-align:right">'+dleft(leadsTotal,leadsHave)+'</td></tr>'
