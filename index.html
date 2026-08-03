@@ -1244,7 +1244,7 @@ function renderMetrics(){
   var m=metChain(ROLE==='owner'?null:ME);
   var h='';
 
-  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['🆕 Leads claimed',m.claimed],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk time',(m.talk<60?m.talk+'m':Math.floor(m.talk/60)+'h '+(m.talk%60)+'m')],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💰 Earned (CAD)',fmt$(Math.round(commissionOf(m.revenue)))]];
+  var chain=[['📥 Leads',m.leads],['✅ Net leads',m.net],['🆕 Leads claimed',m.claimed],['⚡ Avg speed to lead',(function(){var a=stlAvgFor(ROLE==='owner'?null:ME, MET_FROM||'1970-01-01');return a==null?'—':'<span style="color:'+(a<=2?'var(--green)':'var(--red)')+'">'+stlFmt(a)+'</span>'})()],['📞 Dials',m.dials],['💬 Convos',m.convos],['⏱ Talk time',(m.talk<60?m.talk+'m':Math.floor(m.talk/60)+'h '+(m.talk%60)+'m')],['💰 Offers',m.offers],['📝 Contracts',m.contracts],['🤝 Assigned',m.assigned],['🏁 Closed',m.closed],['💰 Earned (CAD)',fmt$(Math.round(commissionOf(m.revenue)))]];
   h+='<div class="card"><h2>📊 Metrics</h2>'+chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
 
   function rrow(l,v){return '<div class="row sm" style="padding:5px 0"><span class="mut">'+l+'</span><b>'+v+'</b></div>'}
@@ -1293,8 +1293,6 @@ function renderMetrics(){
    +rrow('Lead in → contract',avgDays(lc)!=null?avgDays(lc)+' days':'—')
    +rrow('Contract → close',avgDays(cc)!=null?avgDays(cc)+' days':'—')
    +rrow('Lead in → closed',avgDays(lcl)!=null?'<span style="color:var(--gold)">'+avgDays(lcl)+' days</span>':'—')
-   +(function(){var a=stlAvgFor(ROLE==='owner'?null:ME, MET_FROM||'1970-01-01');
-      return rrow('\u26A1 Avg speed to lead (target under 2m)', a==null?'\u2014':'<span style="color:'+(a<=2?'var(--green)':'var(--red)')+'">'+stlFmt(a)+'</span>');})()
    +'</div>';
 
   el.innerHTML=h;
