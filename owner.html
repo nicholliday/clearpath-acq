@@ -180,6 +180,51 @@ function ckShowsOn(it,d){
   var a=new Date((it.anchor||'2026-08-04')+'T12:00:00');
   return Math.round((dt-a)/86400000)%it.every===0;
 }
+var CKT={id:null,endAt:0,iv:null};
+function ckMinsG(tm){
+  if(!tm)return null;
+  var m=String(tm).toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?/);
+  if(!m)return null;
+  var hh=parseInt(m[1],10),mm=m[2]?parseInt(m[2],10):0,mer=m[3];
+  if(!mer){var e=String(tm).toLowerCase().match(/(am|pm|a|p)\s*$/);mer=e?e[1]:null;}
+  if(mer&&mer.charAt(0)==='p'&&hh<12)hh+=12;
+  if(mer&&mer.charAt(0)==='a'&&hh===12)hh=0;
+  return hh*60+mm;
+}
+function ckDur(tm){
+  if(!tm||String(tm).indexOf('\u2013')<0&&String(tm).indexOf('-')<0)return null;
+  var parts=String(tm).split(/[\u2013-]/);
+  var s=ckMinsG(tm),e=ckMinsG(parts[1]);
+  if(s===null||e===null)return null;
+  if(e<=s)e+=720;
+  var d=e-s;
+  return d>0&&d<=780?d:null;
+}
+function ckBeep(){
+  try{
+    var ac=new (window.AudioContext||window.webkitAudioContext)();
+    var o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);o.frequency.value=880;g.gain.value=.25;
+    o.start();setTimeout(function(){o.frequency.value=1100},180);setTimeout(function(){o.stop();ac.close()},700);
+  }catch(e){}
+}
+function ckTimerTick(){
+  var el=document.getElementById('tmr_'+CKT.id);
+  var left=Math.round((CKT.endAt-Date.now())/1000);
+  if(left<=0){
+    if(el){el.textContent='\u23f0 TIME!';el.style.color='var(--red)';}
+    ckBeep();clearInterval(CKT.iv);CKT.id=null;
+    return;
+  }
+  if(el)el.textContent=Math.floor(left/60)+':'+('0'+left%60).slice(-2);
+}
+function ckTimer(id,mins){
+  if(CKT.id===id){clearInterval(CKT.iv);CKT.id=null;render();return;}
+  if(CKT.iv)clearInterval(CKT.iv);
+  CKT.id=id;CKT.endAt=Date.now()+mins*60000;
+  render();
+  CKT.iv=setInterval(ckTimerTick,1000);
+}
 function ckLastDay(){var x=new Date(CK.date+'T12:00:00');x.setDate(x.getDate()+1);return x.getDate()===1;}
 function ckDateLbl(d){
   var x=new Date(d+'T12:00:00');
@@ -423,7 +468,7 @@ function render(){
          +'<input id="ck_dt" type="date" value="'+CK.date+'" onchange="ckSetDate(this.value)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
          +'<button class="btn mut" onclick="ckShift(1)">\u25b6</button>'
          +(!isToday?'<button class="btn g" onclick="ckSetDate(\''+today()+'\')">Today</button>':'')
-         +'<button class="btn mut" style="margin-left:auto" onclick="CK.showStats=!CK.showStats;render()">\ud83d\udcca</button>'
+         +'<button class="btn mut" style="margin-left:auto" onclick="CK.showStats=!CK.showStats;render()">\ud83d\udcca Checklist data</button>'
          +'<span style="font-weight:800;color:'+(dn>=tot&&tot?'var(--green)':'var(--gold)')+'">'+dn+' / '+tot+' done</span>'
          +(CK.streak?'<span style="font-weight:800;color:#FF9D42;margin-left:10px">\ud83d\udd25 '+CK.streak+' day'+(CK.streak>1?'s':'')+'</span>':'')
          +'</div></div>';
@@ -451,7 +496,7 @@ function render(){
           var hint=pvn?('Yesterday: '+pvn.note):'Note / plan for this today\u2026';
           return '<div style="padding:9px 0;border-bottom:1px solid var(--line)'+(on?';opacity:.55':'')+'">'
            +'<div style="display:flex;align-items:center;gap:10px">'
-           +(scope==='daily'?'<button class="btn mut" style="padding:4px 9px;font-size:11px;white-space:nowrap;min-width:58px" onclick="ckTime(\''+it.id+'\')">'+(it.time?esc(it.time):'\u23f0')+'</button>':'<span style="min-width:58px;text-align:center;font-size:9px;letter-spacing:.06em;font-weight:800;color:'+(scope==='weekly'?'var(--gold)':'#7FB2FF')+';border:1px solid var(--line);border-radius:8px;padding:5px 4px;box-sizing:border-box">'+(scope==='weekly'?'WEEK':'MONTH')+'</span>')
+           +(scope==='daily'?'<button class="btn mut" style="padding:4px 9px;font-size:11px;white-space:nowrap;min-width:58px" onclick="ckTime(\''+it.id+'\')">'+(it.time?esc(it.time):'\u23f0')+'</button>'+(function(){var du=ckDur(it.time);if(!du)return '';if(CKT.id===it.id)return '<button class="btn" style="padding:4px 8px;font-size:11px;background:var(--gold);color:#0B1220;font-weight:800" onclick="ckTimer(\''+it.id+'\','+du+')"><span id="tmr_'+it.id+'">'+du+':00</span> \u25a0</button>';return '<button class="btn mut" style="padding:4px 8px;font-size:11px" onclick="ckTimer(\''+it.id+'\','+du+')">\u25b6 '+du+'m</button>'})():'<span style="min-width:58px;text-align:center;font-size:9px;letter-spacing:.06em;font-weight:800;color:'+(scope==='weekly'?'var(--gold)':'#7FB2FF')+';border:1px solid var(--line);border-radius:8px;padding:5px 4px;box-sizing:border-box">'+(scope==='weekly'?'WEEK':'MONTH')+'</span>')
            +'<div onclick="ckToggle(\''+scope+'\',\''+it.id+'\')" style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">'+(on?'\u2713':'')+'</div>'
            +'<div style="flex:1;font-size:13px;font-weight:700;'+(on?'color:var(--mut);text-decoration:line-through':'')+'">'+(x.one?'\ud83d\udccc ':'')+'<span contenteditable="true" onblur="ckRename(\''+it.id+'\',this.innerText)" style="outline:none;min-width:40px;display:inline-block">'+esc(it.t)+'</span>'+((scope==='daily'&&!x.one&&CK.istreak&&CK.istreak[it.id]>=2)?' <span style="font-size:11px;color:#FF9D42;font-weight:800">\ud83d\udd25'+CK.istreak[it.id]+'</span>':'')+(it.url?' <a href="'+esc(it.url)+'" target="_blank" style="color:#7FB2FF;text-decoration:none;font-size:12px">\u2197 open</a>':'')
            +'</div>'
