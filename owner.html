@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CP Owner">
+<meta name="theme-color" content="#0B1220">
+<title>Clear Path Owner</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B1220;--card:#141D2E;--card2:#1B2740;--line:#26334D;--text:#EDF1F7;--mut:#93A1B8;--blue:#3B82F6;--gold:#D4AF37;--green:#10B981;--red:#EF4444;--amber:#F59E0B}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{padding-top:max(0.6rem,env(safe-area-inset-top));padding-bottom:max(4.5rem,env(safe-area-inset-bottom))}
+.wrap{max-width:760px;margin:0 auto;padding:0.6rem 0.8rem}
+.brand{font-size:10px;letter-spacing:0.12em;color:var(--gold);font-weight:700}
+h1{font-size:19px;font-weight:700;margin:2px 0 10px}
+h2{font-size:16px;font-weight:700;margin-bottom:10px}
+.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;background:none;border:none;color:var(--mut);font-size:10px;padding:9px 2px 7px;cursor:pointer}
+.tabs button.on{color:var(--gold)}
+.tabs .ic{font-size:19px;display:block;margin-bottom:2px}
+.view{display:none}.view.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 15px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
+.kpi .v{font-size:20px;font-weight:800}.kpi .l{font-size:9px;color:var(--mut);letter-spacing:.05em}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;margin-left:6px}
+.p-new{background:#1E3A8A;color:#BFDBFE}.p-con{background:#42350D;color:#FCE28A}.p-off{background:#3A2A0D;color:#FCD34D}.p-fup{background:#312E81;color:#C7D2FE}.p-uc{background:#064E3B;color:#6EE7B7}.p-dead{background:#450A0A;color:#FCA5A5}
+input,select,textarea{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:9px 10px;font-size:14px;margin-bottom:8px}
+label{font-size:11px;color:var(--mut);display:block;margin-bottom:3px}
+.btn{background:var(--blue);border:none;color:#fff;font-weight:700;border-radius:9px;padding:9px 13px;font-size:13px;cursor:pointer;margin:2px 4px 2px 0}
+.btn.g{background:var(--gold);color:#101828}.btn.gr{background:var(--green)}.btn.d{background:var(--red)}.btn.mut{background:var(--card2);color:var(--mut);border:1px solid var(--line)}
+.btn.big{width:100%;padding:12px;font-size:15px;margin-top:6px}
+.row{display:flex;justify-content:space-between;align-items:center}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:none;overflow-y:auto;padding:20px 12px 60px}
+.modal.on{display:block}
+.mbox{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:560px;margin:0 auto;padding:18px 16px}
+.sbar{height:6px;background:var(--card2);border-radius:99px;overflow:hidden;margin:4px 0 8px}
+.sbar i{display:block;height:100%;border-radius:99px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
+.help{position:fixed;right:16px;bottom:74px;z-index:90;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#D4AF37,#E8C55A);color:#101828;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(212,175,55,.45)}
+#lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.mut{color:var(--mut)}.sm{font-size:11px}.warn{color:var(--red);font-size:11px;font-weight:700}
+
+/* owner-app extras */
+.tile{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.tiles{display:flex;gap:8px;flex-wrap:wrap}
+th{color:var(--mut);font-size:12px;font-weight:700;padding:4px 2px}
+td{padding:6px 2px;border-bottom:1px solid var(--line);font-size:14px}
+</style>
+</head>
+<body>
+<div id="lock" style="position:fixed;inset:0;background:var(--bg);z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px">
+  <div style="color:var(--gold);font-weight:800;letter-spacing:.14em;font-size:13px">CLEAR PATH PROPERTY SOLUTIONS</div>
+  <h1 style="margin:0">Owner Dashboard</h1>
+  <input id="pass" type="password" placeholder="Owner passcode" style="max-width:240px;text-align:center">
+  <button class="btn g" style="min-width:240px" onclick="tryLogin()">Enter</button>
+  <div id="lockErr" class="sm" style="color:var(--red)"></div>
+</div>
+<div id="app" style="max-width:860px;margin:0 auto;padding:18px 14px 40px;display:none">
+  <div style="color:var(--gold);font-weight:800;letter-spacing:.14em;font-size:12px">CLEAR PATH PROPERTY SOLUTIONS</div>
+  <div class="row" style="align-items:center"><h1 style="margin:2px 0 14px">Owner</h1><button class="btn mut" onclick="logOut()">Log out</button></div>
+  <div id="main"></div>
+</div>
+<script>
+var db=supabase.createClient('https://voitbqpvynbvlibuzxbz.supabase.co','sb_publishable_QreaC86dKq8FRmJPDkeenA_wZO8G5YG');
+var D={};
+var OWN_VIEW=localStorage.getItem('cp_own_view')||'nic';
+var NICTAB=localStorage.getItem('cp_nic_tab')||'funnel';if(NICTAB==='home')NICTAB='funnel';
+function setNicTab(t){NICTAB=t;localStorage.setItem('cp_nic_tab',t);render()}
+// Nic's personal plan (August sheet): daily 160 dials / 43 convos / 262m talk / 6 offers ; month 20 contracts / $400K
+var NETGOAL=Number(localStorage.getItem('cp_net_goal'))||50000;
+function saveNetGoal(){var v=Number(document.getElementById('ng_in').value)||0;if(v>0){NETGOAL=v;localStorage.setItem('cp_net_goal',v);render()}}
+var NICPLAN={dials:160,convos:43,talk:262,offers:6,contractsMo:20,projMo:400000};
+// Reid dispo monthly goals (August sheet)
+var DISPOGOAL={dials:2300,convos:690,shared:1311,offersRec:46,walks:69,assigned:12,closed:7,rev:140000,buyers:130};
+var CHECK={
+ daily:['5:30\u20136 \u00b7 Read 20 pages','6\u20137 \u00b7 Lift','7\u20138 \u00b7 Automation block','8\u20139 \u00b7 Toledo','9\u201310 \u00b7 Meta','10\u20137 \u00b7 All leads','6\u20137p \u00b7 Meta / hot CC','7\u20138:30 \u00b7 Hot / callbacks','8:30\u20139:30 \u00b7 Walk + AI / sub-to'],
+ weekly:['Meta performer review','KPI meeting','Automation audit','Audit all contracts','Meta best performer'],
+ monthly:['Business audit','Plan next month','Pay CC','Audit all contracts (month)']
+};
+function weekKeyOwn(d){var x=new Date(d+'T12:00:00');var w=(x.getDay()+6)%7;x.setDate(x.getDate()-w);return x.toISOString().slice(0,10)}
+// ---- Founder Checklist v3: dispo-style time blocks + notes + SOP sections ----
+var CK={date:today(),tpl:null,done:{},notes:{},oneoff:[],prev:{},loaded:''};
+async function kvGet(k){try{var r=await db.from('owner_kv').select('value').eq('key',k).maybeSingle();return r.data?JSON.parse(r.data.value):null}catch(e){return null}}
+async function kvSet(k,v){await db.from('owner_kv').upsert([{key:k,value:JSON.stringify(v)}],{onConflict:'key'})}
+var MK={loaded:'',cspend:{}};
+async function loadMK(m){MK.cspend=(await kvGet('mkt_cspend_'+m))||{};MK.loaded=m;render();}
+async function mkSaveSpend(){
+  var o={};document.querySelectorAll('.mkspin').forEach(function(el){var v=Number(el.value)||0;if(v>0)o[el.getAttribute('data-c')]=v;});
+  MK.cspend=o;
+  await kvSet('mkt_cspend_'+MK.loaded,o);
+  var sum=Object.keys(o).reduce(function(a,k){return a+o[k]},0);
+  if(sum>0){await db.from('master_monthly').upsert([{month:MK.loaded,source:'meta',spend:sum}],{onConflict:'month,source'});loadAll();}
+  else render();
+}
+function ckDoneKey(scope){return scope==='daily'?'ck3d_'+CK.date:scope==='weekly'?'ck3w_'+weekKeyOwn(CK.date):'ck3m_'+CK.date.slice(0,7)}
+function ckParse(s){var m=String(s).match(/^(.{1,14}?)\s*\u00b7\s*(.+)$/);return m?{time:m[1],t:m[2]}:{time:'',t:String(s)}}
+async function loadCK(){
+  var stamp=CK.date;
+  var r=await Promise.all([kvGet('ck_tpl3'),kvGet('ck3d_'+stamp),kvGet('ck3w_'+weekKeyOwn(stamp)),kvGet('ck3m_'+stamp.slice(0,7)),kvGet('ck3n_'+stamp),kvGet('ck3o_'+stamp),kvGet('ck_tpl')]);
+  if(!r[0]){
+    var old=r[6]||CHECK;
+    var mk=function(a,pf){return (a||[]).map(function(s,i){var p=ckParse(typeof s==='string'?s:s.t);return {id:pf+i+'_'+Math.random().toString(36).slice(2,6),t:p.t,time:p.time,how:''}})};
+    CK.tpl={daily:mk(old.daily,'d'),weekly:mk(old.weekly,'w'),monthly:mk(old.monthly,'m')};
+    kvSet('ck_tpl3',CK.tpl);
+  } else CK.tpl=r[0];
+  CK.done={daily:r[1]||[],weekly:r[2]||[],monthly:r[3]||[]};
+  CK.notes=r[4]||{};
+  CK.oneoff=r[5]||[];
+  CK.prev={};
+  try{
+    var pv=await db.from('owner_kv').select('key,value').like('key','ck3n_%');
+    if(pv.data){
+      pv.data.map(function(x){return {d:x.key.slice(5),v:JSON.parse(x.value)}})
+        .filter(function(x){return x.d<stamp})
+        .sort(function(a,b){return a.d<b.d?1:-1})
+        .forEach(function(x){for(var k in x.v){if(x.v[k]&&String(x.v[k]).trim()&&!CK.prev[k])CK.prev[k]={note:x.v[k],on:x.d}}});
+    }
+  }catch(e){}
+  CK.streak=0;
+  try{
+    var sd=await db.from('owner_kv').select('key,value').like('key','ck3d_%');
+    var map={};(sd.data||[]).forEach(function(x){map[x.key.slice(5)]=JSON.parse(x.value)||[]});
+    var t=today();
+    function full(d){
+      var req=CK.tpl.daily.filter(function(it){return ckShowsOn(it,d)}).map(function(it){return it.id});
+      if(!req.length)return true;
+      var dv=map[d]||[];
+      return req.every(function(id){return dv.indexOf(id)>=0});
+    }
+    var cur=new Date(t+'T12:00:00');
+    if(!full(t))cur.setDate(cur.getDate()-1);
+    while(true){
+      var ds=cur.toISOString().slice(0,10);
+      if(!map[ds]||!full(ds))break;
+      CK.streak++;cur.setDate(cur.getDate()-1);
+      if(CK.streak>3650)break;
+    }
+    CK.istreak={};
+    CK.tpl.daily.forEach(function(it){
+      var n=0,c=new Date(t+'T12:00:00');
+      if(ckShowsOn(it,t)&&(map[t]||[]).indexOf(it.id)<0)c.setDate(c.getDate()-1);
+      for(var g=0;g<3650;g++){
+        var ds2=c.toISOString().slice(0,10);
+        if(ckShowsOn(it,ds2)){
+          if((map[ds2]||[]).indexOf(it.id)>=0)n++;else break;
+        }
+        c.setDate(c.getDate()-1);
+      }
+      CK.istreak[it.id]=n;
+    });
+    // ---- lifetime stats ----
+    var dts=Object.keys(map).sort();
+    CK.stats=null;
+    if(dts.length){
+      var first=dts[0],days=[],c2=new Date(first+'T12:00:00'),te=new Date(t+'T12:00:00');
+      while(c2<=te){days.push(c2.toISOString().slice(0,10));c2.setDate(c2.getDate()+1);}
+      var perfect=0,best=0,run=0;
+      days.forEach(function(d){
+        if(full(d)&&(map[d]||[]).length){perfect++;run++;if(run>best)best=run;}
+        else if(d!==t)run=0;
+      });
+      var per=CK.tpl.daily.map(function(it){
+        var sch=0,hit=0,ib=0,ir=0;
+        days.forEach(function(d){
+          if(!ckShowsOn(it,d))return;
+          sch++;
+          if((map[d]||[]).indexOf(it.id)>=0){hit++;ir++;if(ir>ib)ib=ir;}
+          else if(d!==t)ir=0;
+        });
+        return {t:it.t,pct:sch?Math.round(hit*100/sch):0,best:ib,cur:CK.istreak[it.id]||0};
+      });
+      CK.stats={best:best,perfect:perfect,total:days.length,per:per};
+      CK.dayPct={};
+      days.forEach(function(d){
+        var req=CK.tpl.daily.filter(function(it){return ckShowsOn(it,d)}).map(function(it){return it.id});
+        if(!req.length)return;
+        var dv=map[d]||[];
+        var hit=req.filter(function(id){return dv.indexOf(id)>=0}).length;
+        CK.dayPct[d]=Math.round(hit*100/req.length);
+      });
+    }
+  }catch(e){}
+  CK.loaded=stamp;
+  CK.wasToday=(stamp===today());
+  render();
+}
+function ckShowsOn(it,d){
+  var dt=new Date(d+'T12:00:00');
+  if(it.dow&&it.dow.length&&it.dow.indexOf(dt.getDay())<0)return false;
+  if(it.dom&&it.dom.length)return it.dom.indexOf(dt.getDate())>=0;
+  if(!it.every||it.every<2)return true;
+  var a=new Date((it.anchor||'2026-08-04')+'T12:00:00');
+  return Math.round((dt-a)/86400000)%it.every===0;
+}
+var CKT={id:null,endAt:0,iv:null,day:''};
+(function(){try{var s=JSON.parse(localStorage.getItem('cp_ckt')||'null');if(s&&s.endAt>Date.now()){CKT.id=s.id;CKT.endAt=s.endAt;CKT.day=s.day||today();CKT.iv=setInterval(ckTimerTick,1000);}else if(s){localStorage.removeItem('cp_ckt');}}catch(e){}})();
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&CKT.id){clearInterval(CKT.iv);CKT.iv=setInterval(ckTimerTick,1000);ckTimerTick();}});
+setInterval(function(){
+  if(typeof NICTAB!=='undefined'&&NICTAB==='check'&&CK.loaded){
+    if(CK.date<today()&&CK.loaded===CK.date&&CK.date===CK.loaded){}
+    if(document.visibilityState!=='hidden'&&!CKT.id)render();
+  }
+},60000);
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&CK.wasToday&&CK.loaded&&CK.loaded<today()){ckSetDate(today());}
+});
+
+function ckMinsG(tm){
+  if(!tm)return null;
+  var m=String(tm).toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?/);
+  if(!m)return null;
+  var hh=parseInt(m[1],10),mm=m[2]?parseInt(m[2],10):0,mer=m[3];
+  if(!mer){var e=String(tm).toLowerCase().match(/(am|pm|a|p)\s*$/);mer=e?e[1]:null;}
+  if(mer&&mer.charAt(0)==='p'&&hh<12)hh+=12;
+  if(mer&&mer.charAt(0)==='a'&&hh===12)hh=0;
+  return hh*60+mm;
+}
+function ckDur(tm){
+  if(!tm||String(tm).indexOf('\u2013')<0&&String(tm).indexOf('-')<0)return null;
+  var parts=String(tm).split(/[\u2013-]/);
+  var s=ckMinsG(tm),e=ckMinsG(parts[1]);
+  if(s===null||e===null)return null;
+  if(e<=s)e+=720;
+  var d=e-s;
+  return d>0&&d<=780?d:null;
+}
+function ckDurLbl(m){return m>=60?(Math.floor(m/60)+'h'+(m%60?' '+(m%60)+'m':'')):m+'m';}
+function ckBeep(){
+  try{
+    var ac=new (window.AudioContext||window.webkitAudioContext)();
+    var o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);o.frequency.value=880;g.gain.value=.25;
+    o.start();setTimeout(function(){o.frequency.value=1100},180);setTimeout(function(){o.stop();ac.close()},700);
+  }catch(e){}
+}
+function ckTimerTick(){
+  var el=document.getElementById('tmr_'+CKT.id);
+  var left=Math.round((CKT.endAt-Date.now())/1000);
+  if(left<=0){
+    if(el){el.textContent='\u23f0 TIME!';el.style.color='var(--red)';}
+    ckBeep();clearInterval(CKT.iv);CKT.id=null;try{localStorage.removeItem('cp_ckt')}catch(e){}
+    return;
+  }
+  if(el){var hh2=Math.floor(left/3600),mm2=Math.floor(left%3600/60),ss2=left%60;el.textContent=(hh2?hh2+':'+('0'+mm2).slice(-2):mm2)+':'+('0'+ss2).slice(-2);}
+}
+function ckTimer(id,mins){
+  if(CKT.id===id&&CKT.day===CK.date){clearInterval(CKT.iv);CKT.id=null;try{localStorage.removeItem('cp_ckt')}catch(e){}render();return;}
+  if(CKT.iv)clearInterval(CKT.iv);
+  CKT.id=id;CKT.endAt=Date.now()+mins*60000;CKT.day=CK.date;
+  try{localStorage.setItem('cp_ckt',JSON.stringify({id:CKT.id,endAt:CKT.endAt,day:CKT.day}))}catch(e){}
+  render();
+  CKT.iv=setInterval(ckTimerTick,1000);
+}
+function ckLastDay(){var x=new Date(CK.date+'T12:00:00');x.setDate(x.getDate()+1);return x.getDate()===1;}
+function ckDateLbl(d){
+  var x=new Date(d+'T12:00:00');
+  var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],mos=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return days[x.getDay()]+' \u00b7 '+mos[x.getMonth()]+' '+x.getDate();
+}
+function ckSetDate(d){if(!d)return;CK.date=d;CK.loaded='';loadCK();}
+function ckShift(n){var x=new Date(CK.date+'T12:00:00');x.setDate(x.getDate()+n);ckSetDate(x.toISOString().slice(0,10));}
+async function ckToggle(scope,id){
+  var a=CK.done[scope]||[];var ix=a.indexOf(id);
+  if(ix>=0)a.splice(ix,1);else a.push(id);
+  CK.done[scope]=a;render();
+  await kvSet(ckDoneKey(scope),a);
+}
+async function ckNote(id,val){CK.notes[id]=val;await kvSet('ck3n_'+CK.date,CK.notes);}
+async function ckRename(id,txt){
+  var f=ckItem(id);if(!f)return;
+  txt=(txt||'').replace(/\n/g,' ').trim();
+  if(!txt||txt===f.it.t)return;
+  f.it.t=txt;
+  await kvSet(f.src==='one'?'ck3o_'+CK.date:'ck_tpl3',f.src==='one'?CK.oneoff:CK.tpl);
+}
+function ckItem(id){
+  var f=null;
+  ['daily','weekly','monthly'].forEach(function(s){CK.tpl[s].forEach(function(it){if(it.id===id)f={it:it,src:'tpl'}})});
+  CK.oneoff.forEach(function(it){if(it.id===id)f={it:it,src:'one'}});
+  return f;
+}
+async function ckTime(id){
+  var f=ckItem(id);if(!f)return;
+  var v=prompt('Time block for this task (e.g. 5:30\u20136 or 2:00 PM):',f.it.time||'');
+  if(v===null)return;
+  f.it.time=v.trim();render();
+  await kvSet(f.src==='one'?'ck3o_'+CK.date:'ck_tpl3',f.src==='one'?CK.oneoff:CK.tpl);
+}
+async function ckHowEdit(id){
+  var f=ckItem(id);if(!f)return;
+  var v=prompt('How-to / playbook for this task:',f.it.how||'');
+  if(v===null)return;
+  f.it.how=v.trim();render();
+  await kvSet(f.src==='one'?'ck3o_'+CK.date:'ck_tpl3',f.src==='one'?CK.oneoff:CK.tpl);
+}
+function ckHowToggle(id){var q=document.getElementById('how_'+id);if(q)q.style.display=q.style.display==='none'?'block':'none';}
+async function ckAddTpl(scope){
+  var el=document.getElementById('cka_'+scope);var v=(el&&el.value||'').trim();if(!v)return;
+  var p=ckParse(v);
+  CK.tpl[scope].push({id:scope.charAt(0)+Date.now(),t:p.t,time:p.time,how:''});el.value='';render();
+  await kvSet('ck_tpl3',CK.tpl);
+}
+async function ckDelTpl(scope,i){
+  if(!confirm('Remove this routine item?'))return;
+  CK.tpl[scope].splice(i,1);render();
+  await kvSet('ck_tpl3',CK.tpl);
+}
+async function ckAddOne(){
+  var el=document.getElementById('cka_one');var v=(el&&el.value||'').trim();if(!v)return;
+  var p=ckParse(v);
+  CK.oneoff.push({id:'o'+Date.now(),t:p.t,time:p.time,how:''});el.value='';render();
+  await kvSet('ck3o_'+CK.date,CK.oneoff);
+}
+async function ckDelOne(i){
+  CK.oneoff.splice(i,1);render();
+  await kvSet('ck3o_'+CK.date,CK.oneoff);
+}
+var STD={dialsPerConvo:6.1,convosPerOffer:3.0,offersPerContract:11.8,leadsPerContract:18.6,talkPerConvo:8.9,closeRate:0.47,avgFee:15000};
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+function fmt$(n){return n==null||isNaN(n)?'\u2014':'$'+Number(n).toLocaleString()}
+function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fmtMonth(m){var p=String(m||'').split('-');if(p.length<2)return m;var names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];var i=parseInt(p[1],10)-1;return (names[i]||p[1])+' '+p[0];}
+function monthStart(){return today().slice(0,8)+'01'}
+function stlFmt(m){return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+'m'}
+function tryLogin(){
+  var v=(document.getElementById('pass').value||'').trim();
+  if(v==='clearpathowner'){localStorage.setItem('cp_owner_ok','1');unlock();}
+  else document.getElementById('lockErr').textContent='Wrong passcode';
+}
+function unlock(){document.getElementById('lock').style.display='none';document.getElementById('app').style.display='block';loadAll();}
+function logOut(){localStorage.removeItem('cp_owner_ok');location.reload();}
+if(localStorage.getItem('cp_owner_ok')==='1')unlock();
+async function loadAll(){
+  var r=await Promise.all([
+    db.from('acq_leads').select('*'),
+    db.from('acq_activity').select('*'),
+    db.from('acq_offers').select('*'),
+    db.from('acq_reps').select('*').order('created_at'),
+    db.from('acq_targets').select('*'),
+    db.from('master_monthly').select('*').order('month'),
+    db.from('master_expenses').select('*')
+  ]);
+  for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
+  D.leads=r[0].data||[];D.act=r[1].data||[];D.offers=r[2].data||[];
+  D.reps=(r[3].data||[]).map(function(x){return x.name});
+  D.targets={};(r[4].data||[]).forEach(function(x){D.targets[x.key]=Number(x.value)});
+  D.master=r[5].data||[];D.mexp=r[6].data||[];
+  render();
+}
+function T(k,dflt){return D.targets&&D.targets[k]!=null?D.targets[k]:dflt}
+function repOf(l){return l.claimed_by||l.rep||''}
+function setOwnView(v){OWN_VIEW=v;localStorage.setItem('cp_own_view',v);render()}
+function ownAgg(from){
+  var o={leads:0,dials:0,convos:0,talk:0,offers:0,contracts:0,assigned:0,closed:0,rev:0,pipeDeals:0,pipeRev:0,cycleDays:[],falls:0};
+  (D.leads||[]).forEach(function(l){
+    var c=(l.created_at||'').slice(0,10);
+    if(c>=from)o.leads++;
+    if(l.contracted_on&&l.contracted_on>=from)o.contracts++;
+    if(l.assigned_on&&l.assigned_on>=from)o.assigned++;
+    if(l.stage==='Fallout')o.falls++;
+    if(l.closed_on&&l.closed_on>=from){o.closed++;o.rev+=Number(l.revenue_closed)||0;
+      if(c)o.cycleDays.push(Math.round((new Date(l.closed_on)-new Date(c))/86400000));}
+    if(l.contracted_on&&!l.closed_on&&l.stage!=='Fallout'){o.pipeDeals++;o.pipeRev+=Number(l.projected_profit)||0}
+  });
+  (D.act||[]).forEach(function(a){if(a.on_date>=from){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
+  (D.offers||[]).forEach(function(x){if(x.offered_on&&String(x.offered_on).slice(0,10)>=from)o.offers++});
+  o.talk=Math.round(o.talk/60);
+  return o;
+}
+function repMonth(rp,from){
+  var o={dials:0,convos:0,talk:0,offers:0,contracts:0,closed:0};
+  (D.act||[]).forEach(function(a){if((a.rep||D.reps[0])===rp&&a.on_date>=from){o.dials+=a.dials||0;o.convos+=a.convos||0;o.talk+=a.talk_min||0}});
+  (D.offers||[]).forEach(function(x){var r=x.rep||'';if(r===rp&&x.offered_on&&String(x.offered_on).slice(0,10)>=from)o.offers++});
+  (D.leads||[]).forEach(function(l){if(repOf(l)!==rp)return;if(l.contracted_on&&l.contracted_on>=from)o.contracts++;if(l.closed_on&&l.closed_on>=from)o.closed++});
+  o.talk=Math.round(o.talk/60);
+  return o;
+}
+function tile(lbl,val,sub,col){return '<div class="tile"'+(col?' style="border-color:'+col+'"':'')+'><div class="sm mut">'+lbl+'</div><div style="font-size:24px;font-weight:800;'+(col?'color:'+col:'')+'">'+val+'</div>'+(sub?'<div class="sm mut" style="margin-top:2px">'+sub+'</div>':'')+'</div>'}
+async function saveOwnSpend(){
+  var curM=monthStart().slice(0,7);
+  var v=Number(document.getElementById('own_spend').value)||0;
+  await db.from('master_monthly').upsert([{month:curM,source:'meta',spend:v}],{onConflict:'month,source'});
+  loadAll();
+}
+async function saveOwnExp(){
+  var curM=monthStart().slice(0,7);
+  var row={month:curM,tools:Number(document.getElementById('oe_tools').value)||0,comp:Number(document.getElementById('oe_comp').value)||0,other:Number(document.getElementById('oe_other').value)||0};
+  await db.from('master_expenses').upsert([row],{onConflict:'month'});
+  loadAll();
+}
+function render(){
+  var el=document.getElementById('main');
+  var m0=monthStart(), curM=m0.slice(0,7);
+  var L=ownAgg(m0);
+  var spend=(D.master||[]).filter(function(r){return r.month===curM}).reduce(function(a,r){return a+(Number(r.spend)||0)},0);
+  var exp=(D.mexp||[]).filter(function(r){return r.month===curM})[0]||{tools:0,comp:0,other:0};
+  var expTot=(Number(exp.tools)||0)+(Number(exp.comp)||0)+(Number(exp.other)||0);
+  var net=L.rev-spend-expTot;
+  var hist=(D.master||[]).filter(function(r){return r.source==='meta'});
+  var HT=hist.reduce(function(a,r){['spend','leads','dials','convos','offers','contracts','closed_rev'].forEach(function(k){a[k]=(a[k]||0)+(Number(r[k])||0)});return a},{});
+
+  var h='<div style="display:flex;gap:8px;margin-bottom:14px">'
+   +'<button class="btn '+(OWN_VIEW==='nic'?'g':'mut')+'" style="flex:1" onclick="setOwnView(\'nic\')">Nic Growth Dashboard</button>'
+   +'<button class="btn '+(OWN_VIEW==='hormozi'?'g':'mut')+'" style="flex:1" onclick="setOwnView(\'hormozi\')">Hormozi Dashboard</button>'
+   +'</div>';
+
+  if(OWN_VIEW==='nic'){
+    var tabs=[['check','\u2705 Founder Checklist'],['me','\ud83c\udfaf ACQ REP NIC'],['mkt','\ud83d\udce3 Marketing'],['acq','\ud83d\udcde Acq'],['dispo','\ud83c\udff7 Dispo'],['funnel','\ud83c\udf0a Funnel'],['calc','\ud83e\uddee Calculator'],['money','\ud83d\udcb0 Money']];
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+tabs.map(function(t){return '<button class="btn '+(NICTAB===t[0]?'g':'mut')+'" style="flex:1;min-width:96px;padding:8px 4px;font-size:13px" onclick="setNicTab(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')+'</div>';
+
+    if(NICTAB==='mkt'){
+      if(MK.loaded!==curM){loadMK(curM);h+='<div class="card sm mut">Loading marketing\u2026</div>';}
+      else{
+      // ---- economics (standards; personal ratios take over with clean data) ----
+      var FEE=15000, CLOSE=.47, LPC=18.6;
+      var VPC=Math.round(FEE*CLOSE);            // value per contract
+      var MAXCPL=Math.round(VPC/LPC);           // break-even CPL
+      var bcpl=L.leads?Math.round(spend/L.leads):null;
+
+      // ---- A: break-even line ----
+      // ---- A0: ALL-TIME topline (ROAS / cash conversion cycle / CPL) ----
+      var _aS=0,_aL=0,_aR=0;
+      hist.forEach(function(r){if(r.month===curM)return;_aS+=Number(r.spend)||0;_aL+=Number(r.leads)||0;_aR+=Number(r.closed_rev)||0;});
+      _aS+=spend;_aL+=L.leads;_aR+=L.rev;
+      var aROAS=(_aS>0&&_aR>0)?Math.round(_aR/_aS*10)/10:null;
+      var aCPL=_aL?Math.round(_aS/_aL):null;
+      var _cc=[22,22,35,77,16]; // verified Mar-Jul closes: Harris, Taylor, Clearwater, Maple, Magnolia (lead-in to cash days)
+      (D.leads||[]).forEach(function(l){if(l.closed_on&&l.created_at){var _d=(new Date(String(l.closed_on).slice(0,10))-new Date(String(l.created_at).slice(0,10)))/86400000;if(_d>=0&&_d<400)_cc.push(_d);}});
+      var aCCC=_cc.length?Math.round(_cc.reduce(function(a,b){return a+b},0)/_cc.length):null;
+      h+='<div class="card"><h2>\ud83c\udfc6 All-time</h2>'
+       +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
+       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:900;color:'+(aROAS==null?'var(--mut)':aROAS>=2?'var(--green)':aROAS>=1?'var(--gold)':'var(--red)')+'">'+(aROAS!=null?aROAS+'x':'\u2014')+'</div><div class="sm mut">ROAS \u00b7 all-time'+(aROAS==null?' (needs closed rev)':'')+'</div></div>'
+       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:900;color:'+(aCCC==null?'var(--mut)':aCCC<=60?'var(--green)':aCCC<=90?'var(--gold)':'var(--red)')+'">'+(aCCC!=null?aCCC+'d':'\u2014')+'</div><div class="sm mut">Cash conversion cycle'+(aCCC==null?' (no closes yet)':' \u00b7 lead\u2192cash')+'</div></div>'
+       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:900;color:'+(aCPL==null?'var(--mut)':aCPL<=MAXCPL*.7?'var(--green)':aCPL<=MAXCPL?'var(--gold)':'var(--red)')+'">'+(aCPL!=null?fmt$(aCPL):'\u2014')+'</div><div class="sm mut">CPL \u00b7 all-time</div></div>'
+       +'</div>'
+       +'<div class="sm mut" style="margin-top:8px">'+fmt$(_aS)+' spent \u00b7 '+_aL+' leads \u00b7 '+fmt$(_aR)+' collected \u00b7 cycle = avg days from lead in to cash in.</div>'
+       +'</div>';
+
+      // ---- A1: ROAS + CPL topline ----
+      var roasNow=null;
+      h+='<div class="card"><h2>\ud83d\udcc8 This month</h2>'
+       +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
+       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center"><div style="font-size:24px;font-weight:900;color:'+(bcpl==null?'var(--mut)':bcpl<=MAXCPL*.7?'var(--green)':bcpl<=MAXCPL?'var(--gold)':'var(--red)')+'">'+(bcpl!=null?fmt$(bcpl):'\u2014')+'</div><div class="sm mut">Avg cost per lead</div></div>'
+       +'</div>'
+       +(bcpl?'<div class="sm mut" style="margin-top:8px">'+fmt$(spend)+' spent \u00f7 '+L.leads+' leads. ROAS lives in All-time \u2014 deals close months after the spend.</div>':'')
+       +'</div>';
+      // ---- B: pacing vs YOUR goal (from Goal Hitter target) ----
+      var GOAL$=Number(D.targets&&D.targets.owner_target)||0;
+      var GFEE=Number(D.targets&&D.targets.owner_avgfee)||15000;
+      var GFALL=(D.targets&&D.targets.owner_fallout!=null)?Number(D.targets.owner_fallout):47;
+      var PLAN_CTR=GOAL$>0?Math.ceil(GOAL$/(GFEE*(1-GFALL/100))):20;
+      var dNow=new Date(), dim=new Date(dNow.getFullYear(),dNow.getMonth()+1,0).getDate(), dom=dNow.getDate();
+      var pace=dom/dim;
+      function proj(v){return dom?Math.round(v/dom*dim):0}
+      var pCtr=proj(L.contracts), pLd=proj(L.leads), pSp=proj(spend);
+      var PLAN_LEADS=Math.round(PLAN_CTR*LPC);
+      var cplUse=bcpl||aCPL||41;
+      var PLAN_SPEND=Math.round(PLAN_LEADS*cplUse);
+      var needLeads=Math.max(0,PLAN_LEADS-pLd);
+      var needSpend=(cplUse&&needLeads)?fmt$(cplUse*needLeads):null;
+      function paceCell(lbl,cur,prj,plan,money){
+        var col=plan?(prj>=plan?'var(--green)':prj>=plan*.7?'var(--gold)':'var(--red)'):'var(--text)';
+        return '<div style="flex:1;min-width:110px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><div style="font-size:17px;font-weight:900;color:'+col+'">'+(money?fmt$(prj):prj)+'</div><div class="sm mut">'+lbl+' pace'+(plan?' / '+(money?fmt$(plan):plan)+' needed':'')+'</div><div class="sm mut">now: '+(money?fmt$(cur):cur)+'</div></div>';
+      }
+      h+='<div class="card"><h2>\u23f1 '+fmtMonth(curM)+' pacing vs your '+(GOAL$>0?fmt$(GOAL$):'')+' goal \u2014 day '+dom+' of '+dim+'</h2><div style="display:flex;gap:10px;flex-wrap:wrap">'
+       +paceCell('Spend',spend,pSp,PLAN_SPEND,true)
+       +paceCell('Leads',L.leads,pLd,PLAN_LEADS,false)
+       +paceCell('Contracts',L.contracts,pCtr,PLAN_CTR,false)
+       +'</div>'
+       +(needLeads>0?'<div class="sm" style="margin-top:8px;color:var(--gold)">Goal math: '+PLAN_CTR+' contracts \u2192 '+PLAN_LEADS+' leads \u2192 ~'+fmt$(PLAN_SPEND)+' spend. At current pace you\u2019re ~'+needLeads+' leads short'+(needSpend?' \u2248 '+needSpend+' more ad spend':'')+'.</div>':'<div class="sm" style="margin-top:8px;color:var(--green)">On pace for your '+(GOAL$>0?fmt$(GOAL$):PLAN_CTR+'-contract')+' goal. \ud83d\ude80</div>')
+       +'</div>';
+
+      h+='<div class="card"><h2>\ud83d\udccf Break-even line</h2>'
+       +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
+       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><div style="font-size:19px;font-weight:900">'+fmt$(MAXCPL)+'</div><div class="sm mut">Max $/lead</div></div>'
+       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><div style="font-size:19px;font-weight:900">'+fmt$(VPC)+'</div><div class="sm mut">Max $/contract</div></div>'
+       +'</div><div class="sm mut" style="margin-top:8px">$15K fee \u00d7 47% close = '+fmt$(VPC)+' value per contract \u00f7 18.6 leads/contract. Stay under these and marketing prints money.</div></div>';
+
+      // ---- C: campaign command center ----
+      var ads={};
+      (D.leads||[]).forEach(function(l){
+        var k=(l.campaign||'').trim(); if(!k)return;
+        if(!ads[k])ads[k]={leads:0,claimed:0,contracts:0,closed:0,rev:0};
+        ads[k].leads++;
+        if(l.claimed_on)ads[k].claimed++;
+        if(l.contracted_on)ads[k].contracts++;
+        if(l.closed_on){ads[k].closed++;ads[k].rev+=Number(l.revenue_closed)||0;}
+      });
+      var keys=Object.keys(ads);
+      h+='<div class="card"><h2>\ud83c\udf9b Campaign command center</h2>';
+      if(!keys.length){
+        h+='<div class="sm mut">Attribution started Aug 3 \u2014 campaigns appear here as leads flow in. Then: type each campaign\u2019s spend (from Ads Manager) and this becomes your kill/scale list.</div>';
+      }else{
+        keys.sort(function(a,b){return (ads[b].rev-ads[a].rev)||(ads[b].contracts-ads[a].contracts)||(ads[b].leads-ads[a].leads)});
+        var sumSp=0;
+        h+='<div style="overflow-x:auto"><table style="width:100%;min-width:780px"><tr><th style="text-align:left">Campaign</th><th style="text-align:right">Ad Spend</th><th style="text-align:right">Leads</th><th style="text-align:right">Cost / Lead</th><th style="text-align:right">Claimed %</th><th style="text-align:right">Contracts</th><th style="text-align:right">Deals Closed</th><th style="text-align:right">Cost / Deal</th><th style="text-align:right">Collected</th><th style="text-align:right">Verdict</th></tr>';
+        keys.forEach(function(k,ix){
+          var a=ads[k], sp=Number(MK.cspend[k])||0; sumSp+=sp;
+          var cpl=sp&&a.leads?Math.round(sp/a.leads):null;
+          var cpc=sp&&a.contracts?Math.round(sp/a.contracts):null;
+          var clp=a.leads?Math.round(a.claimed*100/a.leads):0;
+          var v;
+          if(a.leads<5&&!sp) v='<span class="mut">\u23f3 EARLY</span>';
+          else if(a.closed>0&&(!cpc||cpc<VPC)) v='<span style="color:var(--green);font-weight:800">\ud83d\udd25 SCALE</span>';
+          else if((cpl&&cpl>MAXCPL)||(sp>=VPC&&!a.contracts)||(a.leads>=15&&clp<15)) v='<span style="color:var(--red);font-weight:800">\ud83d\udc80 KILL</span>';
+          else if(a.contracts>0||(cpl&&cpl<=MAXCPL*.7)) v='<span style="color:var(--green);font-weight:800">\ud83d\udcc8 SCALE?</span>';
+          else v='<span style="color:var(--gold);font-weight:800">\ud83d\udc40 WATCH</span>';
+          h+='<tr><td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(k)+'</td>'
+           +'<td style="text-align:right">'+(sp?fmt$(sp):'\u2014')+'</td>'
+           +'<td style="text-align:right">'+a.leads+'</td>'
+           +'<td style="text-align:right;color:'+(cpl==null?'var(--mut)':cpl<=MAXCPL*.7?'var(--green)':cpl<=MAXCPL?'var(--gold)':'var(--red)')+'">'+(cpl!=null?fmt$(cpl):'\u2014')+'</td>'
+           +'<td style="text-align:right;color:'+(clp>=40?'var(--green)':clp>=20?'var(--gold)':'var(--red)')+'">'+clp+'%</td>'
+           +'<td style="text-align:right">'+a.contracts+'</td>'
+           +'<td style="text-align:right">'+a.closed+'</td>'
+           +'<td style="text-align:right">'+((sp&&a.closed)?fmt$(Math.round(sp/a.closed)):'\u2014')+'</td>'
+           +'<td style="text-align:right">'+(a.rev?fmt$(a.rev):'\u2014')+'</td>'
+           +'<td style="text-align:right">'+v+'</td></tr>';
+        });
+        h+='</table></div>'
+         +'<div class="sm mut" style="margin-top:6px">Spend auto-syncs from Meta nightly. Verdicts: \ud83d\udd25 SCALE = closed deals profitably \u00b7 \ud83d\udcc8 SCALE? = contracts flowing or very cheap leads \u00b7 \ud83d\udc80 KILL = cost per lead over '+fmt$(MAXCPL)+', or '+fmt$(VPC)+'+ spent with no contracts, or leads nobody claims \u00b7 \ud83d\udc40 WATCH = not enough data yet. Deals take ~34 days \u2014 give new campaigns a month before judging.</div>' 
+      }
+      h+='</div>';
+
+      // ---- D: monthly performance history ----
+      h+='<div class="card"><h2>\ud83d\udce3 Monthly performance (Meta)</h2><div style="overflow-x:auto"><table style="width:100%;min-width:640px"><tr><th style="text-align:left">Month</th><th style="text-align:right">Ad Spend</th><th style="text-align:right">Leads</th><th style="text-align:right">Cost / Lead</th><th style="text-align:right">Contracts</th><th style="text-align:right">Cost / Contract</th><th style="text-align:right">Deals Closed</th><th style="text-align:right">Collected</th></tr>';
+      function mrow(mo,sp,ld,ct,dl,rv,live){
+        var cpl=ld?Math.round(sp/ld):null, cpc2=ct?Math.round(sp/ct):null;
+        return '<tr'+(live?' style="color:var(--gold);font-weight:700"':'')+'><td>'+fmtMonth(mo)+(live?' \u26a1':'')+'</td><td style="text-align:right">'+fmt$(sp)+'</td><td style="text-align:right">'+ld+'</td><td style="text-align:right">'+(cpl!=null?fmt$(cpl):'\u2014')+'</td><td style="text-align:right">'+ct+'</td><td style="text-align:right">'+(cpc2!=null?fmt$(cpc2):'\u2014')+'</td><td style="text-align:right">'+dl+'</td><td style="text-align:right">'+(rv?fmt$(rv):'\u2014')+'</td></tr>';
+      }
+      var tS=0,tL=0,tC=0,tD=0,tR=0;
+      hist.forEach(function(r){
+        if(r.month===curM)return;
+        var rv=Number(r.closed_rev)||0, dls=Number(r.closed_deals)||0;
+        h+=mrow(r.month,Number(r.spend)||0,Number(r.leads)||0,Number(r.contracts)||0,dls,rv,false);
+        tS+=Number(r.spend)||0;tL+=Number(r.leads)||0;tC+=Number(r.contracts)||0;tD+=dls;tR+=rv;
+      });
+      h+=mrow(curM,spend,L.leads,L.contracts,L.closed,L.rev,true);
+      tS+=spend;tL+=L.leads;tC+=L.contracts;tD+=L.closed;tR+=L.rev;
+      var acpl=tL?Math.round(tS/tL):0, acpc=tC?Math.round(tS/tC):0;
+      h+='<tr style="font-weight:800;border-top:2px solid var(--line)"><td>ALL</td><td style="text-align:right">'+fmt$(tS)+'</td><td style="text-align:right">'+tL+'</td><td style="text-align:right">'+fmt$(acpl)+'</td><td style="text-align:right">'+tC+'</td><td style="text-align:right">'+fmt$(acpc)+'</td><td style="text-align:right">'+tD+'</td><td style="text-align:right">'+fmt$(tR)+'</td></tr>';
+      h+='</table></div>'
+       +'<div class="sm mut" style="margin-top:6px">Deals/ROAS for past months fill in when closed history is uploaded \u2014 live from Aug forward.</div></div>';
+      }
+    }
+
+    if(NICTAB==='me'){
+      h+='<div class="card" style="padding:4px;overflow:hidden">'
+       +'<iframe src="https://nicholliday.github.io/clearpath-acq/#repnic" style="width:100%;height:calc(100vh - 210px);min-height:560px;border:0;border-radius:12px;background:var(--bg)"></iframe>'
+       +'</div>';
+    }
+
+    if(NICTAB==='check'){
+      if(CK.loaded!==CK.date){loadCK();h+='<div class="card sm mut">Loading checklist\u2026</div>';}
+      else{
+        var isToday=(CK.date===today());
+        function ckMins(tm){
+          if(!tm)return 99999;
+          var m=String(tm).toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)?/);
+          if(!m)return 99999;
+          var hh=parseInt(m[1],10),mm=m[2]?parseInt(m[2],10):0,mer=m[3];
+          if(!mer){var e=String(tm).toLowerCase().match(/(am|pm|a|p)\s*$/);mer=e?e[1]:null;}
+          if(mer&&mer.charAt(0)==='p'&&hh<12)hh+=12;
+          if(mer&&mer.charAt(0)==='a'&&hh===12)hh=0;
+          return hh*60+mm;
+        }
+        var dayItems=CK.tpl.daily.filter(function(it){return ckShowsOn(it,CK.date)}).map(function(it){return {it:it,one:false}}).concat(CK.oneoff.map(function(it){return {it:it,one:true}}));
+        dayItems.sort(function(a,b){return ckMins(a.it.time)-ckMins(b.it.time)});
+        var dDone=CK.done.daily||[];
+        var wDone=CK.done.weekly||[],mDone=CK.done.monthly||[];
+        var dn=dayItems.filter(function(x){return dDone.indexOf(x.it.id)>=0}).length
+          +CK.tpl.weekly.filter(function(it){return wDone.indexOf(it.id)>=0}).length
+          +CK.tpl.monthly.filter(function(it){return (!it.lastday||ckLastDay())&&mDone.indexOf(it.id)>=0}).length;
+        var tot=dayItems.length+CK.tpl.weekly.length+CK.tpl.monthly.filter(function(it){return !it.lastday||ckLastDay()}).length;
+        h+='<div class="card"><div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">'
+         +'<button class="btn mut" onclick="ckShift(-1)">\u25c0</button>'
+         +'<span onclick="var i=document.getElementById(\'ck_dt\');i.showPicker?i.showPicker():i.click()" style="font-weight:800;font-size:15px;cursor:pointer;padding:6px 12px;border:1px solid var(--line);border-radius:10px">'+ckDateLbl(CK.date)+'</span>'
+         +'<input id="ck_dt" type="date" value="'+CK.date+'" onchange="ckSetDate(this.value)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
+         +'<button class="btn mut" onclick="ckShift(1)">\u25b6</button>'
+         +(!isToday?'<button class="btn g" onclick="ckSetDate(\''+today()+'\')">Today</button>':'')
+         +'<button class="btn mut" style="margin-left:auto" onclick="CK.showCal=!CK.showCal;render()">\ud83d\udcc5</button>'
+         +'<button class="btn mut" onclick="CK.showStats=!CK.showStats;render()">\ud83d\udcca Checklist data</button>'
+         +'<span style="font-weight:800;color:'+(dn>=tot&&tot?'var(--green)':'var(--gold)')+'">'+dn+' / '+tot+' done</span>'
+         +(CK.streak?'<span style="font-weight:800;color:#FF9D42;margin-left:10px">\ud83d\udd25 '+CK.streak+' day'+(CK.streak>1?'s':'')+'</span>':'')
+         +'</div>'
+         +'<div style="height:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+(tot?Math.round(dn*100/tot):0)+'%;background:'+(dn>=tot&&tot?'var(--green)':'linear-gradient(90deg,var(--gold),#FF9D42)')+';border-radius:6px;transition:width .4s"></div></div>'
+         +'</div>';
+        if(CK.showCal){
+          var cy=+CK.date.slice(0,4),cm=+CK.date.slice(5,7)-1;
+          var mos=['January','February','March','April','May','June','July','August','September','October','November','December'];
+          var first=new Date(cy,cm,1),ndays=new Date(cy,cm+1,0).getDate();
+          var pad=(first.getDay()+6)%7;
+          h+='<div class="card"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">'
+           +'<button class="btn mut" onclick="ckSetDate(\''+new Date(cy,cm-1,15).toISOString().slice(0,10)+'\')">\u2039</button>'
+           +'<span style="font-weight:900;font-size:15px">'+mos[cm]+' '+cy+'</span>'
+           +'<button class="btn mut" onclick="ckSetDate(\''+new Date(cy,cm+1,15).toISOString().slice(0,10)+'\')">\u203a</button>'
+           +'</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px">';
+          ['M','T','W','T','F','S','S'].forEach(function(w){h+='<div style="text-align:center;font-size:9px;letter-spacing:.08em;color:var(--mut);font-weight:800;padding-bottom:2px">'+w+'</div>'});
+          for(var p=0;p<pad;p++)h+='<div></div>';
+          for(var dd=1;dd<=ndays;dd++){
+            var ds3=cy+'-'+('0'+(cm+1)).slice(-2)+'-'+('0'+dd).slice(-2);
+            var pc=CK.dayPct?CK.dayPct[ds3]:undefined;
+            var fut=ds3>today();
+            var bg=pc>=100?'var(--green)':(pc>0?'rgba(230,179,61,'+(0.15+pc*0.005)+')':'rgba(255,255,255,.04)');
+            var fg=pc>=100?'#0B1220':fut?'rgba(255,255,255,.25)':'var(--text)';
+            var bd=ds3===CK.date?'2px solid var(--gold)':'1px solid rgba(255,255,255,.07)';
+            h+='<div onclick="ckSetDate(\''+ds3+'\')" style="cursor:pointer;text-align:center;padding:9px 0;border-radius:9px;background:'+bg+';color:'+fg+';border:'+bd+';font-size:12px;font-weight:800">'+dd+(pc>=100?'<div style="font-size:8px;margin-top:1px">\ud83d\udd25</div>':'')+'</div>';
+          }
+          h+='</div><div class="sm mut" style="margin-top:8px">Green \ud83d\udd25 = perfect day \u00b7 gold = partial \u00b7 tap a day to open it</div></div>';
+        }
+        if(CK.showStats&&CK.stats){
+          var S=CK.stats;
+          h+='<div class="card"><h2>\ud83d\udcca Checklist stats</h2>'
+           +'<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'
+           +'<div style="flex:1;min-width:90px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:900;color:#FF9D42">\ud83d\udd25 '+S.best+'</div><div class="sm mut">Best day streak PR</div></div>'
+           +'<div style="flex:1;min-width:90px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:900;color:var(--green)">'+S.perfect+'</div><div class="sm mut">Perfect days</div></div>'
+           +'<div style="flex:1;min-width:90px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><div style="font-size:20px;font-weight:900">'+(S.total?Math.round(S.perfect*100/S.total):0)+'%</div><div class="sm mut">Perfect-day rate ('+S.total+'d)</div></div>'
+           +'</div>';
+          S.per.forEach(function(p){
+            var col=p.pct>=80?'var(--green)':p.pct>=50?'var(--gold)':'var(--red)';
+            h+='<div style="padding:7px 0;border-bottom:1px solid var(--line)">'
+             +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>'+esc(p.t)+'</span><span style="color:'+col+'">'+p.pct+'%'+(p.best>=2?' \u00b7 \ud83d\udd25 best '+p.best:'')+'</span></div>'
+             +'<div style="height:6px;background:var(--bg);border-radius:4px;margin-top:5px;overflow:hidden"><div style="height:100%;width:'+p.pct+'%;background:'+col+'"></div></div>'
+             +'</div>';
+          });
+          h+='</div>';
+        }
+        function ckRow(x,scope,delFn){
+          var it=x.it,on=dDone.indexOf(it.id)>=0;
+          if(scope!=='daily'){on=(CK.done[scope]||[]).indexOf(it.id)>=0;}
+          var pvn=CK.prev[it.id],note=CK.notes[it.id]||'';
+          var hint=pvn?('Yesterday: '+pvn.note):'Note / plan for this today\u2026';
+          var nowIn=false;
+          if(scope==='daily'&&CK.date===today()&&it.time){
+            var st=ckMinsG(it.time),du2=ckDur(it.time);
+            if(st!==null&&du2){var nm=new Date();nm=nm.getHours()*60+nm.getMinutes();nowIn=nm>=st&&nm<st+du2;}
+          }
+          return '<div style="padding:9px 0 9px '+(nowIn?'8px':'0')+';border-bottom:1px solid var(--line)'+(on?';opacity:.55':'')+(nowIn&&!on?';border-left:3px solid var(--gold);background:rgba(230,179,61,.05)':'')+'">'
+           +'<div style="display:flex;align-items:center;gap:10px">'
+           +'<div onclick="ckToggle(\''+scope+'\',\''+it.id+'\')" style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">'+(on?'\u2713':'')+'</div>'
+           +(scope==='daily'?'<button class="btn mut" style="padding:4px 2px;font-size:10px;white-space:nowrap;width:96px;min-width:96px;overflow:hidden;text-overflow:ellipsis;text-align:center;box-sizing:border-box" onclick="ckTime(\''+it.id+'\')">'+(it.time?esc(it.time):'\u23f0')+'</button>'+(function(){var du=ckDur(it.time);if(!du)return '<span style="width:76px;min-width:76px;display:inline-block"></span>';if(CKT.id===it.id&&CKT.day===CK.date)return '<button class="btn" style="padding:4px 0;font-size:10px;width:76px;min-width:76px;text-align:center;box-sizing:border-box;overflow:hidden;background:var(--gold);color:#0B1220;font-weight:800" onclick="ckTimer(\''+it.id+'\','+du+')"><span id="tmr_'+it.id+'">'+ckDurLbl(du)+'</span> \u25a0</button>';return '<button class="btn mut" style="padding:4px 0;font-size:10px;width:76px;min-width:76px;text-align:center;box-sizing:border-box" onclick="ckTimer(\''+it.id+'\','+du+')">\u25b6 '+ckDurLbl(du)+'</button>'})():'<span style="width:182px;min-width:182px;text-align:center;font-size:9px;letter-spacing:.06em;font-weight:800;color:'+(scope==='weekly'?'var(--gold)':'#7FB2FF')+';border:1px solid var(--line);border-radius:8px;padding:5px 4px;box-sizing:border-box">'+(scope==='weekly'?'WEEK':'MONTH')+'</span>')
+           +'<div style="flex:1;font-size:13px;font-weight:700;'+(on?'color:var(--mut);text-decoration:line-through':'')+'">'+(x.one?'\ud83d\udccc ':'')+'<span contenteditable="true" onblur="ckRename(\''+it.id+'\',this.innerText)" style="outline:none;min-width:40px;display:inline-block">'+esc(it.t)+'</span>'+((scope==='daily'&&!x.one&&CK.istreak&&CK.istreak[it.id]>=2)?' <span style="font-size:11px;color:#FF9D42;font-weight:800">\ud83d\udd25'+CK.istreak[it.id]+'</span>':'')+(it.url?' <a href="'+esc(it.url)+'" target="_blank" style="color:#7FB2FF;text-decoration:none;font-size:12px">\u2197 open</a>':'')
+           +'</div>'
+           +'<span onclick="'+delFn+'" style="color:var(--red);cursor:pointer;padding:0 4px">\u2715</span>'
+           +'</div>'
+           +'</div>';
+        }
+        // ---- DAILY: dispo-style time blocks ----
+        var blocks=[],seen={};
+        dayItems.forEach(function(x){var b=x.it.time||'Anytime';if(!seen[b]){seen[b]=[];blocks.push(b);}seen[b].push(x);});
+        if(blocks.indexOf('Anytime')>=0){blocks.splice(blocks.indexOf('Anytime'),1);blocks.push('Anytime');}
+        h+='<div class="card"><h2>\u2600\ufe0f Today</h2>';
+        blocks.forEach(function(b){
+          seen[b].forEach(function(x){
+            var delFn=x.one?('ckDelOne('+CK.oneoff.indexOf(x.it)+')'):('ckDelTpl(\'daily\','+CK.tpl.daily.indexOf(x.it)+')');
+            h+=ckRow(x,'daily',delFn);
+          });
+        });
+        CK.tpl.weekly.forEach(function(it,ix){h+=ckRow({it:it,one:false},'weekly','ckDelTpl(\'weekly\','+ix+')');});
+        CK.tpl.monthly.forEach(function(it,ix){if(it.lastday&&!ckLastDay())return;h+=ckRow({it:it,one:false},'monthly','ckDelTpl(\'monthly\','+ix+')');});
+        h+='<div class="row" style="gap:8px;margin-top:12px"><input id="cka_one" placeholder="One-off for today" style="flex:1"><button class="btn g" onclick="ckAddOne()">+ Add</button></div>'
+         +'<div class="row" style="gap:8px;margin-top:8px"><input id="cka_daily" placeholder="Add daily routine (e.g. 6\u20137 \u00b7 Lift)" style="flex:1"><button class="btn mut" onclick="ckAddTpl(\'daily\')">+ Daily</button></div>'
+         +'<div class="row" style="gap:8px;margin-top:8px"><input id="cka_weekly" placeholder="Add weekly item" style="flex:1"><button class="btn mut" onclick="ckAddTpl(\'weekly\')">+ Weekly</button></div>'
+         +'<div class="row" style="gap:8px;margin-top:8px"><input id="cka_monthly" placeholder="Add monthly item" style="flex:1"><button class="btn mut" onclick="ckAddTpl(\'monthly\')">+ Monthly</button></div>'
+         +'</div>';
+        h+='<div class="sm mut">Synced across devices \u00b7 \u23f0 sets a time block \u00b7 tap a task name to edit it \u00b7 \ud83d\udccc = one-off \u00b7 WEEK/MONTH items check off once per week/month \u00b7 \u2715 deletes.</div>';
+      }
+    }
+
+    if(NICTAB==='acq'){
+      h+='<div class="card"><h2>\ud83d\udcde Team funnel \u2014 '+fmtMonth(curM)+'</h2><div class="tiles">'
+       +tile('Leads',L.leads,'')+tile('Dials',L.dials,'')+tile('Convos',L.convos,'')
+       +tile('Talk',stlFmt(L.talk),'')+tile('Offers',L.offers,'')+tile('Contracts',L.contracts,'')
+       +'</div></div>';
+      h+='<div class="card"><h2>\ud83d\udc65 Reps \u2014 '+fmtMonth(curM)+'</h2><table style="width:100%"><tr><th style="text-align:left">Rep</th><th>Dials</th><th>Convos</th><th>Talk</th><th>Offers</th><th>Contracts</th><th>Closed</th></tr>';
+      (D.reps||[]).forEach(function(rp){
+        var rr=repMonth(rp,m0);
+        h+='<tr><td>'+esc(rp)+'</td><td style="text-align:center">'+rr.dials+'</td><td style="text-align:center">'+rr.convos+'</td><td style="text-align:center">'+stlFmt(rr.talk)+'</td><td style="text-align:center">'+rr.offers+'</td><td style="text-align:center">'+rr.contracts+'</td><td style="text-align:center">'+rr.closed+'</td></tr>';
+      });
+      h+='</table><div class="sm mut" style="margin-top:6px">Per-rep deep dive (ratios, speed to lead, ramp vs plan) builds out next.</div></div>';
+    }
+
+    if(NICTAB==='dispo'){
+      h+='<div class="card"><h2>\ud83c\udff7 Dispo \u2014 '+fmtMonth(curM)+'</h2><div class="tiles">'
+       +tile('Contracts in',L.contracts,'')
+       +tile('Assigned',L.assigned,'goal '+DISPOGOAL.assigned+'/mo')
+       +tile('Closed',L.closed,'goal '+DISPOGOAL.closed+'/mo')
+       +tile('Revenue',fmt$(L.rev),'goal '+fmt$(DISPOGOAL.rev))
+       +tile('Fallout (all)',L.falls,'')
+       +'</div></div>';
+      h+='<div class="card"><h2>\ud83d\udc64 Reid \u2014 goals</h2><div class="sm mut" style="margin-bottom:8px">Monthly plan from your sheet \u2014 live tracking wires in when his dispo tracker workflow goes live.</div><div class="tiles">'
+       +tile('Dials','\u2014','goal '+DISPOGOAL.dials)
+       +tile('Convos','\u2014','goal '+DISPOGOAL.convos)
+       +tile('Deals shared','\u2014','goal '+DISPOGOAL.shared)
+       +tile('Buyers added','\u2014','goal '+DISPOGOAL.buyers)
+       +'</div></div>';
+    }
+
+    if(NICTAB==='funnel'){
+      function frow(lbl,val,sub,conv){return '<div style="padding:9px 0;border-bottom:1px solid var(--line)"><div class="row"><span style="font-weight:800">'+lbl+'</span><span style="font-weight:800">'+val+'</span></div>'+(sub?'<div class="sm mut">'+sub+'</div>':'')+(conv?'<div class="sm" style="color:var(--gold)">\u2193 '+conv+'</div>':'')+'</div>'}
+      var claimed=0;(D.leads||[]).forEach(function(l){if(l.claimed_on&&l.claimed_on>=m0)claimed++});
+      h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+fmtMonth(curM)+'</h2>'
+       +frow('\ud83d\udcb8 Ad spend',fmt$(spend),null, L.leads&&spend?fmt$(Math.round(spend/L.leads))+' per lead':null)
+       +frow('\ud83d\udce5 Leads',L.leads,null, L.leads?Math.round(claimed/L.leads*100)+'% claimed':null)
+       +frow('\ud83c\udd95 Claimed',claimed,null,null)
+       +frow('\ud83d\udcde Dials',L.dials,null, L.dials&&L.convos?Math.round(L.convos/L.dials*100)+'% convo rate':null)
+       +frow('\ud83d\udcac Convos',L.convos,stlFmt(L.talk)+' talk', L.convos&&L.offers?Math.round(L.offers/L.convos*100)+'% to offer':null)
+       +frow('\ud83d\udcb0 Offers',L.offers,null, L.offers&&L.contracts?Math.round(L.contracts/L.offers*100)+'% to contract':null)
+       +frow('\ud83d\udcdd Contracts',L.contracts,fmt$(L.pipeRev)+' projected in pipe', L.contracts?Math.round(L.assigned/L.contracts*100)+'% assigned':null)
+       +frow('\ud83e\udd1d Assigned',L.assigned,null, L.assigned?Math.round(L.closed/L.assigned*100)+'% closed':null)
+       +frow('\ud83c\udfc1 Closed',L.closed,null,null)
+       +frow('\ud83d\udcb5 Collected',fmt$(L.rev), spend?('ROAS '+(spend?Math.round(L.rev/spend*10)/10:0)+'x'):null,null)
+       +'</div>';
+    }
+
+    if(NICTAB==='calc'){
+      // live-updating assumptions, standards as fallback
+      var cplLive = tL&&tS ? tS/tL : 41;
+      var fee = T('avgfee',15000);
+      var CR = STD.closeRate; // 0.47
+      var LPC = STD.leadsPerContract; // 18.6
+      // dispo ratios per closed deal, from the monthly plan sheet
+      var dShared=DISPOGOAL.shared/DISPOGOAL.closed, dOffRec=DISPOGOAL.offersRec/DISPOGOAL.closed, dWalks=DISPOGOAL.walks/DISPOGOAL.closed, dAssign=DISPOGOAL.assigned/DISPOGOAL.closed;
+      var perDealNet = fee - cplLive*LPC/CR;      // net contribution of one closed deal after its ad cost
+      var deals = perDealNet>0 ? (NETGOAL+expTot)/perDealNet : 0;
+      var rev = deals*fee;
+      var contracts = deals/CR;
+      var leadsN = contracts*LPC;
+      var spendN = leadsN*cplLive;
+      var offersN = contracts*STD.offersPerContract;
+      var convosN = offersN*STD.convosPerOffer;
+      var dialsN = convosN*STD.dialsPerConvo;
+      var ttN = Math.round(convosN*STD.talkPerConvo); // minutes
+      function r0(v){return Math.ceil(v)}
+      function crow2(lbl,val,sub){return '<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><span>'+lbl+'</span><span style="text-align:right"><b>'+val+'</b>'+(sub?' <span class="sm mut">'+sub+'</span>':'')+'</span></div>'}
+      h+='<div class="card" style="text-align:center"><div class="sm mut" style="letter-spacing:.14em;font-weight:800">I WANT TO NET</div>'
+       +'<input id="ng_in" type="number" value="'+NETGOAL+'" onchange="saveNetGoal()" style="font-size:40px;font-weight:800;text-align:center;color:var(--gold);background:transparent;border:2px dashed var(--gold);border-radius:12px;max-width:260px;margin:8px auto">'
+       +'<div class="sm mut">\u270f\ufe0f tap the number \u00b7 per month \u00b7 after ads + expenses ('+fmt$(expTot)+')</div></div>';
+      h+='<div class="card"><h2>\ud83e\uddee What that takes</h2>'
+       +crow2('\ud83d\udcb8 Meta spend',fmt$(Math.round(spendN)),'')
+       +crow2('\ud83d\udce5 Leads in',r0(leadsN),fmt$(Math.round(cplLive))+' CPL')
+       +crow2('\ud83d\udcde Dials',r0(dialsN),'')
+       +crow2('\ud83d\udcac Convos',r0(convosN),'')
+       +crow2('\u23f1 Talk time',stlFmt(ttN),'')
+       +crow2('\ud83d\udcb0 Offers',r0(offersN),'')
+       +crow2('\ud83d\udcdd Contracts',r0(contracts),'')
+       +crow2('\ud83d\udce4 Deals sent to buyers',r0(deals*dShared),'')
+       +crow2('\ud83d\udce8 Offers received',r0(deals*dOffRec),'')
+       +crow2('\ud83d\udeb6 Walk-throughs',r0(deals*dWalks),'')
+       +crow2('\ud83e\udd1d Assignments',r0(deals*dAssign),'')
+       +crow2('\ud83c\udfc1 Closed',r0(deals),'')
+       +crow2('\ud83d\udcb5 Revenue',fmt$(Math.round(rev)),'')
+       +crow2('\ud83c\udfc6 NET','<span style="color:var(--green)">'+fmt$(NETGOAL)+'</span>','after everything')
+       +'<div class="sm mut" style="margin-top:8px">Assumptions (live, sharpen as data grows): CPL '+fmt$(Math.round(cplLive))+' \u00b7 avg fee '+fmt$(fee)+' \u00b7 close '+Math.round(CR*100)+'% \u00b7 '+LPC+' leads/contract \u00b7 dispo ratios from your plan.</div></div>';
+    }
+
+    if(NICTAB==='money'){
+      h+='<div class="card"><h2>\ud83d\udcb0 Money \u2014 '+fmtMonth(curM)+'</h2>'
+       +'<div class="tiles" style="margin-bottom:10px">'
+       +tile('Revenue',fmt$(L.rev),'closed this month')
+       +tile('Spend',fmt$(spend),'ads')
+       +tile('Expenses',fmt$(expTot),'tools+comp+other')
+       +tile('NET',fmt$(net),(L.rev?Math.round(net/L.rev*100)+'% margin':''),net>=0?'var(--green)':'var(--red)')
+       +'</div>'
+       +'<label>Tools $</label><input id="oe_tools" type="number" value="'+(exp.tools||'')+'">'
+       +'<label>Comp $</label><input id="oe_comp" type="number" value="'+(exp.comp||'')+'">'
+       +'<label>Other $</label><input id="oe_other" type="number" value="'+(exp.other||'')+'">'
+       +'<button class="btn g" style="margin-top:8px;width:100%" onclick="saveOwnExp()">Save expenses</button>'
+       +'<div class="sm mut" style="margin-top:8px">P&L trend + projected pipeline revenue build out next.</div></div>';
+    }
+
+  } else {
+    var avgFee=T('avgfee',15000);
+    var cpc=HT.contracts?HT.spend/HT.contracts:0;
+    var cpcl=cpc/(STD.closeRate||0.47);
+    var ratio=cpcl?avgFee/cpcl:0;
+    var ruleTxt=ratio>=3?'RAISE META BUDGET 20% THIS WEEK':(ratio>=2?'HOLD \u2014 watch close rate':'STOP \u2014 fix funnel before more spend');
+    var ruleCol=ratio>=3?'var(--green)':(ratio>=2?'var(--gold)':'var(--red)');
+    h+='<div class="card"><h2>1\ufe0f\u20e3 Unit economics (Meta, all-time)</h2><div class="tiles">'
+     +tile('Cost / contract',fmt$(Math.round(cpc)),'')
+     +tile('Est. cost / close',fmt$(Math.round(cpcl)),'at '+Math.round((STD.closeRate||0.47)*100)+'% close')
+     +tile('Avg fee',fmt$(avgFee),'')
+     +tile('Return ratio',(Math.round(ratio*10)/10)+':1','',ruleCol)
+     +'</div><div style="margin-top:10px;font-weight:800;color:'+ruleCol+'">\u25b6 '+ruleTxt+'</div>'
+     +'<div class="sm mut">Rule: \u22653:1 raise budget \u00b7 2\u20133:1 hold \u00b7 <2:1 fix before spending.</div></div>';
+
+    var steps=[
+      {n:'Dials \u2192 convo', v:L.convos?L.dials/L.convos:null, s:STD.dialsPerConvo},
+      {n:'Convos \u2192 offer', v:L.offers?L.convos/L.offers:null, s:STD.convosPerOffer},
+      {n:'Offers \u2192 contract', v:L.contracts?L.offers/L.contracts:null, s:STD.offersPerContract}
+    ];
+    var worst=null;
+    steps.forEach(function(st){
+      if(st.v==null||!st.s)return;
+      var gap=(st.v-st.s)/st.s;
+      if(gap>0.05&&(!worst||gap>worst.gap))worst={st:st,gap:gap};
+    });
+    var conH;
+    if(!worst){conH='<div style="color:var(--green);font-weight:800">\u2705 No stage more than 5% below standard'+(L.contracts?'':' (thin data \u2014 early month)')+'</div>';}
+    else{
+      var stx=worst.st, extra$=0, why='';
+      if(stx.n==='Offers \u2192 contract'){var eC=L.offers/STD.offersPerContract-L.contracts;extra$=Math.max(0,eC)*avgFee*STD.closeRate;why=Math.round(eC*10)/10+' more contracts at standard';}
+      else if(stx.n==='Convos \u2192 offer'){var eO=L.convos/STD.convosPerOffer-L.offers;extra$=Math.max(0,eO)/STD.offersPerContract*avgFee*STD.closeRate;why=Math.round(eO)+' more offers at standard';}
+      else{var eCv=L.dials/STD.dialsPerConvo-L.convos;extra$=Math.max(0,eCv)/STD.convosPerOffer/STD.offersPerContract*avgFee*STD.closeRate;why=Math.round(eCv)+' more convos at standard';}
+      conH='<div style="font-weight:800;color:var(--red)">\ud83d\udd12 Bottleneck: '+stx.n+' \u2014 '+(Math.round(stx.v*10)/10)+' vs standard '+stx.s+'</div>'
+        +'<div class="sm" style="margin-top:4px">At standard: '+why+' \u2248 <b>'+fmt$(Math.round(extra$))+'</b> more expected revenue this month. Fix THIS first.</div>';
+    }
+    h+='<div class="card"><h2>2\ufe0f\u20e3 The constraint \u2014 '+fmtMonth(curM)+'</h2>'+conH+'</div>';
+
+    var cyc=L.cycleDays.length?Math.round(L.cycleDays.reduce(function(a,b){return a+b},0)/L.cycleDays.length):null;
+    h+='<div class="card"><h2>3\ufe0f\u20e3 Cash velocity</h2><div class="tiles">'
+     +tile('Stuck in pipe',fmt$(L.pipeRev),L.pipeDeals+' deals contracted, not closed')
+     +tile('Collected \u2014 '+fmtMonth(curM),fmt$(L.rev),'')
+     +tile('Lead \u2192 close',cyc!=null?cyc+' days':'\u2014','avg this month')
+     +'</div><div class="sm mut" style="margin-top:8px">Faster cash funds next month\u2019s budget. Chase the oldest pipe deals first.</div></div>';
+
+    var dayN=Math.max(1,new Date().getDate());
+    var lpd=L.leads/dayN, reps=(D.reps||[]).length||1, perRep=lpd/reps;
+    var capCol=perRep>12?'var(--red)':(perRep>9?'var(--gold)':'var(--green)');
+    h+='<div class="card"><h2>4\ufe0f\u20e3 Capacity</h2><div class="tiles">'
+     +tile('Leads / day',Math.round(lpd*10)/10,'month pace')
+     +tile('Per rep / day',Math.round(perRep*10)/10,reps+' reps',capCol)
+     +'</div><div class="sm mut" style="margin-top:8px">Past ~12 fresh leads/rep/day, follow-up collapses \u2014 hire trigger.</div></div>';
+
+    var reinvest=L.rev?Math.round(spend/L.rev*100):null;
+    h+='<div class="card"><h2>5\ufe0f\u20e3 Net + reinvestment</h2><div class="tiles">'
+     +tile('NET \u2014 '+fmtMonth(curM),fmt$(net),'after everything',net>=0?'var(--green)':'var(--red)')
+     +tile('Reinvest rate',reinvest!=null?reinvest+'%':'\u2014','spend \u00f7 revenue')
+     +'</div><div class="sm mut" style="margin-top:8px">Growth mode: ratio \u22653:1 \u2192 push reinvest hard.</div></div>';
+  }
+  el.innerHTML=h;
+}
+</script>
+</body>
+</html>
