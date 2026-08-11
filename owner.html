@@ -437,17 +437,22 @@ function render(){
       var aCCC=_cc.length?Math.round(_cc.reduce(function(a,b){return a+b},0)/_cc.length):null;
       // ---- robot health ----
       var HWIN={'backup':26,'meta-sync':26,'relay':48};
-      h+='<div class="card"><h2>\ud83e\udd16 Robots</h2><div style="display:flex;gap:10px;flex-wrap:wrap">';
-      [['backup','Nightly backup'],['meta-sync','Ad spend sync'],['relay','Lead catcher']].forEach(function(rb){
+      var hDots='';
+      var RBEXP={'backup':'copies the whole database to a safe snapshot every night. Green = last night\\u2019s copy happened.',
+                 'meta-sync':'pulls what you spent on Meta ads every night, so $/Lead here is real. Green = spend numbers are fresh.',
+                 'relay':'the pipe that catches every Spark lead and puts it in this app. Green = leads flowed in recently.'};
+      var rbNames={'backup':'Backup','meta-sync':'Ad sync','relay':'Lead catcher'};
+      var rbExpH='';
+      [['backup'],['meta-sync'],['relay']].forEach(function(rb){
         var row=null;(D.health||[]).forEach(function(x){if(x.robot===rb[0])row=x;});
         var hrs=row&&row.last_run?Math.round((Date.now()-new Date(row.last_run).getTime())/3600000):null;
         var ok=hrs!=null&&hrs<=HWIN[rb[0]];
-        var when=hrs==null?'no record':(hrs<1?'ran under an hour ago':hrs<48?'ran '+hrs+'h ago':'ran '+Math.round(hrs/24)+' days ago');
-        h+='<div style="flex:1;min-width:110px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center">'
-         +'<div style="font-size:17px;font-weight:900;color:'+(ok?'var(--green)':'var(--red)')+'">'+(ok?'\ud83d\udfe2 OK':'\ud83d\udd34 LATE')+'</div>'
-         +'<div class="sm mut">'+rb[1]+'</div><div class="sm mut">'+when+'</div></div>';
+        var when=hrs==null?'no record':(hrs<1?'<1h':hrs<48?hrs+'h ago':Math.round(hrs/24)+'d ago');
+        hDots+='<span style="margin-right:14px;white-space:nowrap">'+(ok?'\ud83d\udfe2':'\ud83d\udd34')+' '+rbNames[rb[0]]+' <span style="color:var(--mut)">'+when+'</span></span>';
+        rbExpH+='<div style="margin-top:6px">'+(ok?'\ud83d\udfe2':'\ud83d\udd34')+' <b>'+rbNames[rb[0]]+'</b> \u2014 '+RBEXP[rb[0]]+(ok?'':' <span style="color:var(--red)">Red = it missed its run \u2014 tell Claude.</span>')+'</div>';
       });
-      h+='</div></div>';
+      h+='<div class="sm" style="padding:2px 4px 10px;color:var(--text);cursor:pointer" onclick="var e=document.getElementById(\'rbExp\');e.style.display=e.style.display===\'none\'?\'block\':\'none\'">'+hDots+'<span style="color:var(--mut)">\u24d8 tap</span>'
+       +'<div id="rbExp" style="display:none;color:var(--mut);margin-top:4px">These are your 3 automatic robots. Each dot = did it do its job on time?'+rbExpH+'</div></div>';
 
       h+='<div class="card"><h2>\ud83c\udfc6 All-time</h2>'
        +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
