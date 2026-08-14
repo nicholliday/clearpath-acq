@@ -825,24 +825,6 @@ function render(){
          +'</div></div>';
       });
       h+='</div><div class="sm mut" style="margin-top:8px">Green = leading that metric this month.</div></div>';
-      var pipeN=0,pipe$=0,fellN=0,closedN=0;
-      (D.leads||[]).forEach(function(l){
-        if(!l.contracted_on)return;
-        if(l.stage==='Fallout'){fellN++;return}
-        if(l.closed_on){closedN++;return}
-        pipeN++;pipe$+=Number(l.projected_profit)||0;
-      });
-      var resolved=fellN+closedN;
-      var realFall=resolved>0?Math.round(fellN*100/resolved):null;
-      var planFall=(D.targets&&D.targets.owner_fallout!=null)?Number(D.targets.owner_fallout):47;
-      var expect$=realFall!=null?Math.round(pipe$*(1-realFall/100)):Math.round(pipe$*(1-planFall/100));
-      h+='<div class="card"><h2>\ud83d\udcbc Pipeline \u0026 fallout \u2014 truth check</h2>'
-       +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-       +'<div style="flex:1;min-width:90px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center"><div style="font-size:19px;font-weight:900">'+pipeN+'</div><div class="sm mut">deals alive</div></div>'
-       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--gold);border-radius:10px;padding:10px;text-align:center"><div style="font-size:19px;font-weight:900;color:var(--gold)">'+fmt$(pipe$)+'</div><div class="sm mut">at stake</div></div>'
-       +'<div style="flex:1;min-width:100px;background:var(--bg);border:1px solid '+(realFall==null?'var(--line)':(realFall<=planFall?'var(--green)':'var(--red)'))+';border-radius:10px;padding:10px;text-align:center"><div style="font-size:19px;font-weight:900;color:'+(realFall==null?'var(--mut)':(realFall<=planFall?'var(--green)':'var(--red)'))+'">'+(realFall==null?'\u2014':realFall+'%')+'</div><div class="sm mut">real fallout \u00b7 plan '+planFall+'%</div></div>'
-       +'</div>'
-       +'<div class="sm mut" style="margin-top:8px">All-time. Real fallout = fell out \u00f7 finished contracts ('+fellN+' of '+resolved+'). At that rate, \u2248 <b style="color:var(--green)">'+fmt$(expect$)+'</b> of the pipeline should close.</div></div>';
       var dowN=[0,0,0,0,0,0,0], dowTot=0;
       // sheet-era daily dials Mar-Jul 2026, extracted from Nic's sheets and verified against monthly totals (Sun..Sat)
       var SHEET_DOW=[591,2375,2848,2894,3008,2408,2268];
@@ -861,13 +843,15 @@ function render(){
       var dowMax=Math.max.apply(null,dowN), dowDMax=Math.max.apply(null,dowD);
       h+='<div class="card"><h2>\ud83d\udcc5 What day contracts land <span class="sm mut" style="font-weight:400">vs effort</span></h2>'
        +'<div class="sm" style="margin-top:4px"><span style="color:var(--blue);font-weight:800">\u25a0 dials</span> <span class="mut">(all-time)</span> \u00a0 <span style="color:var(--gold);font-weight:800">\u25a0 contracts</span> <span class="mut">(all-time \u00b7 '+dowTot+')</span></div>';
+      var dowDTot=0; dowD.forEach(function(v){dowDTot+=v});
       h+='<div style="display:flex;align-items:flex-end;gap:6px;justify-content:space-between;height:104px;margin-top:14px">';
       [1,2,3,4,5,6,0].forEach(function(di){
         var n=dowN[di], dl=dowD[di], top=(n===dowMax&&n>0);
         var hD=dowDMax>0?Math.round(dl/dowDMax*78):0;
         var hC=dowMax>0?Math.round(n/dowMax*78):0;
+        var dPct=dowDTot>0?Math.round(dl*100/dowDTot):0;
         h+='<div style="flex:1;display:flex;gap:2px;align-items:flex-end;justify-content:center">'
-         +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:9px;color:var(--blue)">'+(dl>=1000?(Math.round(dl/100)/10)+'k':dl)+'</div><div style="width:11px;height:'+Math.max(2,hD)+'px;background:var(--blue);border-radius:3px 3px 0 0"></div></div>'
+         +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:9px;color:var(--blue)">'+dPct+'%</div><div style="width:11px;height:'+Math.max(2,hD)+'px;background:var(--blue);border-radius:3px 3px 0 0"></div></div>'
          +'<div style="display:flex;flex-direction:column;align-items:center;gap:2px"><div style="font-size:9px;font-weight:800;color:'+(top?'var(--gold)':'var(--mut)')+'">'+n+'</div><div style="width:11px;height:'+Math.max(2,hC)+'px;background:'+(top?'var(--gold)':'var(--mut)')+';border-radius:3px 3px 0 0"></div></div>'
          +'</div>';
       });
