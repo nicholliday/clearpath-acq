@@ -1184,6 +1184,9 @@ function renderScript(){
 
   h+='<div style="padding:6px 18px 26px">';
 
+  h+=banner('OPENING FRAME');
+  h+=b('\u201CBefore you sign, I want to quickly walk you through this so you know exactly what it says. Nothing hidden, nothing confusing.\u201D');
+
   h+=banner('OPENING PARAGRAPH \u2014 PARTIES');
   h+=b('Ok you\u2019ll see at the top is just your name as well as our name with the address of the property');
 
@@ -1209,7 +1212,7 @@ function renderScript(){
   h+=b('This is held with the Titling Company; this is what we put in, so there\u2019s nothing you have to pay.');
 
   h+=banner('6) INSPECTION PERIOD');
-  h+=b('Same as the close of escrow will begin once we\u2019ve come out to the property.');
+  h+=b('Same as the close of escrow, this starts once we\u2019ve come out to the property. During this window our partners and us walk it, and we\u2019ll schedule every visit with you.');
 
   h+=banner('7) BUYER\u2019S CONTINUED ACCESS TO PROPERTY');
   h+=b('This just allows us to have reasonable access to the property during our inspection period. We will schedule these visits with you and/or the tenants so there won\u2019t be any unannounced visits to the property.');
@@ -1230,28 +1233,43 @@ function renderScript(){
   h+=b('(A) Seller has full right, power and authority to sell the Property');
   h+=b('(B) Seller will maintain the property in its current condition');
   h+=b('(C) Seller understands that any personal property left on site will become the buyer\u2019s property after closing. So we just ask you grab all your important belongings before our final closing');
+  h+=b('(D) You have the authority to sell without anyone else\u2019s sign-off');
+  h+=b('(E) This confirms you\u2019ve had time to go through this, you understand it, and you\u2019re comfortable with the terms.');
+  h+=b('(F) This confirms you\u2019re satisfied with the price we agreed on and that a quick, as-is sale is what you want.');
 
   h+=banner('13) BUYER DISCLOSURE');
   h+=b('This just says that we are not a realtor in this transaction as you know');
 
-  h+=banner('14) DEFAULT BY SELLER AND 15) DEFAULT BY BUYER');
-  h+=b('Just that obviously both of us have to do our parts in the agreement moving forward');
+  h+=banner('14) NOTICE TO CURE');
+  h+=b('If either side misses something they\u2019re supposed to do, the other side gives written notice and there\u2019s three business days to fix it.');
+
+  h+=banner('15) DEFAULT BY PARTIES');
+  h+=b('If we fail to perform, you keep the earnest money; if a seller refuses to close, the buyer has legal remedies.');
 
   h+=banner('16) PRE-MARKETING AGREEMENT');
-  h+=b('This just allows us to notify our financial partners of the property. They will be coming out to the property during our inspection period.');
+  h+=b('This allows us to market our contract interest, once we get photos, we will show our financial partners and potential tenants or end buyers the property before we close with you.');
 
-  h+=banner('17) MEMORANDUM OF CONTRACT');
-  h+=b('This is when notify the county we are working together to purchase this property.');
+  h+=banner('17) AFFIDAVIT OF EQUITABLE INTEREST');
+  h+=b('This simply puts public notice that there\u2019s a contract in place so the title stays protected.');
 
   h+=banner('18) NO ORAL CHANGES OR REPRESENTATIONS');
-  h+=b('Nothing we haven\u2019t already discussed isn\u2019t already in here otherwise it would be listed in additional terms and conditions which has been left blank <span style="color:'+BRONZE+';font-style:italic;font-weight:600">(unless you have added something to it, word it accordingly to your seller)</span>');
+  h+=b('Everything that matters is in writing here. Anything we agreed to that\u2019s not standard goes in 19. If it isn\u2019t written in, it isn\u2019t part of the deal, so if there\u2019s anything you\u2019re counting on, let\u2019s put it in 19 now.');
 
   h+=banner('19) ADDITIONAL TERMS &amp; CONDITIONS');
-  h+=b('And then beneath that is just number 16 the premarketing agreement and number 17 the memorandum');
+  h+=b('<span style="color:'+BRONZE+';font-style:italic;font-weight:600">(Explain as negotiated, or if none:)</span> This is blank, nothing extra was added.');
+
+  h+=banner('AUTHORIZATION PAGE');
+  h+=b('The next page is signing off on number 16, the pre-marketing agreement.');
+
+  h+=banner('AFFIDAVIT PAGE');
+  h+=b('The last page is the notice from section 17.');
+
+  h+=banner('CLOSING REFRAME');
+  h+=b('\u201CIf everything matches what we discussed, go ahead and sign and we\u2019ll take it from here.\u201D');
 
   h+=banner('CLOSE \u2014 AFTER THE WALKTHROUGH');
   h+=b('\u201CSo you\u2019ll see at the bottom left corner of the first page is a coloured box. Go ahead and click there to initial and then there\u2019s another between number 8 and 9 and the rest are at the bottom left corner of the pages. So go ahead and click through those and ill just make sure I\u2019ve received it back on my end\u2026.\u201D');
-  h+=ins('YOU MAY NEED TO INSTRUCT THEM TO CLCIK FINISH AFTER ALL BOXES ARE CHECKED OFF');
+  h+=ins('YOU MAY NEED TO INSTRUCT THEM TO CLICK FINISH AFTER ALL BOXES ARE CHECKED OFF');
   h+=ins('DONT LET THEM GO TILL ITS IN OUR INBOX SIGNED');
   h+=ins('ONCE THEY SIGN:');
   h+=b('\u201CPerfect got it back on my end it looks good. What time is good for my transaction coordinator to give you a call. He will call to introduce himself and book a time with you for us to come out there\u201D');
