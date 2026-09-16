@@ -871,6 +871,8 @@ function repRange(rep,from){
 var CMD_FROM='__month__';
 var MET_TO='';var CUST_FROM='';var CUST_TO='';
 var MET_VIEW='meta';
+var MET_REP=null; // owner's KPI page: null = whole team, else one rep's numbers
+function setMetRep(r){MET_REP=r||null;render();}
 function setMetView(v){MET_VIEW=v;render();if(typeof renderGoal==='function')try{renderGoal()}catch(e){}}
 function metViewPill(){
   var isM=(MET_VIEW==='meta');
@@ -1626,21 +1628,28 @@ function speedToLead(){
 }
 function renderMetrics(){
   var el=document.getElementById('metricsHost')||document.getElementById('v_metrics');if(!el)return;
-  var m=metChain(ROLE==='owner'?null:ME);
+  var WHO=(ROLE==='owner')?MET_REP:ME;
+  var m=metChain(WHO);
   var h='';
 
   var isM=(MET_VIEW==='meta');
   var vD=isM?m.dials:m.tdials, vC=isM?m.convos:m.tconvos, vT=isM?m.talk:m.ttalk;
   var vO=isM?m.moffers:m.offers, vCt=isM?m.mcontracts:m.contracts, vAs=isM?m.massigned:m.assigned, vCl=isM?m.mclosed:m.closed, vRev=isM?m.mrevenue:m.revenue;
   function hmv2(v){return v<60?v+'m':Math.floor(v/60)+'h '+(v%60)+'m'}
-  var chain=[['\ud83d\udce5 Leads',m.leads],['\u2705 Net leads',m.net],['\ud83c\udd95 Leads claimed',m.claimed],['\u26a1 Avg speed to lead',(function(){var a=stlAvgFor(ROLE==='owner'?null:ME, MET_FROM||'1970-01-01');return a==null?'\u2014':'<span style="color:'+(a<=2?'var(--green)':'var(--red)')+'">'+stlFmt(a)+'</span>'})()],['\ud83d\udcde Dials',vD],['\ud83d\udcac Convos',vC],['\u23f1 Talk time',hmv2(vT)],['\ud83d\udcb0 Offers',vO],['\ud83d\udcdd Contracts',vCt],['\ud83e\udd1d Assigned',vAs],['\ud83c\udfc1 Closed',vCl],['\ud83d\udcb0 Earned (CAD)',fmt$(Math.round(commissionOf(vRev)))]];
+  var chain=[['\ud83d\udce5 Leads',m.leads],['\u2705 Net leads',m.net],['\ud83c\udd95 Leads claimed',m.claimed],['\u26a1 Avg speed to lead',(function(){var a=stlAvgFor(WHO, MET_FROM||'1970-01-01');return a==null?'\u2014':'<span style="color:'+(a<=2?'var(--green)':'var(--red)')+'">'+stlFmt(a)+'</span>'})()],['\ud83d\udcde Dials',vD],['\ud83d\udcac Convos',vC],['\u23f1 Talk time',hmv2(vT)],['\ud83d\udcb0 Offers',vO],['\ud83d\udcdd Contracts',vCt],['\ud83e\udd1d Assigned',vAs],['\ud83c\udfc1 Closed',vCl],['\ud83d\udcb0 Earned (CAD)',fmt$(Math.round(commissionOf(vRev)))]];
   function viewPill(){
     return '<div style="display:flex;background:var(--bg);border-radius:9px;padding:3px;border:1px solid var(--line)">'
      +'<span onclick="setMetView(\'meta\')" style="padding:4px 12px;border-radius:7px;font-size:12px;cursor:pointer;'+(isM?'background:var(--gold);color:#0B1220;font-weight:800':'color:var(--mut)')+'">Meta</span>'
      +'<span onclick="setMetView(\'total\')" style="padding:4px 12px;border-radius:7px;font-size:12px;cursor:pointer;'+(!isM?'background:var(--text);color:#0B1220;font-weight:800':'color:var(--mut)')+'">Total</span>'
      +'</div>';
   }
-  h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h2 style="margin:0">\ud83d\udcca Metrics</h2>'+viewPill()+'</div>'
+  if(ROLE==='owner'){
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">'
+     +'<button class="btn '+(MET_REP===null?'g':'mut')+'" onclick="setMetRep(null)">Team</button>'
+     +(D.reps||[]).map(function(rp){return '<button class="btn '+(MET_REP===rp?'g':'mut')+'" onclick="setMetRep(\''+esc(rp)+'\')">'+esc(rp)+'</button>'}).join('')
+     +'</div>';
+  }
+  h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h2 style="margin:0">\ud83d\udcca Metrics'+(WHO?' \u2014 '+esc(WHO):'')+'</h2>'+viewPill()+'</div>'
    +chain.map(function(c){return '<div class="row sm" style="padding:5px 0;border-bottom:1px solid var(--line)"><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'}).join('')+'</div>';
 
 
