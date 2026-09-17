@@ -1757,19 +1757,15 @@ function calcComm(){
   var out=document.getElementById('ccOut');if(!out)return;
   var rev=Number(document.getElementById('cc_rev').value)||0;
   var mo=Number(document.getElementById('cc_mo').value)||1;
-  var strikes=Number(document.getElementById('cc_str').value)||0;
-  var strv=Number(document.getElementById('cc_strv').value)||0;
   var fx=Number(document.getElementById('cc_fx').value)||1.38;
   var pct=tierPct(rev), base=rev*pct;
   var target=RAMP[mo-1], hit=rev>=target;
   var adj=hit?rev*0.02:(mo<=3?0:-rev*0.02);
-  var strikeDed=strikes*strv;
-  var usd=Math.max(0,base+adj-strikeDed), cad=usd*fx;
+  var usd=Math.max(0,base+adj), cad=usd*fx;
   out.innerHTML='<div class="grid" style="grid-template-columns:1fr 1fr">'
    +'<div class="kpi"><div class="v">'+(pct*100)+'%</div><div class="l">TIER</div></div>'
    +'<div class="kpi"><div class="v">'+fmt$(Math.round(base))+'</div><div class="l">BASE COMM</div></div>'
    +'<div class="kpi"><div class="v" style="color:'+(hit?'var(--green)':'var(--red)')+'">'+(hit?'+':'')+fmt$(Math.round(adj))+'</div><div class="l">RAMP '+(hit?'HIT ✓':(mo<=3?'PROTECTED':'MISS'))+' (tgt '+fmt$(target)+')</div></div>'
-   +'<div class="kpi"><div class="v" style="color:'+(strikeDed?'var(--red)':'var(--text)')+'">−'+fmt$(strikeDed)+'</div><div class="l">STRIKES</div></div>'
    +'</div>'
    +'<div class="kpi" style="margin-bottom:10px"><div class="v" style="color:var(--gold);font-size:26px">'+fmt$(Math.round(usd))+' USD · '+fmt$(Math.round(cad))+' CAD</div><div class="l">THE CHECK</div></div>';
 }
@@ -1977,7 +1973,7 @@ function renderOwner(){
 
 function renderInputs(){
   var ks=[['dials_day','Rep dials / day',117],['convos_day','Rep convos / day',19],['talkmin_day','Rep talk min / day (165 = 2h 45m)',165],['offers_day','Rep offers / day',6],['contracts_day','Rep contracts / day',1],['contracts_month','Team contracts / month (pace)',6]];
-  if(ROLE==='owner')ks.push(['avgfee','Avg assignment fee ($)',15000],['strike_value','$ per strike (calculator default)',500],['fx','USD → CAD rate',1.38]);
+  if(ROLE==='owner')ks.push(['avgfee','Avg assignment fee ($)',15000],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
   h+='<div class="card"><h2>\ud83d\udc4b Your account</h2><div class="sm">Signed in as <b>'+(ROLE==='owner'?'Owner':esc(ME||'?'))+'</b>'+(ROLE==='rep'?' \u2014 your Goal Hitter and Comp Plan are personal to you.':'')+'</div><button class="btn mut" onclick="logOut()">Log out</button></div>'
@@ -1987,7 +1983,7 @@ function renderInputs(){
    +(ROLE==='owner'?'<div style="margin-top:12px"><b class="sm">💰 Monthly commission goals</b></div>'
    +payReps().map(function(rp){var gid=rp.replace(/[^a-zA-Z0-9]/g,'_');return '<label>'+esc(rp)+' \u2014 goal \u00b7 ramp start \u00b7 passcode</label><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="goal_'+gid+'" type="number" value="'+((D.repGoals&&D.repGoals[rp])||8000)+'" style="flex:1;min-width:90px"><input id="ramp_'+gid+'" type="month" value="'+(((D.repRamp&&D.repRamp[rp])||monthStart()).slice(0,7))+'" style="flex:1;min-width:120px"><input id="pass_'+gid+'" placeholder="passcode" value="'+esc((D.repPass&&D.repPass[rp])||'')+'" style="flex:1;min-width:90px"><button class="btn g" onclick="saveGoal(\''+esc(rp)+'\')">Save</button></div>'}).join(''):'')
    +'</div>':'');
-  h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time track <b>automatically</b> — every GHL and OpenPhone call flows in on its own (2+ min = convo, same number within 60 min counts once). Offers: add the <b>offer tag</b> on the contact in the CRM. Contracts / send to Dispo: switch the pipeline to <b>CONTRACTS</b> → stage <b>Waiting for Photos</b>, tag it <b>contract - your name</b>, and notify Dispo. Claiming a lead: <b>assign yourself</b> as owner in the CRM once you\'ve connected. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
+  h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time track <b>automatically</b> — every GHL and OpenPhone call flows in on its own (45+ sec = convo, same number within 60 min counts once). Offers: add the <b>offer tag</b> on the contact in the CRM. Contracts / send to Dispo: switch the pipeline to <b>CONTRACTS</b> → stage <b>Waiting for Photos</b>, tag it <b>contract - your name</b>, and notify Dispo. Claiming a lead: <b>assign yourself</b> as owner in the CRM once you\'ve connected. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
 }
 function logOut(){
@@ -2019,7 +2015,7 @@ async function delRep(n){
   loadAll();
 }
 async function saveTargets(){
-  var keys=['dials_day','convos_day','talkmin_day','offers_day','contracts_day','contracts_month'];if(ROLE==='owner')keys.push('avgfee','strike_value','fx');
+  var keys=['dials_day','convos_day','talkmin_day','offers_day','contracts_day','contracts_month'];if(ROLE==='owner')keys.push('avgfee','fx');
   for(var i=0;i<keys.length;i++){
     var el=document.getElementById('t_'+keys[i]);if(!el)continue;
     var r=await db.from('acq_targets').upsert({key:keys[i],value:Number(el.value)||0});
@@ -2045,7 +2041,7 @@ var HELP_TOPICS=[
  ,{q:'🏢 What are the boards?',k:'total acq rep board team individual switch kpis',a:'On <b>KPIs</b>: tap <b>🏢 Total Acq</b> for the whole department, or any rep\'s name for their personal board — same rows (dials through assignment fees), scoped to them. Add reps under <b>Inputs → 👥 Reps</b>; every lead gets an assigned rep.'}
  ,{q:'📈 What is the Metrics tab?',k:'chain ratios conversion data range',a:'The full money chain — Leads → Net leads → Dials → Convos → Offers → Contracts → Assigned → Closed → Assignment fees — with every ratio between steps, filterable by Month / Quarter / Year / All time. Assigned, Closed, and Revenue flow in automatically from the Dispo app once a lead is sent over.'}
 
- ,{q:'🧮 How does the commission calculator work?',k:'check pay tier ramp strike cad',a:'On <b>Metrics</b>: assignment fees auto-fill from closed deals (editable to model scenarios) → sliding-scale tier % → ramp target ±2% (months 1-3 protected) → strike deductions → the check in USD and CAD.'}
+ ,{q:'🧮 How does the commission calculator work?',k:'check pay tier ramp cad',a:'On <b>Metrics</b>: assignment fees auto-fill from closed deals (editable to model scenarios) → sliding-scale tier % → ramp target ±2% (months 1-3 protected) → the check in USD and CAD.'}
 ];
 var XX_DUMMY_REMOVED=0;
 var HELP_STOP={'where':1,'do':1,'does':1,'i':1,'my':1,'me':1,'we':1,'our':1,'how':1,'what':1,'is':1,'are':1,'the':1,'a':1,'an':1,'to':1,'of':1,'in':1,'on':1,'for':1,'and':1,'or':1,'it':1,'can':1,'find':1,'see':1,'get':1,'go':1,'up':1,'set':1,'with':1,'this':1,'when':1,'why':1};
