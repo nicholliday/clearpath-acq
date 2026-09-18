@@ -222,7 +222,7 @@ function stlAvgFor(rep,from){
     if(!l.phone||!l.created_at)return;
     if(l.created_at.slice(0,10)<from)return;
     var t0=new Date(l.created_at).getTime(),best=null,bRep=null;
-    (D.calls||[]).forEach(function(c){if(c.phone===l.phone){var ct=new Date(c.called_at).getTime();if(ct>=t0-60000&&(best==null||ct<best)){best=ct;bRep=c.rep}}});
+    var _f=D.firstCall&&D.firstCall[l.id]; if(_f&&_f.at){best=new Date(_f.at).getTime();bRep=_f.rep}
     if(best!=null&&(!rep||bRep===rep)){tot+=Math.max(0,Math.round((best-stlStart(l.created_at))/60000));n++}
   });
   return n?Math.round(tot/n):null;
@@ -237,24 +237,50 @@ function stlStart(iso){
 }
 
 
+// The database returns at most 1,000 rows per request. fetchAll keeps asking for the next 1,000 until it runs dry,
+// so nothing is silently dropped as tables grow. If paging ever errors, it falls back to a single plain request
+// (the old behaviour) instead of breaking the app.
+async function fetchAll(table, sel, orderCols, desc){
+  var out=[], from=0, size=1000;
+  try{
+    for(var guard=0; guard<300; guard++){
+      var q=db.from(table).select(sel);
+      (orderCols||[]).forEach(function(c,i){ q=q.order(c,{ascending:!(desc&&i===0)}); });
+      var r=await q.range(from, from+size-1);
+      if(r.error) throw r.error;
+      out=out.concat(r.data||[]);
+      if(!r.data || r.data.length<size) return {data:out, error:null};
+      from+=size;
+    }
+    return {data:out, error:null};
+  }catch(e){
+    var q2=db.from(table).select(sel);
+    if(orderCols&&orderCols.length) q2=q2.order(orderCols[0],{ascending:!desc});
+    var r2=await q2;
+    return {data:r2.data||[], error:r2.error||null};
+  }
+}
 async function loadAll(){
   var r=await Promise.all([
-    db.from('acq_leads').select('*').order('created_at',{ascending:false}),
-    db.from('acq_offers').select('*'),
-    db.from('acq_activity').select('*'),
+    fetchAll('acq_leads','*',['created_at','id'],true),
+    fetchAll('acq_offers','*',['offered_on','lead_id']),
+    fetchAll('acq_activity','*',['on_date','rep']),
     db.from('acq_targets').select('*'),
     db.from('acq_spend').select('*'),
     db.from('deals').select('id,address,stage,revenue_closed,contract_price'),
-    db.from('stage_history').select('deal_id,stage,entered_on'),
+    fetchAll('stage_history','deal_id,stage,entered_on',['entered_on','deal_id']),
     db.from('acq_reps').select('*').order('created_at'),
-    db.from('acq_calls').select('phone,called_at,rep,counted'),
+    Promise.resolve({data:[],error:null}), // raw call log no longer loaded (it is tens of thousands of rows) - see acq_lead_first_call below
     db.from('master_monthly').select('*').order('month'),
     db.from('master_expenses').select('*'),
-    db.from('meta_phone_book').select('phone'),
-    db.from('meta_contact_book').select('contact_id')
+    fetchAll('meta_phone_book','phone',['phone']),
+    fetchAll('meta_contact_book','contact_id',['contact_id'])
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
   D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.repPass={};(r[7].data||[]).forEach(function(x){if(x.passcode)D.repPass[x.name]=x.passcode});D.calls=(r[8].data||[]);D.master=(r[9].data||[]);D.mexp=(r[10].data||[]);
+  D.firstCall={};
+  try{var fc=await fetchAll('acq_lead_first_call','lead_id,first_call_at,first_call_rep',['lead_id']);
+      if(!fc.error)(fc.data||[]).forEach(function(x){D.firstCall[x.lead_id]={at:x.first_call_at,rep:x.first_call_rep}});}catch(e){}
   D.mphones={};(r[11].data||[]).forEach(function(x){D.mphones[x.phone]=1});
   D.mcontacts={};(r[12].data||[]).forEach(function(x){D.mcontacts[x.contact_id]=1});
   D.targets={};r[3].data.forEach(function(t){D.targets[t.key]=Number(t.value)});
@@ -1682,12 +1708,8 @@ function speedToLead(){
     if(!l.phone||!l.created_at)return;
     var p=(l.phone||'').replace(/[^0-9]/g,'').slice(-10);if(p.length<7)return;
     var t0=new Date(l.created_at).getTime(),best=null;
-    (D.calls||[]).forEach(function(c){
-      if(String(c.phone||'').slice(-10)!==p)return;
-      var ct=new Date(c.called_at).getTime();
-      if(ct>=t0&&(best===null||ct<best))best=ct;
-    });
-    if(best!==null)ds.push((best-t0)/60000);
+    var _f=D.firstCall&&D.firstCall[l.id]; if(_f&&_f.at)best=new Date(_f.at).getTime();
+    if(best!==null)ds.push(Math.max(0,(best-t0)/60000));
   });
   if(!ds.length)return null;
   return Math.round(ds.reduce(function(s,x){return s+x},0)/ds.length);
