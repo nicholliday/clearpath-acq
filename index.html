@@ -1433,9 +1433,10 @@ function renderGoal(){
       if(l.closed_on&&Number(l.revenue_closed)>0)_fees.push(Number(l.revenue_closed));
       else if(l.contracted_on&&Number(l.projected_profit)>0)_proj.push(Number(l.projected_profit));
     });
-    var _pool=_fees.length>=5?_fees:(_proj.length>=5?_proj:[]);
-    feeGoal = _pool.length?Math.round(_pool.reduce(function(a,b){return a+b},0)/_pool.length):avgFee;
-    var feeLive=_pool.length&&_pool===_fees, feeSemi=_pool.length&&_pool===_proj;
+    // Owner view now uses the SAME assumptions as every rep's Goal Hitter: the avg closed fee from Inputs.
+    // (It used to average whatever closings the tracker happened to know about - partial history - so the two screens disagreed.)
+    feeGoal = avgFee;
+    var feeLive=false, feeSemi=false;
     // LIVE fallout: fallen contracts / resolved (fallout+closed); else standard 53%
     var _falls=0,_closedN=0;
     (D.leads||[]).forEach(function(l){if(l.stage==='Fallout')_falls++;else if(l.closed_on)_closedN++});
@@ -1491,7 +1492,7 @@ function renderGoal(){
     if(isOwnerView){
       h+='<div style="display:flex;gap:10px;justify-content:center;align-items:flex-end;margin:16px 0 4px;flex-wrap:wrap">'
        +'<div><div class="sm mut">TARGET $</div><input id="og_t" type="number" value="'+fundedGoal+'" style="width:130px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()" onchange="renderGoal()"></div>'
-       +'<div><div class="sm mut">PROJ. FEE / CONTRACT '+(feeLive?'\u00b7 live':feeSemi?'\u00b7 pipeline':'\u00b7 standard')+'</div><div style="width:110px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fmt$(feeGoal)+'</div></div>'
+       +'<div><div class="sm mut">PROJ. FEE / CONTRACT '+'\u00b7 from Inputs'+'</div><div style="width:110px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fmt$(feeGoal)+'</div></div>'
        +'<div><div class="sm mut">FALLOUT '+(foLive?'\u00b7 live':'\u00b7 from Inputs')+'</div><div style="width:80px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fallout+'%</div></div>'
        +'</div>'
        +'<div class="sm mut">= lock '+nGoal+' contracts ('+fmt$(lockedTarget)+' projected) at '+fmt$(feeGoal)+' \u2192 ~'+fmt$(fundedGoal)+' closes after '+fallout+'% fallout, fees at '+Math.round(feeRealNow()*100)+'% of projection</div>'
