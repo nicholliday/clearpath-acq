@@ -110,17 +110,15 @@ async function tryPass(){
 function buildTabs(){
   var t='<button id="tb_script" onclick="nav(\'script\')"><span class="ic">\ud83d\udcdc</span>Script</button>'
    +'<button id="tb_today" onclick="nav(\'today\')"><span class="ic">\u2600\ufe0f</span>Today</button>'
-   +'<button id="tb_goal" onclick="nav(\'goal\')"><span class="ic">\ud83c\udfaf</span>Goal Hitter</button>'
+   +'<button id="tb_goal" onclick="nav(\'goal\')"><span class="ic">\ud83c\udfaf</span>'+((ROLE==='owner'||EMBED_NIC)?'Goal Hitter':'Goals & Pay')+'</button>'
    +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\ud83d\udcca</span>KPIs</button>'
    +'<button id="tb_bot" onclick="nav(\'bot\')"><span class="ic">\ud83e\udd16</span>Bot</button>'
-   +'<button id="tb_earn" onclick="nav(\'earn\')"><span class="ic">\ud83d\udcb0</span>Comp Plan</button>'
    +'<button id="tb_race" onclick="nav(\'race\')"><span class="ic">\ud83c\udfc1</span>Compete</button>'
    
    +(ROLE==='owner'?'<button id="tb_owner" onclick="nav(\'owner\')"><span class="ic">\ud83d\udc51</span>Owner</button>':'')
    +'<button id="tb_inputs" onclick="nav(\'inputs\')"><span class="ic">\u2699\ufe0f</span>Inputs</button>';
   document.getElementById('tabbar').innerHTML=t;
   document.getElementById('roleBadge').style.display=ROLE==='owner'?'inline-block':'none';
-  var tbE=document.getElementById('tb_earn'); if(tbE) tbE.style.display=(ROLE==='owner'||EMBED_NIC)?'none':'';
   if(EMBED_NIC){var tbB=document.getElementById('tb_bot');if(tbB)tbB.style.display='none';var tbI=document.getElementById('tb_inputs');if(tbI)tbI.style.display='none';}
   var wb=document.getElementById('whoBadge');
   if(wb) wb.textContent = ROLE==='owner' ? '\uD83D\uDC64 Owner' : (ME ? '\uD83D\uDC64 '+ME : '');
@@ -148,6 +146,7 @@ function nav(v){
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
   });
+  var tbG=document.getElementById('tb_goal'); if(tbG&&v==='earn') tbG.classList.add('on');
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 function fmt$(n){return n==null||isNaN(n)?'—':'$'+Number(n).toLocaleString()}
@@ -861,7 +860,7 @@ function renderEarnings(){
   h+='</table><div class="sm mut" style="margin-top:6px">CONTRACTS = signed this month. Deals take ~40 days contract \u2192 close, so this month\u2019s contracts fund next month\u2019s target.</div></div>';
   h+=stdCard();
 
-  el.innerHTML=h;
+  el.innerHTML=paySwitcher('earn')+h;
 }
 
 function repRange(rep,from){
@@ -881,6 +880,13 @@ var MET_VIEW='meta';
 var MET_REP=null; // owner's KPI page: null = whole team, else one rep's numbers
 function setMetRep(r){MET_REP=r||null;render();}
 function setMetView(v){MET_VIEW=v;render();if(typeof renderGoal==='function')try{renderGoal()}catch(e){}}
+// Goal Hitter + Comp Plan live in ONE section: this pill flips between them.
+function paySwitcher(active){
+  if(ROLE==='owner'||EMBED_NIC) return '';
+  function b(k,label){var on=(k===active);return '<span onclick="nav(\''+k+'\')" style="flex:1;text-align:center;padding:9px 10px;border-radius:9px;font-size:13px;cursor:pointer;'+(on?'background:var(--gold);color:#0B1220;font-weight:800':'color:var(--mut);font-weight:600')+'">'+label+'</span>'}
+  return '<div style="display:flex;gap:4px;background:var(--bg);border-radius:12px;padding:4px;border:1px solid var(--line);margin-bottom:12px">'
+   +b('goal','\uD83C\uDFAF Goal Hitter')+b('earn','\uD83D\uDCB0 Comp Plan')+'</div>';
+}
 function metViewPill(){
   var isM=(MET_VIEW==='meta');
   return '<div style="display:flex;background:var(--bg);border-radius:9px;padding:3px;border:1px solid var(--line)">'
@@ -1567,10 +1573,10 @@ function renderGoal(){
      +'<tr><td>Hit the goal (+2% of rev)</td><td style="text-align:right;color:var(--green)"><b>'+fmt$(hitCAD)+'</b></td></tr>'
      +'<tr><td>Base at goal</td><td style="text-align:right"><b>'+fmt$(baseCAD)+'</b></td></tr>'
      +'<tr><td>Miss ('+(moX<=3?'protected':'\u22122% of rev')+')</td><td style="text-align:right;color:'+(moX<=3?'var(--mut)':'var(--red)')+'"><b>'+fmt$(missCAD)+'</b></td></tr>'
-     +'</table><div class="sm mut" style="margin-top:6px">Full ramp on the Comp Plan tab.</div></div>';
+     +'</table><div class="sm mut" style="margin-top:6px">Full ramp: tap Comp Plan at the top.</div></div>';
   }
 
-  el.innerHTML=srcBanner+h;
+  el.innerHTML=paySwitcher('goal')+srcBanner+h;
 }
 async function saveWorkDays(){
   var w=document.getElementById('og_wd');
