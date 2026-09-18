@@ -446,7 +446,7 @@ function renderToday(){
   });
   // 6th row: profit locked TODAY (real deal values, avg-fee fallback)
   (function(){
-    var avgFee=T('avgfee',15000);
+    var avgFee=T('avgfee',10000);
     var projs=reps.map(function(rp){
       var s=0;
       (D.leads||[]).forEach(function(l){
@@ -747,6 +747,13 @@ function repMonth(rep){
   return o;
 }
 function commissionOf(rev){return rev*tierPct(rev)*T('fx',1.38)} // CAD
+// Share of signed contracts that actually close. Owner sets it on Inputs (% of contracts that close).
+// Deliberately NOT computed live: while most recent contracts are still open, a live rate is misleading.
+function closeRateNow(){var v=Number(T('close_rate',35));if(!isFinite(v)||v<=0)v=35;return Math.min(95,Math.max(5,v))/100}
+// Share of the PROJECTED fee that is actually collected at closing (Nic's records: about 65%). Owner sets it on Inputs.
+function feeRealNow(){var v=Number(T('fee_realization',65));if(!isFinite(v)||v<=0)v=65;return Math.min(100,Math.max(20,v))/100}
+// what a brand-new contract is worth on paper (projected), given the avg CLOSED fee
+function projFeeStd(){return Math.round(T('avgfee',10000)/feeRealNow())}
 function revForCommission(goal){
   for(var r=5000;r<=400000;r+=5000){if(commissionOf(r)>=goal)return r}
   return 400000;
@@ -812,7 +819,7 @@ function renderEarnings(){
   var PR=payReps();if(!PR.length)PR=D.reps;
   if(ME&&PR.indexOf(ME)>=0)PR=[ME];
   if(EARN_REP===null||PR.indexOf(EARN_REP)<0)EARN_REP=PR[0];
-  var rep=EARN_REP, fx=T('fx',1.38), avgFee=T('avgfee',15000), di=daysInfo();
+  var rep=EARN_REP, fx=T('fx',1.38), avgFee=T('avgfee',10000), di=daysInfo();
   var mo=rampMonthOf(rep);
   var target=RAMP[mo-1];
   var closed=metMonthRev(rep);
@@ -837,7 +844,7 @@ function renderEarnings(){
 
   // check estimate card
   h+='<div class="card"><h2>\uD83D\uDCC8 Ramp Up</h2><table><tr><th>MO</th><th>CONTRACTS</th><th>ASSIGNMENTS</th><th>CAD COMISSION</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
-  var perClose=STD.closeRate*STD.avgFee; // expected $ closed per contract locked
+  var perClose=closeRateNow()*T('avgfee',STD.avgFee); // expected $ closed per contract locked
   for(var i=0;i<12;i++){
     var tv=RAMP[i], cur=(i+1)===mo;
     var feedTarget=RAMP[i+1]!=null?RAMP[i+1]:RAMP[i]; // 40-day lag: this month's locks fund next month's target
@@ -900,8 +907,11 @@ function cmdFrom(){
 // ===== THE $100K STANDARD (company benchmark, measured Mar-Jul 2026 Meta era) =====
 // META-ONLY baseline, measured from Nic's Mar-Jul 2026 sheets (6111 dials, 995 convos, 329 offers, ~148h talk, 28 contracts)
 // offersPerContract 8.7 = JULY ONLY (139 meta offers / 16 meta contracts) - offer counting drifted across months, July matches current counting
-var STD = {dialsPerConvo:3.7, convosPerOffer:4.75, offersPerContract:8.7, leadsPerContract:18.6,
-           talkPerConvo:8.9, closeRate:0.47, avgFee:15000,
+// Standards = Nic's ACTUAL Apr-Aug 2026 sheets (16,519 dials / 3,464 convos / 574 offers / 69 contracts),
+// converted to the app's counting using the Sept 1-15 side-by-side (app convos = 0.91x paper, app dials = 1.10x paper).
+// closeRate + avgFee here are only fallbacks: the live values come from Inputs (close_rate, avgfee).
+var STD = {dialsPerConvo:5.8, convosPerOffer:5.5, offersPerContract:8.3, leadsPerContract:18.6,
+           talkPerConvo:8.9, closeRate:0.35, avgFee:10000,
            contracts:15, closes:7, funded:105000, leads:280,
            dials:3050, convos:490, talkH:71, offers:162};
 // Company-wide trailing ratios (all reps combined); used as fallback before STD guesses
@@ -909,7 +919,7 @@ var _CO=null;
 function coBench(){
   if(_CO)return _CO;
   var from = new Date(Date.now()-90*86400000).toISOString().slice(0,10);
-  if(from < '2026-08-02') from = '2026-08-02';
+  if(from < '2026-09-16') from = '2026-09-16';
   var t={mdials:0,mconvos:0,mtalkSec:0,offers:0,contracts:0};
   (D.reps||[]).forEach(function(rp){var r=repRange(rp,from);t.mdials+=r.mdials;t.mconvos+=r.mconvos;t.mtalkSec+=r.mtalkSec||0;t.offers+=r.offers;t.contracts+=r.contracts;});
   var lc=0,cc=0;
@@ -918,8 +928,8 @@ function coBench(){
     if(l.contracted_on && l.contracted_on>=from) cc++;
   });
   function pk(v,ok,std){ return ok ? {v:v, co:true} : {v:std, co:false}; }
-  // Nic's rule: use his record (STD) until 100 days of clean data (epoch 2026-08-02 -> matures 2026-11-10)
-  var matured = new Date().toISOString().slice(0,10) >= '2026-11-10';
+  // Nic's rule: use his record (STD) until 100 days of clean data (epoch 2026-09-16, the day counting was verified -> matures 2026-12-25)
+  var matured = new Date().toISOString().slice(0,10) >= '2026-12-25';
   _CO = {
     dialsPerConvo:     pk(t.mconvos>0? t.mdials/t.mconvos : 0,        matured && t.mconvos>=30,  STD.dialsPerConvo),
     convosPerOffer:    pk(t.offers>0? t.mconvos/t.offers : 0,          matured && t.offers>=10,   STD.convosPerOffer),
@@ -932,7 +942,7 @@ function coBench(){
 // Per-rep trailing-90-day ratios; falls back to company rates, then STD, until enough personal sample
 function repBench(rep){
   var from = new Date(Date.now()-90*86400000).toISOString().slice(0,10);
-  if(from < '2026-08-02') from = '2026-08-02'; // only clean v19-era data feeds personal rates (pre-fix talk was ring-inflated)
+  if(from < '2026-09-16') from = '2026-09-16'; // only clean v19-era data feeds personal rates (pre-fix talk was ring-inflated)
   var tr = repRange(rep, from);
   var lc=0, cc=0;
   D.leads.forEach(function(l){
@@ -1294,7 +1304,7 @@ function renderCommand(){
   var PR=payReps();if(!PR.length)PR=D.reps;
   if(ME&&PR.indexOf(ME)>=0)PR=[ME];
   if(CMD_REP===null||PR.indexOf(CMD_REP)<0)CMD_REP=PR[0];
-  var di=daysInfo(), avgFee=T('avgfee',15000);
+  var di=daysInfo(), avgFee=T('avgfee',10000);
   var from=cmdFrom();
 
   var ranges=[['Day','__day__'],['Week','__week__'],['Month','__month__'],['Quarter','__q__'],['Year','__year__'],['All time','__all__'],['\ud83d\udcc5 Custom','__custom__']];
@@ -1323,7 +1333,7 @@ function renderGoal(){
   var who = isOwnerView ? OWNER_REP : (ME||PR[0]);
   if(isOwnerView){ who=OWNER_REP; }
 
-  var di=daysInfo(), avgFee=T('avgfee',15000), fx=T('fx',1.38);
+  var di=daysInfo(), avgFee=T('avgfee',10000), fx=T('fx',1.38);
   var monthName=new Date().toLocaleDateString('en-US',{month:'long'}).toUpperCase();
   var h='';
 
@@ -1354,13 +1364,16 @@ function renderGoal(){
     var _falls=0,_closedN=0;
     (D.leads||[]).forEach(function(l){if(l.stage==='Fallout')_falls++;else if(l.closed_on)_closedN++});
     var _res=_falls+_closedN;
-    fallout = _res>=3?Math.round(_falls/_res*100):47; // standard fallout 47% until 3+ contracts resolve
-    var foLive=_res>=3;
+    fallout = Math.round((1-closeRateNow())*100); // from Inputs -> % of contracts that close
+    var foLive=false;
     var survT = Number(D.targets&&D.targets.owner_target!=null?D.targets.owner_target
                    :(D.targets&&D.targets.owner_contracts!=null?D.targets.owner_contracts*feeGoal:300000))||0;
     // survT = revenue that actually closes. Scale contracts up to survive fallout.
-    nGoal = feeGoal>0?Math.ceil(survT/feeGoal/Math.max(0.05,(100-fallout)/100)):0;
-    lockedTarget = nGoal*feeGoal;      // what must be locked
+    var _fr=feeRealNow();
+    var _closedFee = feeSemi ? Math.round(feeGoal*_fr) : feeGoal;   // pipeline avg is projected $ -> convert to closed $
+    nGoal = _closedFee>0?Math.ceil(survT/_closedFee/closeRateNow()):0;
+    feeGoal = Math.round(_closedFee/_fr);                            // per-contract PROJECTED value
+    lockedTarget = nGoal*feeGoal;      // projected $ that must be locked
     fundedGoal = survT;                // what survives
     avgFee = feeGoal;
     headerLine = monthName;
@@ -1369,21 +1382,22 @@ function renderGoal(){
     var mo=rampMonthOf(who);
     var commGoal = Number((D.repGoals&&D.repGoals[who])||8000);
     var revGoal = commGoal>0?revForCommission(commGoal):0;
-    // Two-bar truth: pay is on CLOSED revenue; locked must run ~2x ahead of it.
+    // Two-bar truth: pay is on CLOSED revenue; locked must run ahead of it by 1/closeRate.
     var _rf=0,_rc=0;
     (D.leads||[]).forEach(function(l){if(l.stage==='Fallout')_rf++;else if(l.closed_on)_rc++});
     var _rres=_rf+_rc;
-    fallout = _rres>=3?Math.round(_rf/_rres*100):47;
+    var _cr=closeRateNow();
+    fallout = Math.round((1-_cr)*100);
     var rampT = RAMP[mo-1];
     fundedGoal = Math.max(rampT, revGoal);            // must CLOSE this
-    lockedTarget = fundedGoal*2;                      // lock DOUBLE - half falls out
+    lockedTarget = Math.ceil(fundedGoal/_cr/feeRealNow()/1000)*1000; // projected $ to lock so that, after fallout AND fee shrink, the close goal survives
     headerLine = monthName+' \u00b7 RAMP MONTH '+mo+(mo<=3?' \u00b7 NO PENALTY':'');
-    subLine = 'to bank \u2248'+fmt$(commGoal)+' CAD \u2192 close '+fmt$(fundedGoal)+(rampT>revGoal?' (ramp floor)':'')+' \u00b7 lock double: '+fmt$(lockedTarget);
+    subLine = 'to bank \u2248'+fmt$(commGoal)+' CAD \u2192 close '+fmt$(fundedGoal)+(rampT>revGoal?' (ramp floor)':'')+' \u00b7 lock '+fmt$(lockedTarget)+' projected ('+Math.round(_cr*100)+'% close, fees land at '+Math.round(feeRealNow()*100)+'% of projection)';
   }
 
   var lr=lockedMonthRev(who);
   var closed=lr.total;
-  var willClose=Math.round((lr.act||0)+((lr.proj||0)*0.5)); // banked + half of open locks (half fall out)
+  var willClose=Math.round((lr.act||0)+((lr.proj||0)*closeRateNow()*feeRealNow())); // banked + open locks x close rate x fee realization
   var pct=lockedTarget?Math.min(100,Math.round(closed/lockedTarget*100)):100;
   var col=closed>=lockedTarget?'var(--green)':(pct>=60?'var(--gold)':'var(--red)');
   var fg2=(typeof fundedGoal==='number'&&fundedGoal>0)?fundedGoal:lockedTarget;
@@ -1400,10 +1414,10 @@ function renderGoal(){
     if(isOwnerView){
       h+='<div style="display:flex;gap:10px;justify-content:center;align-items:flex-end;margin:16px 0 4px;flex-wrap:wrap">'
        +'<div><div class="sm mut">TARGET $</div><input id="og_t" type="number" value="'+fundedGoal+'" style="width:130px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()" onchange="renderGoal()"></div>'
-       +'<div><div class="sm mut">AVG FEE '+(feeLive?'\u00b7 live':feeSemi?'\u00b7 pipeline':'\u00b7 standard')+'</div><div style="width:110px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fmt$(feeGoal)+'</div></div>'
-       +'<div><div class="sm mut">FALLOUT '+(foLive?'\u00b7 live':'\u00b7 standard')+'</div><div style="width:80px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fallout+'%</div></div>'
+       +'<div><div class="sm mut">PROJ. FEE / CONTRACT '+(feeLive?'\u00b7 live':feeSemi?'\u00b7 pipeline':'\u00b7 standard')+'</div><div style="width:110px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fmt$(feeGoal)+'</div></div>'
+       +'<div><div class="sm mut">FALLOUT '+(foLive?'\u00b7 live':'\u00b7 from Inputs')+'</div><div style="width:80px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fallout+'%</div></div>'
        +'</div>'
-       +'<div class="sm mut">= lock '+nGoal+' contracts ('+fmt$(lockedTarget)+') at '+fmt$(feeGoal)+' \u2192 ~'+fmt$(fundedGoal)+' closes after '+fallout+'% fallout</div>'
+       +'<div class="sm mut">= lock '+nGoal+' contracts ('+fmt$(lockedTarget)+' projected) at '+fmt$(feeGoal)+' \u2192 ~'+fmt$(fundedGoal)+' closes after '+fallout+'% fallout, fees at '+Math.round(feeRealNow()*100)+'% of projection</div>'
        +'<div id="og_saved" class="sm" style="min-height:16px;margin-top:4px"></div>';
     }
   } else if(lockedTarget>0){
@@ -1437,9 +1451,9 @@ function renderGoal(){
   // ============ REVERSE ENGINEERED ============
   var LT = lockedTarget>0 ? lockedTarget : (!ownerTarget ? (RAMP[rampMonthOf(who)]||20000) : 0);
   var practicePace = (!ownerTarget && lockedTarget<=0);
-  // LT is the LOCKED target and already includes fallout (2x rule),
+  // LT is the LOCKED target and already includes fallout (close-rate setting),
   // so contracts needed = locked dollars / raw avg fee. No double-discount.
-  var perContract$ = avgFee;
+  var perContract$ = ownerTarget ? avgFee : projFeeStd();
   var reqContracts=LT>0?Math.max(1,Math.ceil(LT/perContract$)):0;
   var BR = repBench(ownerTarget ? (D.reps[0]||'') : who);
   // Announce when a target's data source changes (Nic's record -> company rate -> your rate)
@@ -1496,7 +1510,7 @@ function renderGoal(){
     var contractsTotal=reqContracts, offersTotal=Math.ceil(reqContracts*offerPerContract), convosTotal=Math.ceil(reqContracts*convoPerContract), dialsTotal=Math.ceil(reqContracts*convoPerContract*dialPerConvo), leadsTotal=Math.ceil(reqContracts*leadPerContract), talkTotal=Math.round(convosTotal*talkPerConvo);
     // TOTAL view = fixed grind standard (all pipelines): 3,500 dials / 1,000 convos / 115h talk / 150 offers.
     // Contracts + projected fees stay revenue-goal driven in both views.
-    if(MET_VIEW!=='meta'){dialsTotal=4500;convosTotal=1350;talkTotal=120*60;offersTotal=156;}
+    // (Total view used to be a fixed 4,500 / 1,350 / 120h / 156 no matter what goal was typed. It now follows the goal, same as Meta.)
     h+='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="sm mut" style="letter-spacing:.16em;font-weight:800;margin-bottom:2px">MONTHLY'+(practicePace?' \u00b7 PRACTICE PACE':'')+(MET_VIEW==='meta'?' \u00b7 META':' \u00b7 TOTAL')+'</div>'+metViewPill()+'</div><div class="sm mut" style="margin:-4px 0 10px">Each bar fills as you close the gap this month.</div>'
      +(function(){var a=stlAvgFor(who,monthStart());
         return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span>\u26A1 <b>Speed to lead</b> <span class="sm mut">(first call \u00b7 target under 2m)</span></span><span style="font-weight:800;color:'+(a==null?'var(--mut)':(a<=2?'var(--green)':'var(--red)'))+'">'+(a==null?'\u2014':stlFmt(a))+'</span></div>';})()
@@ -1507,7 +1521,7 @@ function renderGoal(){
      +prow('\uD83D\uDCAC','Convos',ms.convos,convosTotal,convoPerContract+' per contract \u2014 '+rsrc(BR.offersPerContract))
      +prow('\u23F1','Talk time',ms.talk,talkTotal,talkPerConvo.toFixed(1)+' min per convo \u2014 '+rsrc(BR.talkPerConvo),hmv)
      +prow('\uD83D\uDCB0','Offers',offersHave,offersTotal,offerPerContract+' per contract \u2014 '+rsrc(BR.offersPerContract))
-     +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(avgFee)+' if blank')
+     +prow('\uD83D\uDCDD','Contracts',ms.contracts,contractsTotal,'real deal values \u00b7 '+fmt$(ownerTarget?avgFee:projFeeStd())+' projected if blank')
      +prow('\uD83D\uDCC8','Projected assignment fees',closed,LT,lr.n+' contract'+(lr.n===1?'':'s')+' \u00b7 '+fmt$(lr.proj)+' projected \u00b7 '+fmt$(lr.act)+' closed',fmt$);
 
     // ============ DAILY REQUIREMENTS (catch-up pace: remaining work / remaining workdays) ============
@@ -1545,9 +1559,10 @@ function renderGoal(){
   // ============ WHAT IT PAYS (reps only; owner economics live elsewhere) ============
   if(!ownerTarget && lockedTarget>0){
     var moX=rampMonthOf(who);
-    var baseCAD=Math.round(lockedTarget*tierPct(lockedTarget)*fx);
-    var hitCAD=Math.round((lockedTarget*tierPct(lockedTarget)+lockedTarget*0.02)*fx);
-    var missCAD=moX<=3?baseCAD:Math.round((lockedTarget*tierPct(lockedTarget)-lockedTarget*0.02)*fx);
+    var payRev=(typeof fundedGoal==='number'&&fundedGoal>0)?fundedGoal:lockedTarget; // commission is paid on closings only
+    var baseCAD=Math.round(payRev*tierPct(payRev)*fx);
+    var hitCAD=Math.round((payRev*tierPct(payRev)+payRev*0.02)*fx);
+    var missCAD=moX<=3?baseCAD:Math.round((payRev*tierPct(payRev)-payRev*0.02)*fx);
     h+='<div class="card"><h2>\uD83D\uDCB0 What hitting it pays (CAD)</h2><table>'
      +'<tr><td>Hit the goal (+2% of rev)</td><td style="text-align:right;color:var(--green)"><b>'+fmt$(hitCAD)+'</b></td></tr>'
      +'<tr><td>Base at goal</td><td style="text-align:right"><b>'+fmt$(baseCAD)+'</b></td></tr>'
@@ -1720,7 +1735,7 @@ function renderMetrics(){
   metPair();
 }
 function lockedMonthRev(rep){
-  var ms=monthStart(), avgFee=T('avgfee',15000);
+  var ms=monthStart(), avgFee=T('avgfee',10000);
   var o={n:0,proj:0,act:0,total:0};
   D.leads.forEach(function(l){
     if(!l.contracted_on||l.contracted_on<ms)return;
@@ -1728,7 +1743,7 @@ function lockedMonthRev(rep){
     o.n++;
     var d=l.deal_id?linkedDeal(l):null;
     if(d&&d.revenue_closed){o.act+=d.revenue_closed}
-    else{o.proj+=(Number(l.projected_profit)||avgFee)}
+    else{o.proj+=(Number(l.projected_profit)||projFeeStd())}
   });
   o.total=o.proj+o.act;
   return o;
@@ -1775,7 +1790,7 @@ function renderOwner(){
   var sp=D.spend.find(function(s){return s.month===m});var spend=sp?Number(sp.spend):0;
   var mLeads=countLeadsIn(monthStart()),mOff=countOffers(monthStart()),mCon=countContracts(monthStart());
   var cpl=mLeads?Math.round(spend/mLeads):0, cpc=mCon?Math.round(spend/mCon):0;
-  var proj=mCon*T('avgfee',15000);
+  var proj=mCon*T('avgfee',10000);
   var allLeads=D.leads.length, contacted=D.leads.filter(function(l){return l.stage!=='New'}).length,
       offered=D.leads.filter(function(l){return D.offers.some(function(o){return o.lead_id===l.id})}).length,
       uc=D.leads.filter(function(l){return l.contracted_on}).length;
@@ -1788,7 +1803,7 @@ function renderOwner(){
    +'<div class="kpi"><div class="v">'+mCon+'</div><div class="l">CONTRACTS</div></div>'
    +'<div class="kpi"><div class="v" style="color:var(--gold)">'+fmt$(proj)+'</div><div class="l">PROJ REVENUE</div></div>'
    +'</div><label>This month\'s Meta spend ($)</label><input id="ow_spend" type="number" value="'+(spend||'')+'"><button class="btn g" onclick="saveSpend()">Save spend</button>'
-   +'<div class="sm mut" style="margin-top:6px">Proj assignment fees = contracts × avg fee target ('+fmt$(T('avgfee',15000))+', editable in Inputs). Only visible with the owner passcode.</div></div>';
+   +'<div class="sm mut" style="margin-top:6px">Proj assignment fees = contracts × avg fee target ('+fmt$(T('avgfee',10000))+', editable in Inputs). Only visible with the owner passcode.</div></div>';
   h+='<div class="card"><h2>🔻 Acq funnel (all time)</h2>'
    +frow(allLeads,contacted,'Leads','Contacted')+frow(contacted,offered,'Contacted','Offer made')+frow(offered,uc,'Offers','Contract')
    +'</div>';
@@ -1905,7 +1920,7 @@ function renderOwner(){
      +'<button class="btn g" style="margin-top:8px;width:100%" onclick="saveOwnExp()">Save expenses</button></div>';
   } else {
     // ---------- HORMOZI DASHBOARD ----------
-    var avgFee=T('avgfee',15000);
+    var avgFee=T('avgfee',10000);
     // 1. UNIT ECONOMICS
     var cpc=HT.contracts?HT.spend/HT.contracts:0;
     var cpcl=cpc/ (STD.closeRate||0.47);
@@ -1973,7 +1988,7 @@ function renderOwner(){
 
 function renderInputs(){
   var ks=[['dials_day','Rep dials / day',117],['convos_day','Rep convos / day',19],['talkmin_day','Rep talk min / day (165 = 2h 45m)',165],['offers_day','Rep offers / day',6],['contracts_day','Rep contracts / day',1],['contracts_month','Team contracts / month (pace)',6]];
-  if(ROLE==='owner')ks.push(['avgfee','Avg assignment fee ($)',15000],['fx','USD → CAD rate',1.38]);
+  if(ROLE==='owner')ks.push(['avgfee','Avg fee per CLOSED deal ($)',10000],['close_rate','% of contracts that close',35],['fee_realization','% of projected fee actually collected',65],['fx','USD → CAD rate',1.38]);
   var h='<div class="card"><h2>🎯 Targets</h2>'+ks.map(function(k){return '<label>'+k[1]+'</label><input id="t_'+k[0]+'" type="number" value="'+T(k[0],k[2])+'">'}).join('')
    +'<button class="btn g big" onclick="saveTargets()">Save targets</button></div>';
   h+='<div class="card"><h2>\ud83d\udc4b Your account</h2><div class="sm">Signed in as <b>'+(ROLE==='owner'?'Owner':esc(ME||'?'))+'</b>'+(ROLE==='rep'?' \u2014 your Goal Hitter and Comp Plan are personal to you.':'')+'</div><button class="btn mut" onclick="logOut()">Log out</button></div>'
@@ -2015,7 +2030,7 @@ async function delRep(n){
   loadAll();
 }
 async function saveTargets(){
-  var keys=['dials_day','convos_day','talkmin_day','offers_day','contracts_day','contracts_month'];if(ROLE==='owner')keys.push('avgfee','fx');
+  var keys=['dials_day','convos_day','talkmin_day','offers_day','contracts_day','contracts_month'];if(ROLE==='owner')keys.push('avgfee','close_rate','fee_realization','fx');
   for(var i=0;i<keys.length;i++){
     var el=document.getElementById('t_'+keys[i]);if(!el)continue;
     var r=await db.from('acq_targets').upsert({key:keys[i],value:Number(el.value)||0});
