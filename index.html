@@ -1493,9 +1493,9 @@ function renderGoal(){
       h+='<div style="display:flex;gap:10px;justify-content:center;align-items:flex-end;margin:16px 0 4px;flex-wrap:wrap">'
        +'<div><div class="sm mut">TARGET $</div><input id="og_t" type="number" value="'+fundedGoal+'" style="width:130px;text-align:center;font-size:20px;font-weight:800" oninput="saveOwnerGoal()" onchange="renderGoal()"></div>'
        +'<div><div class="sm mut">PROJ. FEE / CONTRACT '+'\u00b7 from Inputs'+'</div><div style="width:110px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fmt$(feeGoal)+'</div></div>'
-       +'<div><div class="sm mut">FALLOUT '+(foLive?'\u00b7 live':'\u00b7 from Inputs')+'</div><div style="width:80px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+fallout+'%</div></div>'
+       +'<div><div class="sm mut">CLOSE RATE \u00b7 from Inputs</div><div style="width:80px;text-align:center;font-size:20px;font-weight:800;padding:6px 0">'+(100-fallout)+'%</div></div>'
        +'</div>'
-       +'<div class="sm mut">= lock '+nGoal+' contracts ('+fmt$(lockedTarget)+' projected) at '+fmt$(feeGoal)+' \u2192 ~'+fmt$(fundedGoal)+' closes after '+fallout+'% fallout, fees at '+Math.round(feeRealNow()*100)+'% of projection</div>'
+       +'<div class="sm mut">= lock '+nGoal+' contracts ('+fmt$(lockedTarget)+' projected) at '+fmt$(feeGoal)+' \u2192 ~'+fmt$(fundedGoal)+' closes at a '+(100-fallout)+'% close rate, fees at '+Math.round(feeRealNow()*100)+'% of projection</div>'
        +'<div id="og_saved" class="sm" style="min-height:16px;margin-top:4px"></div>';
     }
   } else if(lockedTarget>0){
@@ -1520,7 +1520,7 @@ function renderGoal(){
   if(lockedTarget>0){
     h+='<div class="row" style="margin-top:14px;padding:0 6%"><span class="sm mut">\ud83d\udcdd LOCKED (projected)</span><span class="sm mut"><b style="color:'+col+'">'+fmt$(closed)+'</b> / '+fmt$(lockedTarget)+'</span></div>'
      +'<div class="sbar" style="height:12px;margin:6px 8% 0;border-radius:99px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'
-     +'<div class="row" style="margin-top:12px;padding:0 6%"><span class="sm mut">\ud83d\udcb0 WILL CLOSE (after fallout)</span><span class="sm mut"><b style="color:'+col2+'">'+fmt$(willClose)+'</b> / '+fmt$(fg2)+'</span></div>'
+     +'<div class="row" style="margin-top:12px;padding:0 6%"><span class="sm mut">\ud83d\udcb0 WILL CLOSE ('+Math.round(closeRateNow()*100)+'% close rate)</span><span class="sm mut"><b style="color:'+col2+'">'+fmt$(willClose)+'</b> / '+fmt$(fg2)+'</span></div>'
      +'<div class="sbar" style="height:12px;margin:6px 8% 0;border-radius:99px"><i style="width:'+pct2+'%;background:'+col2+'"></i></div>'
      +'<div class="sm mut" style="margin-top:8px">Bottom bar is your check \u2014 only closings pay.</div>';
   }
