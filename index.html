@@ -769,6 +769,20 @@ function rampMonthOf(rep){
   var m=(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth())+1;
   return Math.min(12,Math.max(1,m));
 }
+// months since the rep's ramp start, counted by calendar month and NOT capped (month 13 = year 2, month 1)
+function rampMonthsIn(rep){
+  var rs=(D.repRamp&&D.repRamp[rep])||monthStart();
+  var a=new Date(rs+'T00:00:00'), b=new Date();
+  return Math.max(1,(b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth())+1);
+}
+// calendar name of a rep's Nth ramp month, e.g. month 2 for an August start = 'Sep 2026'
+function rampMonthLabel(rep,n){
+  var rs=(D.repRamp&&D.repRamp[rep])||monthStart();
+  var a=new Date(rs+'T00:00:00'); a.setMonth(a.getMonth()+(n-1));
+  return a.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+}
+var RAMP_YEAR=null; // which plan year the Comp Plan table is showing (1-5); null = the rep's current year
+function setRampYear(y){RAMP_YEAR=y;renderEarnings()}
 var EARN_REP=null;
 function setEarnRep(r){EARN_REP=r;renderEarnings()}
 function stdCard(){
@@ -842,22 +856,31 @@ function renderEarnings(){
   var estIfHit=hitCAD(effRev>=target?Math.max(closed,target):closed);
 
   // check estimate card
-  h+='<div class="card"><h2>\uD83D\uDCC8 Ramp Up</h2><table><tr><th>MO</th><th>CONTRACTS</th><th>ASSIGNMENTS</th><th>CAD COMISSION</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
+  var moAll=rampMonthsIn(rep), curYear=Math.min(5,Math.ceil(moAll/12));
+  var yr=RAMP_YEAR||curYear;
+  var yrBtns='<div style="display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px;border:1px solid var(--line);margin:0 0 10px">';
+  for(var y=1;y<=5;y++){yrBtns+='<span onclick="setRampYear('+y+')" style="flex:1;text-align:center;padding:6px 4px;border-radius:8px;font-size:12px;cursor:pointer;'+(y===yr?'background:var(--gold);color:#0B1220;font-weight:800':'color:var(--mut)')+'">Year '+y+(y===curYear?' \u2022':'')+'</span>'}
+  yrBtns+='</div>';
+  h+='<div class="card"><h2>\uD83D\uDCC8 Ramp Up</h2>'+yrBtns+'<table><tr><th>MONTH</th><th>CONTRACTS</th><th>ASSIGNMENTS</th><th>CAD COMISSION</th><th>HIT +2%</th><th>MISS \u22122%</th></tr>';
   var perClose=closeRateNow()*T('avgfee',STD.avgFee); // expected $ closed per contract locked
   for(var i=0;i<12;i++){
-    var tv=RAMP[i], cur=(i+1)===mo;
-    var feedTarget=RAMP[i+1]!=null?RAMP[i+1]:RAMP[i]; // 40-day lag: this month's locks fund next month's target
+    var n=(yr-1)*12+i+1;                       // the rep's Nth month on the plan
+    var ri=Math.min(11,n-1);                   // years 2+ hold at the month-12 target until a bonus plan is set
+    var tv=RAMP[ri], cur=(n===moAll);
+    var feedTarget=RAMP[Math.min(11,ri+1)];    // 40-day lag: this month's locks fund next month's target
     var lockN=perClose>0?Math.ceil(feedTarget/perClose):0;
     h+='<tr style="'+(cur?'background:rgba(212,175,55,.12);font-weight:800':'')+'">'
-     +'<td>'+(i+1)+((i+1)<=3?' <span class="sm mut">no penalty</span>':'')+(cur?' \u25C0':'')+'</td>'
+     +'<td>'+n+' <span class="sm mut">'+rampMonthLabel(rep,n)+(n<=3?' \u00b7 no penalty':'')+'</span>'+(cur?' \u25C0':'')+'</td>'
      +'<td style="text-align:right;color:var(--gold)"><b>'+lockN+'</b></td>'
      +'<td style="text-align:right">'+fmt$(tv)+'</td>'
      +'<td style="text-align:right">'+fmt$(Math.round(baseCAD(tv)))+'</td>'
      +'<td style="text-align:right;color:var(--green)">'+fmt$(Math.round(hitCAD(tv)))+'</td>'
-     +'<td style="text-align:right;color:'+((i+1)<=3?'var(--mut)':'var(--red)')+'">'+fmt$(Math.round(missCAD(tv,i+1)))+'</td>'
+     +'<td style="text-align:right;color:'+(n<=3?'var(--mut)':'var(--red)')+'">'+fmt$(Math.round(missCAD(tv,n)))+'</td>'
      +'</tr>';
   }
-  h+='</table><div class="sm mut" style="margin-top:6px">CONTRACTS = signed this month. Deals take ~40 days contract \u2192 close, so this month\u2019s contracts fund next month\u2019s target.</div></div>';
+  h+='</table>'
+   +(yr>1?'<div class="sm" style="margin-top:8px;color:var(--gold)">Year '+yr+': target holds at '+fmt$(RAMP[11])+' a month. Personal and team bonuses are not set yet \u2014 they will show here once Nic adds them.</div>':'')
+   +'<div class="sm mut" style="margin-top:6px">CONTRACTS = signed this month. Deals take ~40 days contract \u2192 close, so this month\u2019s contracts fund next month\u2019s target.</div></div>';
   h+=stdCard();
 
   el.innerHTML=paySwitcher('earn')+h;
@@ -1397,7 +1420,8 @@ function renderGoal(){
     var rampT = RAMP[mo-1];
     fundedGoal = Math.max(rampT, revGoal);            // must CLOSE this
     lockedTarget = Math.ceil(fundedGoal/_cr/feeRealNow()/1000)*1000; // projected $ to lock so that, after fallout AND fee shrink, the close goal survives
-    headerLine = monthName+' \u00b7 RAMP MONTH '+mo+(mo<=3?' \u00b7 NO PENALTY':'');
+    var _moAll=rampMonthsIn(who);
+    headerLine = monthName+' \u00b7 '+(_moAll<=12?'RAMP MONTH '+_moAll:'YEAR '+Math.ceil(_moAll/12)+' \u00b7 MONTH '+_moAll)+(_moAll<=3?' \u00b7 NO PENALTY':'');
     subLine = 'to bank \u2248'+fmt$(commGoal)+' CAD \u2192 close '+fmt$(fundedGoal)+(rampT>revGoal?' (ramp floor)':'')+' \u00b7 lock '+fmt$(lockedTarget)+' projected ('+Math.round(_cr*100)+'% close, fees land at '+Math.round(feeRealNow()*100)+'% of projection)';
   }
 
