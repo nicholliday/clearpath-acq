@@ -340,14 +340,29 @@ function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()
 function fmtMonth(m){var p=String(m||'').split('-');if(p.length<2)return m;var names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];var i=parseInt(p[1],10)-1;return (names[i]||p[1])+' '+p[0];}
 function monthStart(){return today().slice(0,8)+'01'}
 function stlFmt(m){return m>=60?Math.floor(m/60)+'h '+(m%60)+'m':m+'m'}
-function tryLogin(){
-  var v=(document.getElementById('pass').value||'').trim();
-  if(v==='clearpathowner'){localStorage.setItem('cp_owner_ok','1');unlock();}
-  else document.getElementById('lockErr').textContent='Wrong passcode';
+// Real login (Sep 2026): passcode checked on the server; only the owner login opens this page.
+async function tryLogin(){
+  var v=(document.getElementById('pass').value||'').toLowerCase().trim();
+  var err=document.getElementById('lockErr');err.textContent='';
+  if(!v)return;
+  var j=null;
+  try{
+    var res=await fetch('https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/acq-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':'sb_publishable_QreaC86dKq8FRmJPDkeenA_wZO8G5YG'},body:JSON.stringify({passcode:v})});
+    j=await res.json();
+  }catch(e){err.textContent='Could not reach the server';return;}
+  if(!j||!j.ok){err.textContent=(j&&j.error)||'Wrong passcode';return;}
+  if(j.role!=='owner'){err.textContent='Owner passcode only';return;}
+  var r=await db.auth.setSession({access_token:j.access_token,refresh_token:j.refresh_token});
+  if(r.error){err.textContent='Login failed, try again';return;}
+  unlock();
 }
 function unlock(){document.getElementById('lock').style.display='none';document.getElementById('app').style.display='block';loadAll();}
-function logOut(){localStorage.removeItem('cp_owner_ok');location.reload();}
-if(localStorage.getItem('cp_owner_ok')==='1')unlock();
+async function logOut(){localStorage.removeItem('cp_owner_ok');try{await db.auth.signOut();}catch(e){}location.reload();}
+(async function(){
+  var r=await db.auth.getSession();
+  var am=(r.data&&r.data.session&&r.data.session.user.app_metadata)||{};
+  if(am.acq_role==='owner')unlock();
+})();
 async function loadAll(){
   var r=await Promise.all([
     db.from('acq_leads').select('*'),
