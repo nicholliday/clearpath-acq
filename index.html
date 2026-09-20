@@ -89,21 +89,32 @@ var ME=localStorage.getItem('cp_acq_me')||null;
 var EMBED_NIC=(location.hash==='#repnic');
 if(EMBED_NIC){ROLE='rep';ME='Nic Holliday';}
 
+// Real login (Sep 2026): the passcode is checked on the server, which hands back a secure session.
+var LOGIN_URL='https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/acq-login';
+var PUBKEY='sb_publishable_QreaC86dKq8FRmJPDkeenA_wZO8G5YG';
+function applySession(sess){
+  var am=(sess&&sess.user&&sess.user.app_metadata)||{};
+  if(!am.acq_role)return false;
+  if(EMBED_NIC){ROLE='rep';ME='Nic Holliday';return true;}
+  ROLE=am.acq_role;
+  if(ROLE==='rep'){ME=am.acq_name||null;localStorage.setItem('cp_acq_me',ME||'');}
+  else{ME=localStorage.getItem('cp_acq_me')||null;}
+  localStorage.setItem('cp_acq_role',ROLE);
+  return true;
+}
 async function tryPass(){
   var v=(document.getElementById('pw').value||'').toLowerCase().trim();
   if(!v)return;
-  if(v==='clearpathowner'){
-    ROLE='owner';ME=null;
-    localStorage.setItem('cp_acq_role',ROLE);localStorage.removeItem('cp_acq_me');
-    document.getElementById('lock').style.display='none';
-    buildTabs(); loadAll();
-    return;
-  }
-  var r=await db.from('acq_reps').select('name,passcode');
-  var hit=(r.data||[]).find(function(x){return (x.passcode||'').toLowerCase().trim()===v});
-  if(!hit){alert('Wrong passcode');return;}
-  ROLE='rep';ME=hit.name;
-  localStorage.setItem('cp_acq_role',ROLE);localStorage.setItem('cp_acq_me',ME);
+  var j=null;
+  try{
+    var res=await fetch(LOGIN_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':PUBKEY},body:JSON.stringify({passcode:v})});
+    j=await res.json();
+  }catch(e){alert('Could not reach the server. Try again.');return;}
+  if(!j||!j.ok){alert((j&&j.error)||'Wrong passcode');return;}
+  if(j.role==='owner')localStorage.removeItem('cp_acq_me');
+  var r=await db.auth.setSession({access_token:j.access_token,refresh_token:j.refresh_token});
+  if(r.error||!applySession(r.data.session)){alert('Login failed. Try again.');return;}
+  document.getElementById('pw').value='';
   document.getElementById('lock').style.display='none';
   buildTabs(); loadAll();
 }
@@ -2075,9 +2086,10 @@ function renderInputs(){
   h+='<div class="card"><h2>ℹ️ How counting works (v1)</h2><div class="sm mut" style="line-height:1.7">Dials, convos, and talk time track <b>automatically</b> — every GHL and OpenPhone call flows in on its own (45+ sec = convo, same number within 60 min counts once). Offers: add the <b>offer tag</b> on the contact in the CRM. Contracts / send to Dispo: switch the pipeline to <b>CONTRACTS</b> → stage <b>Waiting for Photos</b>, tag it <b>contract - your name</b>, and notify Dispo. Claiming a lead: <b>assign yourself</b> as owner in the CRM once you\'ve connected. If a number ever looks off, tell Nic — corrections happen in the database, not the app.</div></div>';
   document.getElementById('v_inputs').innerHTML=h;
 }
-function logOut(){
+async function logOut(){
   localStorage.removeItem('cp_acq_role');
   localStorage.removeItem('cp_acq_me');
+  try{await db.auth.signOut();}catch(e){}
   location.reload();
 }
 async function saveGoal(rp){
@@ -2182,7 +2194,11 @@ function openModal(h){document.getElementById('mbody').innerHTML=h;document.getE
 function closeModal(){document.getElementById('modal').classList.remove('on')}
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
 
-if(ROLE){document.getElementById('lock').style.display='none';buildTabs();loadAll();}
+(async function(){
+  var r=await db.auth.getSession();
+  if(r.data&&r.data.session&&applySession(r.data.session)){document.getElementById('lock').style.display='none';buildTabs();loadAll();}
+  else{ROLE='';if(!EMBED_NIC)ME=null;document.getElementById('lock').style.display='';}
+})();
 </script>
 </body>
 </html>
