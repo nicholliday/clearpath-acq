@@ -213,6 +213,152 @@ function ckShowsOn(it,d){
   var a=new Date((it.anchor||'2026-08-04')+'T12:00:00');
   return Math.round((dt-a)/86400000)%it.every===0;
 }
+// ---- Plan tab (the train): monthly milestone + weekly cards, Supabase owner_kv key plan_YYYY-MM ----
+var PL={m:today().slice(0,7),data:null,loaded:''};
+var PL_SEED={'2026-09':{
+  goal:'Foundation set: taxes in motion, leads sorted, resurrection campaign built',
+  items:[
+    {id:'m1',t:'Taxes in motion: accountant has everything needed to file'},
+    {id:'m2',t:'2,300 CRM leads exported + segmented (hot / warm / dead, by market)'},
+    {id:'m3',t:'Resurrection campaign built (SMS + email, 5–7 touches), ready to launch Oct 5'}
+  ],
+  weeks:[
+    {wk:'2026-09-21',focus:'Ignition — taxes + lead export',items:[
+      {id:'w1a',t:'Send the accountant everything they need to start filing'},
+      {id:'w1c',t:'Export all 2,300 leads from the CRM'},
+      {id:'w1d',t:'Tag every lead hot / warm / dead + by market'}
+    ]},
+    {wk:'2026-09-28',focus:'Build the resurrection campaign',items:[
+      {id:'w2a',t:'Write the SMS sequence (5–7 touches)'},
+      {id:'w2b',t:'Write the email sequence'},
+      {id:'w2c',t:'Load hot + warm segments, campaign ready to launch Oct 5'},
+      {id:'w2d',t:'Sep 30: September review — mark the milestone hit or missed'}
+    ]}
+  ],
+  done:[],notes:{},res:{}
+}};
+var PL_MOS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function plMondays(m){
+  var y=+m.slice(0,4),mo=+m.slice(5,7)-1,out=[],d=new Date(y,mo,1,12);
+  while(d.getDay()!==1)d.setDate(d.getDate()+1);
+  while(d.getMonth()===mo){out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));d.setDate(d.getDate()+7);}
+  return out;
+}
+function plWkEnd(wk){var d=new Date(wk+'T12:00:00');d.setDate(d.getDate()+6);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function plWkLbl(wk){
+  var a=new Date(wk+'T12:00:00'),b=new Date(plWkEnd(wk)+'T12:00:00'),s=PL_MOS.map(function(x){return x.slice(0,3)});
+  return s[a.getMonth()]+' '+a.getDate()+' – '+(b.getMonth()!==a.getMonth()?s[b.getMonth()]+' ':'')+b.getDate();
+}
+async function loadPL(){
+  var m=PL.m;
+  var v=await kvGet('plan_'+m);
+  if(!v&&PL_SEED[m]){v=JSON.parse(JSON.stringify(PL_SEED[m]));await kvSet('plan_'+m,v);}
+  if(v){v.items=v.items||[];v.weeks=v.weeks||[];v.done=v.done||[];v.notes=v.notes||{};v.res=v.res||{};}
+  PL.data=v;PL.loaded=m;render();
+}
+function plShift(n){var y=+PL.m.slice(0,4),mo=+PL.m.slice(5,7)-1+n;var d=new Date(y,mo,1);PL.m=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');PL.loaded='';render();}
+async function plSave(){if(PL.data)await kvSet('plan_'+PL.loaded,PL.data);}
+async function plStart(){
+  PL.data={goal:'',items:[],weeks:plMondays(PL.m).map(function(w){return {wk:w,focus:'',items:[]}}),done:[],notes:{},res:{}};
+  render();await plSave();
+}
+function plFind(id){
+  var D2=PL.data,f=null;
+  D2.items.forEach(function(it,i){if(it.id===id)f={arr:D2.items,i:i}});
+  D2.weeks.forEach(function(w){w.items.forEach(function(it,i){if(it.id===id)f={arr:w.items,i:i}})});
+  return f;
+}
+async function plToggle(id){var a=PL.data.done,ix=a.indexOf(id);if(ix>=0)a.splice(ix,1);else a.push(id);render();await plSave();}
+async function plAdd(where){
+  var el=document.getElementById('pla_'+where);var v=(el&&el.value||'').trim();if(!v)return;
+  var it={id:'p'+Date.now().toString(36),t:v};
+  if(where==='m')PL.data.items.push(it);
+  else PL.data.weeks.forEach(function(w){if(w.wk===where)w.items.push(it)});
+  render();await plSave();
+}
+async function plEdit(id){
+  var f=plFind(id);if(!f)return;
+  var v=prompt('Edit (clear it to delete):',f.arr[f.i].t);if(v===null)return;v=v.trim();
+  if(!v){if(!confirm('Delete this item?'))return;f.arr.splice(f.i,1);}else f.arr[f.i].t=v;
+  render();await plSave();
+}
+async function plGoal(){var v=prompt('Month milestone:',PL.data.goal||'');if(v===null)return;PL.data.goal=v.trim();render();await plSave();}
+async function plFocus(wk){
+  var w=PL.data.weeks.filter(function(x){return x.wk===wk})[0];if(!w)return;
+  var v=prompt('Focus for the week of '+plWkLbl(wk)+':',w.focus||'');if(v===null)return;w.focus=v.trim();render();await plSave();
+}
+async function plNote(k,val){PL.data.notes[k]=val;await plSave();}
+async function plHit(k,val){PL.data.res[k]=(PL.data.res[k]===val?'':val);render();await plSave();}
+function plRow(it,tag){
+  var on=PL.data.done.indexOf(it.id)>=0;
+  return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">'
+   +'<div onclick="plToggle(\''+it.id+'\')" style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">'+(on?'✓':'')+'</div>'
+   +'<div style="flex:1;font-size:14px;line-height:1.35;padding-top:2px;'+(on?'text-decoration:line-through;color:var(--mut)':'')+'">'+esc(it.t)+(tag?'<div class="sm" style="color:var(--amber);margin-top:2px">'+tag+'</div>':'')+'</div>'
+   +'<span onclick="plEdit(\''+it.id+'\')" class="sm mut" style="cursor:pointer;padding:2px 4px">✎</span>'
+   +'</div>';
+}
+function plHitRow(k,label){
+  var r=PL.data.res[k]||'';
+  return '<div class="row" style="gap:6px;margin-top:10px;justify-content:flex-start;flex-wrap:wrap"><span class="sm mut" style="margin-right:4px">'+label+'</span>'
+   +'<button class="btn '+(r==='hit'?'gr':'mut')+'" style="padding:6px 12px" onclick="plHit(\''+k+'\',\'hit\')">✅ Hit</button>'
+   +'<button class="btn '+(r==='miss'?'d':'mut')+'" style="padding:6px 12px" onclick="plHit(\''+k+'\',\'miss\')">❌ Missed</button></div>';
+}
+function plRender(){
+  var h='';
+  var y=+PL.m.slice(0,4),mo=+PL.m.slice(5,7)-1,mName=PL_MOS[mo];
+  h+='<div class="card" style="border-color:rgba(212,175,55,.45)"><div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.1em">🚂 THE TRAIN</div>'
+   +'<div class="sm mut" style="margin-top:4px;line-height:1.45">The team, family and my future wife are all on this train. This is where it’s going, one month at a time.</div></div>';
+  var D2=PL.data;
+  var tot=0,dn=0;
+  if(D2){[D2.items].concat(D2.weeks.map(function(w){return w.items})).forEach(function(a){a.forEach(function(it){tot++;if(D2.done.indexOf(it.id)>=0)dn++})});}
+  h+='<div class="card"><div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">'
+   +'<button class="btn mut" onclick="plShift(-1)">◀</button>'
+   +'<span style="font-weight:800;font-size:15px;padding:6px 12px;border:1px solid var(--line);border-radius:10px">'+mName+' '+y+'</span>'
+   +'<button class="btn mut" onclick="plShift(1)">▶</button>'
+   +(PL.m!==today().slice(0,7)?'<button class="btn g" onclick="PL.m=today().slice(0,7);PL.loaded=\'\';render()">This month</button>':'')
+   +(D2?'<span style="font-weight:800;margin-left:auto;color:'+(tot&&dn>=tot?'var(--green)':'var(--gold)')+'">'+dn+' / '+tot+' done</span>':'')
+   +'</div>'
+   +(D2?'<div style="height:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+(tot?Math.round(dn*100/tot):0)+'%;background:'+(tot&&dn>=tot?'var(--green)':'var(--gold)')+'"></div></div>':'')
+   +'</div>';
+  if(!D2){
+    h+='<div class="card" style="text-align:center"><div class="mut" style="margin-bottom:10px">'+mName+' isn’t planned yet.</div><button class="btn g" onclick="plStart()">Plan '+mName+'</button></div>';
+    return h;
+  }
+  // month milestone
+  var mr=D2.res.month||'';
+  h+='<div class="card" style="border:2px solid '+(mr==='hit'?'var(--green)':mr==='miss'?'var(--red)':'var(--gold)')+'">'
+   +'<div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.1em">🎯 '+mName.toUpperCase()+' MILESTONE</div>'
+   +'<div onclick="plGoal()" style="font-size:16px;font-weight:800;margin:6px 0 8px;cursor:pointer;line-height:1.35">'+(D2.goal?esc(D2.goal):'<span class="mut">Tap to set the milestone</span>')+'</div>'
+   +'<div class="sm mut">Hit it when all of these are done:</div>'
+   +D2.items.map(function(it){return plRow(it)}).join('')
+   +'<div class="row" style="gap:8px;margin-top:8px"><input id="pla_m" placeholder="Add a milestone requirement" style="flex:1;margin:0"><button class="btn mut" onclick="plAdd(\'m\')">+ Add</button></div>'
+   +plHitRow('month','Month result:')
+   +'<textarea placeholder="Month review: what happened, what I learned" style="margin-top:8px;min-height:60px;font-family:inherit" onchange="plNote(\'month\',this.value)">'+esc(D2.notes.month||'')+'</textarea>'
+   +'</div>';
+  // weeks
+  var t=today(),W=D2.weeks,cur=-1;
+  W.forEach(function(w,i){if(t>=w.wk&&t<=plWkEnd(w.wk))cur=i});
+  if(cur<0&&W.length&&t>plWkEnd(W[W.length-1].wk))cur=W.length-1;
+  W.forEach(function(w,i){
+    var isCur=(i===cur&&t>=w.wk&&t<=plWkEnd(w.wk));
+    var past=t>plWkEnd(w.wk);
+    var wr=D2.res[w.wk]||'';
+    var wd=w.items.filter(function(it){return D2.done.indexOf(it.id)>=0}).length;
+    var carried=[];
+    if(i===cur)W.slice(0,i).forEach(function(pw){pw.items.forEach(function(it){if(D2.done.indexOf(it.id)<0)carried.push({it:it,from:pw.wk})})});
+    h+='<div class="card" style="'+(isCur?'border:2px solid var(--gold)':past?'opacity:.8':'')+'">'
+     +'<div class="row"><div><div style="font-weight:800;font-size:15px">Week of '+plWkLbl(w.wk)+(isCur?'<span class="pill p-con">THIS WEEK</span>':'')+'</div>'
+     +'<div onclick="plFocus(\''+w.wk+'\')" class="sm" style="color:var(--gold);margin-top:3px;cursor:pointer">'+(w.focus?esc(w.focus):'<span class="mut">Tap to set the focus</span>')+'</div></div>'
+     +'<span class="sm" style="font-weight:800;color:'+(w.items.length&&wd>=w.items.length?'var(--green)':'var(--mut)')+'">'+wd+'/'+w.items.length+'</span></div>'
+     +carried.map(function(c){return plRow(c.it,'↪ carried from week of '+plWkLbl(c.from))}).join('')
+     +w.items.map(function(it){var moved=(i<cur&&D2.done.indexOf(it.id)<0);return moved?'<div class="sm mut" style="padding:8px 0;border-bottom:1px solid var(--line)">↪ '+esc(it.t)+' — carried to this week</div>':plRow(it)}).join('')
+     +'<div class="row" style="gap:8px;margin-top:8px"><input id="pla_'+w.wk+'" placeholder="Add to this week" style="flex:1;margin:0"><button class="btn mut" onclick="plAdd(\''+w.wk+'\')">+ Add</button></div>'
+     +(past||isCur?plHitRow(w.wk,'Week result:'):'')
+     +'<textarea placeholder="Notes for this week" style="margin-top:8px;min-height:44px;font-family:inherit" onchange="plNote(\''+w.wk+'\',this.value)">'+esc(D2.notes[w.wk]||'')+'</textarea>'
+     +'</div>';
+  });
+  return h;
+}
 var CKT={id:null,endAt:0,iv:null,day:''};
 (function(){try{var s=JSON.parse(localStorage.getItem('cp_ckt')||'null');if(s&&s.endAt>Date.now()){CKT.id=s.id;CKT.endAt=s.endAt;CKT.day=s.day||today();CKT.iv=setInterval(ckTimerTick,1000);}else if(s){localStorage.removeItem('cp_ckt');}}catch(e){}})();
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'&&CKT.id){clearInterval(CKT.iv);CKT.iv=setInterval(ckTimerTick,1000);ckTimerTick();}});
@@ -538,7 +684,7 @@ function render(){
    +'</div>';
 
   if(OWN_VIEW==='nic'){
-    var tabs=[['check','\u2705 Founder Checklist'],['me','\ud83c\udfaf ACQ REP NIC'],['mkt','\ud83d\udce3 Marketing'],['acq','\ud83d\udcde Acq'],['dispo','\ud83c\udff7 Dispo'],['funnel','\ud83c\udf0a Funnel'],['calc','\ud83e\uddee Calculator'],['money','\ud83d\udcb0 Money']];
+    var tabs=[['plan','\ud83d\ude82 Plan'],['check','\u2705 Founder Checklist'],['me','\ud83c\udfaf ACQ REP NIC'],['mkt','\ud83d\udce3 Marketing'],['acq','\ud83d\udcde Acq'],['dispo','\ud83c\udff7 Dispo'],['funnel','\ud83c\udf0a Funnel'],['calc','\ud83e\uddee Calculator'],['money','\ud83d\udcb0 Money']];
     h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+tabs.map(function(t){return '<button class="btn '+(NICTAB===t[0]?'g':'mut')+'" style="flex:1;min-width:96px;padding:8px 4px;font-size:13px" onclick="setNicTab(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')+'</div>';
 
     if(NICTAB==='mkt'){
@@ -746,6 +892,10 @@ function render(){
        +'</div>';
     }
 
+    if(NICTAB==='plan'){
+      if(PL.loaded!==PL.m){loadPL();h+='<div class="card sm mut">Loading plan\u2026</div>';}
+      else h+=plRender();
+    }
     if(NICTAB==='check'){
       if(CK.loaded!==CK.date){loadCK();h+='<div class="card sm mut">Loading checklist\u2026</div>';}
       else{
