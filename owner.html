@@ -292,9 +292,17 @@ async function loadPL(){
         if(it.sync==='contracts'){
           var rc=await db.from('acq_leads').select('id').gte('contracted_on',since).lt('contracted_on',nx);
           PL.sync[it.id]=(rc.data||[]).length;
+        }else if(it.sync==='assigned_fees'){
+          var raf=await db.from('stage_history').select('deal_id').eq('stage','EMD In').gte('entered_on',since).lt('entered_on',nx);
+          var ids={};(raf.data||[]).forEach(function(r){ids[r.deal_id]=1});
+          var idl=Object.keys(ids);
+          if(idl.length){
+            var rdl=await db.from('deals').select('id,fee_target').in('id',idl);
+            PL.sync[it.id]=(rdl.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
+          } else PL.sync[it.id]=0;
         }else if(it.sync==='generated'){
           var rg=await db.from('acq_leads').select('projected_profit').gte('contracted_on',since).lt('contracted_on',nx);
-          PL.sync[it.id]=(rg.data||[]).reduce(function(a,r){return a+(Number(r.projected_profit)||0)},0);
+          PL.sync[it.id]=Math.round((rg.data||[]).reduce(function(a,r){return a+(Number(r.projected_profit)||0)},0)*(Number(it.factor)||1));
         }else if(it.sync==='closed_rev'){
           var rv=await db.from('acq_leads').select('revenue_closed').gte('closed_on',since).lt('closed_on',nx);
           PL.sync[it.id]=(rv.data||[]).reduce(function(a,r){return a+(Number(r.revenue_closed)||0)},0);
@@ -305,7 +313,46 @@ async function loadPL(){
       }catch(e){}
     }
   }
+  PL.fx=null;
+  if(v&&v.items.some(function(it){return it.funnel&&it.funnel.length})){
+    var y1=+m.slice(0,4),m1=+m.slice(5,7),nx2=(m1===12?(y1+1)+'-01':y1+'-'+String(m1+1).padStart(2,'0'))+'-01',a1=m+'-01';
+    var F={};
+    try{
+      var rs=await db.from('master_monthly').select('spend,source,month').eq('month',m);
+      F.spend=(rs.data||[]).filter(function(r){return r.source==='meta'}).reduce(function(a,r){return a+(Number(r.spend)||0)},0);
+      var rl=await db.from('acq_leads').select('id').gte('created_at',a1).lt('created_at',nx2);F.leads=(rl.data||[]).length;
+      var ra=await db.from('acq_activity').select('rep,dials,convos').gte('on_date',a1).lt('on_date',nx2);
+      F.dials_nic=0;F.dials_bt=0;F.convos=0;
+      (ra.data||[]).forEach(function(r){
+        var d=Number(r.dials)||0;F.convos+=Number(r.convos)||0;
+        if(/bt|bendu/i.test(r.rep||''))F.dials_bt+=d;else F.dials_nic+=d;
+      });
+      var ro=await db.from('acq_offers').select('id').gte('offered_on',a1).lt('offered_on',nx2);F.offers=(ro.data||[]).length;
+      var rc=await db.from('acq_leads').select('rep,projected_profit').gte('contracted_on',a1).lt('contracted_on',nx2);
+      F.contracts=(rc.data||[]).length;F.contracts_bt=0;F.contracts_nic=0;F.projected=0;
+      (rc.data||[]).forEach(function(r){F.projected+=Number(r.projected_profit)||0;if(/bt|bendu/i.test(r.rep||''))F.contracts_bt++;else F.contracts_nic++});
+      var rsd=await db.from('sends').select('id').gte('sent_on',a1).lt('sent_on',nx2);F.sends=(rsd.data||[]).length;
+      var rsh=await db.from('showings').select('id').gte('shown_on',a1).lt('shown_on',nx2);F.walks=(rsh.data||[]).length;
+      var re=await db.from('stage_history').select('deal_id').eq('stage','EMD In').gte('entered_on',a1).lt('entered_on',nx2);
+      var u2={};(re.data||[]).forEach(function(r){u2[r.deal_id]=1});F.assigned=Object.keys(u2).length;
+    }catch(e){}
+    PL.fx=F;
+  }
   PL.data=v;PL.loaded=m;render();
+}
+function plFunnel(it){
+  if(!(it.funnel&&it.funnel.length)||!(PL.open&&PL.open[it.id]))return '';
+  var F=PL.fx||{};
+  var h='<div style="margin:8px 0 0 34px">';
+  it.funnel.forEach(function(r){
+    if(r.head){h+='<div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.08em;margin:10px 0 4px">'+esc(r.head)+'</div>';return;}
+    var av=Number(F[r.k]||0),tv=Number(r.t)||0,pc=tv?Math.min(100,Math.round(av*100/tv)):0;
+    var col=pc>=100?'var(--green)':pc>=60?'var(--gold)':'var(--mut)';
+    var f=function(x){return r.money?'$'+Math.round(x).toLocaleString():Math.round(x).toLocaleString()};
+    h+='<div style="padding:4px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><span>'+esc(r.label||r.k)+'</span><span style="font-weight:800;color:'+col+'">'+f(av)+' / '+f(tv)+'</span></div>'
+     +'<div style="height:5px;background:var(--bg);border-radius:3px;margin-top:3px;overflow:hidden"><div style="height:100%;width:'+pc+'%;background:'+col+'"></div></div></div>';
+  });
+  return h+'</div>';
 }
 function plProg(it){return (Number(it.base)||0)+(it.link?(PL.link&&PL.link[it.link]||0):0)+(it.sync?(PL.sync&&PL.sync[it.id]||0):0)}
 async function plBump(id,n){var f=plFind(id);if(!f)return;var it=f.arr[f.i];it.base=Math.max(0,(Number(it.base)||0)+n);render();await plSave();}
@@ -372,7 +419,7 @@ function plRow(it,tag){
      +'<div style="height:6px;background:var(--bg);border-radius:4px;margin:6px 0 0 34px;overflow:hidden"><div style="height:100%;width:'+pc+'%;background:'+(on?'var(--green)':'var(--gold)')+'"></div></div>'
      +''
      +''
-     +plHowBox(it,34)
+     +plFunnel(it)+plHowBox(it,34)
      +'</div>';
   }
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">'
