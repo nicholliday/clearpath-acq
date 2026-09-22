@@ -72,7 +72,7 @@ var db=supabase.createClient('https://voitbqpvynbvlibuzxbz.supabase.co','sb_publ
 var D={};
 var OWN_VIEW=localStorage.getItem('cp_own_view')||'nic';
 var NICTAB=localStorage.getItem('cp_nic_tab')||'funnel';if(NICTAB==='home')NICTAB='funnel';
-function setNicTab(t){NICTAB=t;localStorage.setItem('cp_nic_tab',t);render()}
+function setNicTab(t){NICTAB=t;if(t==='plan'&&typeof PL!=='undefined')PL.loaded='';localStorage.setItem('cp_nic_tab',t);render()}
 // Nic's personal plan (August sheet): daily 160 dials / 43 convos / 262m talk / 6 offers ; month 20 contracts / $400K
 var NETGOAL=Number(localStorage.getItem('cp_net_goal'))||50000;
 function saveNetGoal(){var v=Number(document.getElementById('ng_in').value)||0;if(v>0){NETGOAL=v;localStorage.setItem('cp_net_goal',v);render()}}
@@ -207,6 +207,8 @@ async function loadCK(){
 }
 function ckShowsOn(it,d){
   var dt=new Date(d+'T12:00:00');
+  if(it.from&&d<it.from)return false;
+  if(it.until&&d>it.until)return false;
   if(it.dow&&it.dow.length&&it.dow.indexOf(dt.getDay())<0)return false;
   if(it.dom&&it.dom.length)return it.dom.indexOf(dt.getDate())>=0;
   if(!it.every||it.every<2)return true;
@@ -218,9 +220,9 @@ var PL={m:today().slice(0,7),data:null,loaded:''};
 var PL_SEED={'2026-09':{
   goal:'A successful September: skills up, deals in, business audited + automated, taxes handled',
   items:[
-    {id:'m1',t:'7 hrs of Meta YouTube watched',how:'1 hr a day in the 9\u201310am Meta block, Sep 22\u201329. Pick the videos the night before.'},
-    {id:'m2',t:'6 contracts (Nic + BT)',how:'About 1 every 1.5 days between you. Both hit 6 offers a day. Follow up every offer from the last 30 days first. Check the combined count at the 8am meeting.'},
-    {id:'m3',t:'4 assignments from Devon',how:'Wednesday dispo meeting: pick the 4 live contracts most likely to assign. Each gets a buyer blast + walkthrough. Stuck 14+ days = price talk with the seller.'},
+    {id:'m1',t:'Meta training',target:7,unit:'hrs',base:1,link:'d_metatrain',how:'1 hr a day on the Founder Checklist (9:45\u201310:45am). Every day you check it off there counts 1 hr here.'},
+    {id:'m2',t:'Contracts (Nic + BT)',target:6,unit:'contracts',base:0,how:'About 1 every 1.5 days between you. Both hit 6 offers a day. Follow up every offer from the last 30 days first. Check the combined count at the 8am meeting.'},
+    {id:'m3',t:'Assignments from Devon',target:4,unit:'assignments',base:0,how:'Wednesday dispo meeting: pick the 4 live contracts most likely to assign. Each gets a buyer blast + walkthrough. Stuck 14+ days = price talk with the seller.'},
     {id:'m4',t:'Business automated with agents as much as needed',how:'Comes out of the audit: the manual work you repeat every day becomes the agents. Build the top 3 first.'},
     {id:'m5',t:'Claude audit of the entire business done + all changes made for October',how:'Block 2 hrs this week. Claude pulls the numbers from this app + the CRM, you add Meta screenshots. Change list by Sep 26, changes made Sep 28\u201330.'},
     {id:'m6',t:'CAD 2025 taxes handled',how:'Call the accountant this week, ask exactly what\u2019s missing, send it by Friday.'},
@@ -249,8 +251,17 @@ async function loadPL(){
   var v=await kvGet('plan_'+m);
   if(!v&&PL_SEED[m]){v=JSON.parse(JSON.stringify(PL_SEED[m]));await kvSet('plan_'+m,v);}
   if(v){v.items=v.items||[];v.weeks=v.weeks||[];v.done=v.done||[];v.notes=v.notes||{};v.res=v.res||{};}
+  PL.link={};
+  if(v&&v.items.some(function(it){return it.link})){
+    try{
+      var r=await db.from('owner_kv').select('key,value').like('key','ck3d_'+m+'%');
+      (r.data||[]).forEach(function(row){var a=[];try{a=JSON.parse(row.value)||[]}catch(e){}a.forEach(function(id){PL.link[id]=(PL.link[id]||0)+1})});
+    }catch(e){}
+  }
   PL.data=v;PL.loaded=m;render();
 }
+function plProg(it){return (Number(it.base)||0)+(it.link?(PL.link&&PL.link[it.link]||0):0)}
+async function plBump(id,n){var f=plFind(id);if(!f)return;var it=f.arr[f.i];it.base=Math.max(0,(Number(it.base)||0)+n);render();await plSave();}
 function plShift(n){var y=+PL.m.slice(0,4),mo=+PL.m.slice(5,7)-1+n;var d=new Date(y,mo,1);PL.m=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');PL.loaded='';render();}
 async function plSave(){if(PL.data)await kvSet('plan_'+PL.loaded,PL.data);}
 async function plStart(){
@@ -286,6 +297,19 @@ async function plNote(k,val){PL.data.notes[k]=val;await plSave();}
 async function plHit(k,val){PL.data.res[k]=(PL.data.res[k]===val?'':val);render();await plSave();}
 function plRow(it,tag){
   var on=PL.data.done.indexOf(it.id)>=0;
+  if(it.target){
+    var pv=plProg(it),pc=Math.min(100,Math.round(pv*100/it.target));on=pv>=it.target;
+    return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div style="display:flex;gap:10px;align-items:center">'
+     +'<div style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px">'+(on?'\u2713':'')+'</div>'
+     +'<div '+(it.how?'onclick="var q=document.getElementById(\'plh_'+it.id+'\');q.style.display=q.style.display===\'none\'?\'block\':\'none\'" ':'')+'style="flex:1;font-size:14px;cursor:pointer">'+esc(it.t)+' <b style="color:'+(on?'var(--green)':'var(--gold)')+'">'+pv+' / '+it.target+' '+esc(it.unit||'')+'</b>'+(it.how?' <span class="sm" style="color:var(--gold)">\u25be how</span>':'')+'</div>'
+     +'<button class="btn mut" style="padding:4px 10px;margin:0" onclick="plBump(\''+it.id+'\',-1)">\u2212</button>'
+     +'<button class="btn mut" style="padding:4px 10px;margin:0" onclick="plBump(\''+it.id+'\',1)">+</button>'
+     +'<span onclick="plEdit(\''+it.id+'\')" class="sm mut" style="cursor:pointer;padding:2px 4px">\u270e</span></div>'
+     +'<div style="height:6px;background:var(--bg);border-radius:4px;margin:6px 0 0 34px;overflow:hidden"><div style="height:100%;width:'+pc+'%;background:'+(on?'var(--green)':'var(--gold)')+'"></div></div>'
+     +(it.link?'<div class="sm mut" style="margin:4px 0 0 34px">'+(PL.link&&PL.link[it.link]||0)+' from Founder Checklist'+(it.base?' + '+it.base+' added here':'')+'</div>':'')
+     +(it.how?'<div id="plh_'+it.id+'" class="sm mut" style="display:none;margin:5px 0 0 34px;line-height:1.45">'+esc(it.how)+'</div>':'')
+     +'</div>';
+  }
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">'
    +'<div onclick="plToggle(\''+it.id+'\')" style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">'+(on?'✓':'')+'</div>'
    +'<div '+(it.how?'onclick="var q=document.getElementById(\'plh_'+it.id+'\');q.style.display=q.style.display===\'none\'?\'block\':\'none\'" ':'')+'style="flex:1;font-size:14px;line-height:1.35;padding-top:2px;'+(it.how?'cursor:pointer;':'')+(on?'text-decoration:line-through;color:var(--mut)':'')+'">'+esc(it.t)+(it.how?' <span class="sm" style="color:var(--gold)">\u25be how</span><div id="plh_'+it.id+'" class="sm mut" style="display:none;margin-top:5px;line-height:1.45;text-decoration:none">'+esc(it.how)+'</div>':'')+(tag?'<div class="sm" style="color:var(--amber);margin-top:2px">'+tag+'</div>':'')+'</div>'
@@ -305,7 +329,7 @@ function plRender(){
    +'<div class="sm mut" style="margin-top:4px;line-height:1.45">The team, family and my future wife are all on this train. This is where it’s going, one month at a time.</div></div>';
   var D2=PL.data;
   var tot=0,dn=0;
-  if(D2){[D2.items].concat(D2.weeks.map(function(w){return w.items})).forEach(function(a){a.forEach(function(it){tot++;if(D2.done.indexOf(it.id)>=0)dn++})});}
+  if(D2){[D2.items].concat(D2.weeks.map(function(w){return w.items})).forEach(function(a){a.forEach(function(it){tot++;if(it.target?plProg(it)>=it.target:D2.done.indexOf(it.id)>=0)dn++})});}
   h+='<div class="card"><div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">'
    +'<button class="btn mut" onclick="plShift(-1)">◀</button>'
    +'<span style="font-weight:800;font-size:15px;padding:6px 12px;border:1px solid var(--line);border-radius:10px">'+mName+' '+y+'</span>'
