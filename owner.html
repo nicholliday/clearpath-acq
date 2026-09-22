@@ -45,6 +45,8 @@ th:first-child,td:first-child{text-align:left}
 th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 .help{position:fixed;right:16px;bottom:74px;z-index:90;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#D4AF37,#E8C55A);color:#101828;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(212,175,55,.45)}
 #lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+.ckhow:empty:before{content:attr(data-ph);color:var(--gold);opacity:.55}
+.ckhow:focus{background:var(--card2);border-radius:6px;padding:6px;color:var(--text)}
 .mut{color:var(--mut)}.sm{font-size:11px}.warn{color:var(--red);font-size:11px;font-weight:700}
 
 /* owner-app extras */
@@ -221,8 +223,8 @@ var PL_SEED={'2026-09':{
   goal:'A successful September: skills up, deals in, business audited + automated, taxes handled',
   items:[
     {id:'m1',t:'Meta training',target:7,unit:'hrs',base:1,link:'d_metatrain',how:'1 hr a day on the Founder Checklist (9:45\u201310:45am). Every day you check it off there counts 1 hr here.'},
-    {id:'m2',t:'Contracts (Nic + BT)',target:6,unit:'contracts',base:0,how:'About 1 every 1.5 days between you. Both hit 6 offers a day. Follow up every offer from the last 30 days first. Check the combined count at the 8am meeting.'},
-    {id:'m3',t:'Assignments from Devon',target:4,unit:'assignments',base:0,how:'Wednesday dispo meeting: pick the 4 live contracts most likely to assign. Each gets a buyer blast + walkthrough. Stuck 14+ days = price talk with the seller.'},
+    {id:'m2',t:'Contracts (Nic + BT)',target:6,unit:'contracts',base:0,sync:'contracts',since:'2026-09-21',how:'About 1 every 1.5 days between you. Both hit 6 offers a day. Follow up every offer from the last 30 days first. Check the combined count at the 8am meeting.'},
+    {id:'m3',t:'Assignments from Devon',target:4,unit:'assignments',base:0,sync:'assigned',since:'2026-09-21',how:'Wednesday dispo meeting: pick the 4 live contracts most likely to assign. Each gets a buyer blast + walkthrough. Stuck 14+ days = price talk with the seller.'},
     {id:'m4',t:'Business automated with agents as much as needed',how:'Comes out of the audit: the manual work you repeat every day becomes the agents. Build the top 3 first.'},
     {id:'m5',t:'Claude audit of the entire business done + all changes made for October',how:'Block 2 hrs this week. Claude pulls the numbers from this app + the CRM, you add Meta screenshots. Change list by Sep 26, changes made Sep 28\u201330.'},
     {id:'m6',t:'CAD 2025 taxes handled',how:'Call the accountant this week, ask exactly what\u2019s missing, send it by Friday.'},
@@ -258,9 +260,26 @@ async function loadPL(){
       (r.data||[]).forEach(function(row){var a=[];try{a=JSON.parse(row.value)||[]}catch(e){}a.forEach(function(id){PL.link[id]=(PL.link[id]||0)+1})});
     }catch(e){}
   }
+  PL.sync={};
+  if(v&&v.items.some(function(it){return it.sync})){
+    var y0=+m.slice(0,4),m0=+m.slice(5,7),nx=(m0===12?(y0+1)+'-01':y0+'-'+String(m0+1).padStart(2,'0'))+'-01';
+    for(var i=0;i<v.items.length;i++){
+      var it=v.items[i];if(!it.sync)continue;
+      var since=it.since||(m+'-01');
+      try{
+        if(it.sync==='contracts'){
+          var rc=await db.from('acq_leads').select('id').gte('contracted_on',since).lt('contracted_on',nx);
+          PL.sync[it.id]=(rc.data||[]).length;
+        }else if(it.sync==='assigned'){
+          var ra=await db.from('stage_history').select('deal_id').eq('stage','EMD In').gte('entered_on',since).lt('entered_on',nx);
+          var u={};(ra.data||[]).forEach(function(r){u[r.deal_id]=1});PL.sync[it.id]=Object.keys(u).length;
+        }
+      }catch(e){}
+    }
+  }
   PL.data=v;PL.loaded=m;render();
 }
-function plProg(it){return (Number(it.base)||0)+(it.link?(PL.link&&PL.link[it.link]||0):0)}
+function plProg(it){return (Number(it.base)||0)+(it.link?(PL.link&&PL.link[it.link]||0):0)+(it.sync?(PL.sync&&PL.sync[it.id]||0):0)}
 async function plBump(id,n){var f=plFind(id);if(!f)return;var it=f.arr[f.i];it.base=Math.max(0,(Number(it.base)||0)+n);render();await plSave();}
 function plShift(n){var y=+PL.m.slice(0,4),mo=+PL.m.slice(5,7)-1+n;var d=new Date(y,mo,1);PL.m=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');PL.loaded='';render();}
 async function plSave(){if(PL.data)await kvSet('plan_'+PL.loaded,PL.data);}
@@ -295,24 +314,33 @@ async function plFocus(wk){
 }
 async function plNote(k,val){PL.data.notes[k]=val;await plSave();}
 async function plHit(k,val){PL.data.res[k]=(PL.data.res[k]===val?'':val);render();await plSave();}
+function plHowT(id){PL.open=PL.open||{};PL.open[id]=!PL.open[id];render();if(PL.open[id]){var t=document.getElementById('plh_'+id);if(t&&!t.value)t.focus();}}
+async function plHowSet(id,val){var f=plFind(id);if(!f)return;f.arr[f.i].how=val;await plSave();}
+function plHowLbl(it){return ' <span class="sm" style="color:var(--gold);white-space:nowrap">'+(it.how?'\u25be how':'+ how')+'</span>'}
+function plHowBox(it,ml){
+  if(!(PL.open&&PL.open[it.id]))return '';
+  var n=Math.max(3,Math.min(14,String(it.how||'').split('\n').length+Math.ceil(String(it.how||'').length/60)));
+  return '<textarea id="plh_'+it.id+'" rows="'+n+'" placeholder="Type the how-to, steps, names, numbers\u2026" onclick="event.stopPropagation()" onchange="plHowSet(\''+it.id+'\',this.value)" style="display:block;margin:6px 0 0 '+(ml||0)+'px;width:calc(100% - '+(ml||0)+'px);font-family:inherit;font-size:13px;line-height:1.45">'+esc(it.how||'')+'</textarea>';
+}
 function plRow(it,tag){
   var on=PL.data.done.indexOf(it.id)>=0;
   if(it.target){
     var pv=plProg(it),pc=Math.min(100,Math.round(pv*100/it.target));on=pv>=it.target;
     return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div style="display:flex;gap:10px;align-items:center">'
      +'<div style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px">'+(on?'\u2713':'')+'</div>'
-     +'<div '+(it.how?'onclick="var q=document.getElementById(\'plh_'+it.id+'\');q.style.display=q.style.display===\'none\'?\'block\':\'none\'" ':'')+'style="flex:1;font-size:14px;cursor:pointer">'+esc(it.t)+' <b style="color:'+(on?'var(--green)':'var(--gold)')+'">'+pv+' / '+it.target+' '+esc(it.unit||'')+'</b>'+(it.how?' <span class="sm" style="color:var(--gold)">\u25be how</span>':'')+'</div>'
-     +'<button class="btn mut" style="padding:4px 10px;margin:0" onclick="plBump(\''+it.id+'\',-1)">\u2212</button>'
-     +'<button class="btn mut" style="padding:4px 10px;margin:0" onclick="plBump(\''+it.id+'\',1)">+</button>'
+     +'<div onclick="plHowT(\''+it.id+'\')" style="flex:1;font-size:14px;cursor:pointer">'+esc(it.t)+' <b style="color:'+(on?'var(--green)':'var(--gold)')+'">'+pv+' / '+it.target+' '+esc(it.unit||'')+'</b>'+plHowLbl(it)+'</div>'
+     +(it.sync?'':'<button class="btn mut" style="padding:4px 10px;margin:0" onclick="plBump(\''+it.id+'\',-1)">\u2212</button>'
+     +'<button class="btn mut" style="padding:4px 10px;margin:0" onclick="plBump(\''+it.id+'\',1)">+</button>')
      +'<span onclick="plEdit(\''+it.id+'\')" class="sm mut" style="cursor:pointer;padding:2px 4px">\u270e</span></div>'
      +'<div style="height:6px;background:var(--bg);border-radius:4px;margin:6px 0 0 34px;overflow:hidden"><div style="height:100%;width:'+pc+'%;background:'+(on?'var(--green)':'var(--gold)')+'"></div></div>'
+     +(it.sync?'<div class="sm mut" style="margin:4px 0 0 34px">\u26a1 Auto from the '+(it.sync==='contracts'?'Acq app (contracted on)':'Dispo tracker (EMD In)')+' since '+esc(ckDateLbl(it.since||PL.loaded+'-01'))+'</div>':'')
      +(it.link?'<div class="sm mut" style="margin:4px 0 0 34px">'+(PL.link&&PL.link[it.link]||0)+' from Founder Checklist'+(it.base?' + '+it.base+' added here':'')+'</div>':'')
-     +(it.how?'<div id="plh_'+it.id+'" class="sm mut" style="display:none;margin:5px 0 0 34px;line-height:1.45">'+esc(it.how)+'</div>':'')
+     +plHowBox(it,34)
      +'</div>';
   }
   return '<div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)">'
    +'<div onclick="plToggle(\''+it.id+'\')" style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">'+(on?'✓':'')+'</div>'
-   +'<div '+(it.how?'onclick="var q=document.getElementById(\'plh_'+it.id+'\');q.style.display=q.style.display===\'none\'?\'block\':\'none\'" ':'')+'style="flex:1;font-size:14px;line-height:1.35;padding-top:2px;'+(it.how?'cursor:pointer;':'')+(on?'text-decoration:line-through;color:var(--mut)':'')+'">'+esc(it.t)+(it.how?' <span class="sm" style="color:var(--gold)">\u25be how</span><div id="plh_'+it.id+'" class="sm mut" style="display:none;margin-top:5px;line-height:1.45;text-decoration:none">'+esc(it.how)+'</div>':'')+(tag?'<div class="sm" style="color:var(--amber);margin-top:2px">'+tag+'</div>':'')+'</div>'
+   +'<div style="flex:1;font-size:14px;line-height:1.35;padding-top:2px"><span onclick="plHowT(\''+it.id+'\')" style="cursor:pointer;'+(on?'text-decoration:line-through;color:var(--mut)':'')+'">'+esc(it.t)+plHowLbl(it)+'</span>'+plHowBox(it)+(tag?'<div class="sm" style="color:var(--amber);margin-top:2px">'+tag+'</div>':'')+'</div>'
    +'<span onclick="plEdit(\''+it.id+'\')" class="sm mut" style="cursor:pointer;padding:2px 4px">✎</span>'
    +'</div>';
 }
@@ -485,6 +513,13 @@ async function ckHowEdit(id){
   var v=prompt('How-to / playbook for this task:',f.it.how||'');
   if(v===null)return;
   f.it.how=v.trim();render();
+  await kvSet(f.src==='one'?'ck3o_'+CK.date:'ck_tpl3',f.src==='one'?CK.oneoff:CK.tpl);
+}
+async function ckHowSave(id,txt){
+  var f=ckItem(id);if(!f)return;
+  txt=String(txt||'').replace(/\u00a0/g,' ').replace(/\s+$/,'');
+  if(txt===(f.it.how||''))return;
+  f.it.how=txt;
   await kvSet(f.src==='one'?'ck3o_'+CK.date:'ck_tpl3',f.src==='one'?CK.oneoff:CK.tpl);
 }
 function ckHowToggle(id){var q=document.getElementById('how_'+id);if(q)q.style.display=q.style.display==='none'?'block':'none';}
@@ -1004,7 +1039,7 @@ function render(){
            +'<div style="display:flex;align-items:center;gap:10px">'
            +'<div onclick="ckToggle(\''+scope+'\',\''+it.id+'\')" style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':'var(--line)')+';background:'+(on?'var(--green)':'transparent')+';color:#0B1220;font-weight:900;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">'+(on?'\u2713':'')+'</div>'
            +(scope==='daily'?'<button class="btn mut" style="padding:4px 2px;font-size:10px;white-space:nowrap;width:96px;min-width:96px;overflow:hidden;text-overflow:ellipsis;text-align:center;box-sizing:border-box" onclick="ckTime(\''+it.id+'\')">'+(it.time?esc(it.time):'\u23f0')+'</button>'+(function(){var du=ckDur(it.time);if(!du)return '<span style="width:76px;min-width:76px;display:inline-block"></span>';if(CKT.id===it.id&&CKT.day===CK.date)return '<button class="btn" style="padding:4px 0;font-size:10px;width:76px;min-width:76px;text-align:center;box-sizing:border-box;overflow:hidden;background:var(--gold);color:#0B1220;font-weight:800" onclick="ckTimer(\''+it.id+'\','+du+')"><span id="tmr_'+it.id+'">'+ckDurLbl(du)+'</span> \u25a0</button>';return '<button class="btn mut" style="padding:4px 0;font-size:10px;width:76px;min-width:76px;text-align:center;box-sizing:border-box" onclick="ckTimer(\''+it.id+'\','+du+')">\u25b6 '+ckDurLbl(du)+'</button>'})():'<span style="width:182px;min-width:182px;text-align:center;font-size:9px;letter-spacing:.06em;font-weight:800;color:'+(scope==='weekly'?'var(--gold)':'#7FB2FF')+';border:1px solid var(--line);border-radius:8px;padding:5px 4px;box-sizing:border-box">'+(scope==='weekly'?'WEEK':'MONTH')+'</span>')
-           +'<div style="flex:1;font-size:13px;font-weight:700;'+(on?'color:var(--mut);text-decoration:line-through':'')+'">'+(x.one?'\ud83d\udccc ':'')+(x.plan?'<span style="min-width:40px;display:inline-block">'+esc(it.t)+'</span>':'<span contenteditable="true" onblur="ckRename(\''+it.id+'\',this.innerText,\''+scope+'\')" style="outline:none;min-width:40px;display:inline-block">'+esc(it.t)+'</span>')+((scope==='daily'&&!x.one&&CK.istreak&&CK.istreak[it.id]>=2)?' <span style="font-size:11px;color:#FF9D42;font-weight:800">\ud83d\udd25'+CK.istreak[it.id]+'</span>':'')+(it.url?' <a href="'+esc(it.url)+'" target="_blank" style="color:#7FB2FF;text-decoration:none;font-size:12px">\u2197 open</a>':'')+(it.how?'<div class="sm mut" style="font-weight:500;margin-top:3px;white-space:pre-wrap">'+esc(it.how)+'</div>':'')
+           +'<div style="flex:1;font-size:13px;font-weight:700;'+(on?'color:var(--mut);text-decoration:line-through':'')+'">'+(x.one?'\ud83d\udccc ':'')+(x.plan?'<span style="min-width:40px;display:inline-block">'+esc(it.t)+'</span>':'<span contenteditable="true" onblur="ckRename(\''+it.id+'\',this.innerText,\''+scope+'\')" style="outline:none;min-width:40px;display:inline-block">'+esc(it.t)+'</span>')+((scope==='daily'&&!x.one&&CK.istreak&&CK.istreak[it.id]>=2)?' <span style="font-size:11px;color:#FF9D42;font-weight:800">\ud83d\udd25'+CK.istreak[it.id]+'</span>':'')+(it.url?' <a href="'+esc(it.url)+'" target="_blank" style="color:#7FB2FF;text-decoration:none;font-size:12px">\u2197 open</a>':'')+(x.plan?(it.how?'<div class="sm mut" style="font-weight:500;margin-top:3px;white-space:pre-wrap">'+esc(it.how)+'</div>':''):'<div contenteditable="true" class="sm mut ckhow" data-ph="+ how / notes" onblur="ckHowSave(\''+it.id+'\',this.innerText)" style="font-weight:500;margin-top:3px;white-space:pre-wrap;outline:none;cursor:text;min-height:14px">'+esc(it.how||'')+'</div>')
            +'</div>'
            +(x.plan?'':'<span onclick="'+delFn+'" style="color:var(--red);cursor:pointer;padding:0 4px">\u2715</span>')
            +'</div>'
