@@ -301,7 +301,7 @@ async function loadPL(){
             PL.sync[it.id]=(rdl.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
           } else PL.sync[it.id]=0;
         }else if(it.sync==='locked_fees'){
-          var rlf=await db.from('deals').select('fee_target').gte('contract_date',since).lt('contract_date',nx);
+          var rlf=await db.from('deals').select('fee_target').gte('created_at',since).lt('created_at',nx);
           PL.sync[it.id]=(rlf.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
         }else if(it.sync==='generated'){
           var rg=await db.from('acq_leads').select('projected_profit').gte('contracted_on',since).lt('contracted_on',nx);
@@ -334,7 +334,7 @@ async function loadPL(){
       var rc=await db.from('acq_leads').select('rep,projected_profit').gte('contracted_on',a1).lt('contracted_on',nx2);
       F.contracts=(rc.data||[]).length;F.contracts_bt=0;F.contracts_nic=0;F.projected=0;
       (rc.data||[]).forEach(function(r){F.projected+=Number(r.projected_profit)||0;if(/bt|bendu/i.test(r.rep||''))F.contracts_bt++;else F.contracts_nic++});
-      var rdf=await db.from('deals').select('fee_target').gte('contract_date',a1).lt('contract_date',nx2);
+      var rdf=await db.from('deals').select('fee_target').gte('created_at',a1).lt('created_at',nx2);
       F.locked_fees=(rdf.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
       var rsd=await db.from('sends').select('id').gte('sent_on',a1).lt('sent_on',nx2);F.sends=(rsd.data||[]).length;
       var rsh=await db.from('showings').select('id').gte('shown_on',a1).lt('shown_on',nx2);F.walks=(rsh.data||[]).length;
