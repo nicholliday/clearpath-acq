@@ -371,7 +371,7 @@ function plRow(it,tag){
      +'<span onclick="plEdit(\''+it.id+'\')" class="sm mut" style="cursor:pointer;padding:2px 4px">\u270e</span></div>'
      +'<div style="height:6px;background:var(--bg);border-radius:4px;margin:6px 0 0 34px;overflow:hidden"><div style="height:100%;width:'+pc+'%;background:'+(on?'var(--green)':'var(--gold)')+'"></div></div>'
      +''
-     +(it.link?'<div class="sm mut" style="margin:4px 0 0 34px">'+(PL.link&&PL.link[it.link]||0)+' from Founder Checklist'+(it.base?' + '+it.base+' added here':'')+'</div>':'')
+     +''
      +plHowBox(it,34)
      +'</div>';
   }
