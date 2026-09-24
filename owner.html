@@ -359,7 +359,7 @@ function plFunnel(it){
   });
   return h+'</div>';
 }
-function plProg(it){return (Number(it.base)||0)+(it.link?(PL.link&&PL.link[it.link]||0):0)+(it.sync?(PL.sync&&PL.sync[it.id]||0):0)}
+function plProg(it){return (Number(it.base)||0)+(it.link?(PL.link&&PL.link[it.link]||0)*(Number(it.per)||1):0)+(it.sync?(PL.sync&&PL.sync[it.id]||0):0)}
 async function plBump(id,n){var f=plFind(id);if(!f)return;var it=f.arr[f.i];it.base=Math.max(0,(Number(it.base)||0)+n);render();await plSave();}
 function plShift(n){var y=+PL.m.slice(0,4),mo=+PL.m.slice(5,7)-1+n;var d=new Date(y,mo,1);PL.m=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');PL.loaded='';render();}
 async function plSave(){if(PL.data)await kvSet('plan_'+PL.loaded,PL.data);}
