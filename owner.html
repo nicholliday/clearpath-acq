@@ -479,7 +479,7 @@ function plRender(){
        var rows=D2.items.filter(function(it){return it.sec===sc});
        var sdone=rows.filter(function(it){return it.target?plProg(it)>=it.target:D2.done.indexOf(it.id)>=0}).length;
        out+='<div class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">'+(ICONS[sc]||'\u2b50')+' '+esc(sc)+'</h2><span class="sm" style="font-weight:800;color:'+(rows.length&&sdone>=rows.length?'var(--green)':'var(--mut)')+'">'+sdone+'/'+rows.length+'</span></div>'
-        +rows.map(function(it){return plRow(it)}).join('')
+        +(function(){var o='',g=null;rows.forEach(function(it){if((it.grp||'')!==g){g=it.grp||'';if(g)o+='<div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.08em;margin:12px 0 2px">'+esc(g.toUpperCase())+'</div>';}o+=plRow(it);});return o;})()
         +'<div class="row" style="gap:8px;margin-top:8px"><input id="pla_m::'+esc(sc)+'" placeholder="Add to '+esc(sc)+'" style="flex:1;margin:0;font-size:13px"><button class="btn mut" onclick="plAdd(\'m::'+esc(sc)+'\')">+</button></div></div>';
      });
      if(loose.length)out+='<div class="card"><h2>\u2b50 Other</h2>'+loose.map(function(it){return plRow(it)}).join('')+'</div>';
