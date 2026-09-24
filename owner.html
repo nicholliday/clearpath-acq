@@ -305,7 +305,7 @@ async function loadPL(){
           PL.sync[it.id]=(rlf.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
         }else if(it.sync==='generated'){
           var rg=await db.from('acq_leads').select('projected_profit').gte('contracted_on',since).lt('contracted_on',nx);
-          PL.sync[it.id]=Math.round((rg.data||[]).reduce(function(a,r){return a+(Number(r.projected_profit)||0)},0)*(Number(it.factor)||1));
+          PL.sync[it.id]=(rg.data||[]).reduce(function(a,r){return a+(Number(r.projected_profit)||0)},0);
         }else if(it.sync==='closed_rev'){
           var rv=await db.from('acq_leads').select('revenue_closed').gte('closed_on',since).lt('closed_on',nx);
           PL.sync[it.id]=(rv.data||[]).reduce(function(a,r){return a+(Number(r.revenue_closed)||0)},0);
@@ -314,6 +314,7 @@ async function loadPL(){
           var u={};(ra.data||[]).forEach(function(r){u[r.deal_id]=1});PL.sync[it.id]=Object.keys(u).length;
         }
       }catch(e){}
+      if(it.factor&&PL.sync[it.id]!=null)PL.sync[it.id]=Math.round(PL.sync[it.id]*Number(it.factor));
     }
   }
   PL.fx=null;
