@@ -565,6 +565,7 @@ function logContractQuick(){
    +'<label>Seller name</label><input id="qc_name">'
    +'<label>Contract price ($)</label><input id="qc_price" type="number">'
    +'<label>Contracted on</label><input id="qc_date" type="date" value="'+today()+'">'
+   +'<label>Deal type</label><select id="qc_type"><option>Cash</option><option>Novation</option><option>Sub-To</option><option>Seller Finance</option><option>Hybrid</option><option>Wrap</option></select>'
    +'<label style="display:flex;align-items:center;gap:8px;margin-top:6px"><input id="qc_dispo" type="checkbox" checked style="width:auto"> Send to Dispo command center</label>'
    +'<button class="btn gr big" onclick="saveContractQuick()">Lock it \uD83C\uDF89</button>'
    +'<button class="btn mut" onclick="closeModal()">Cancel</button>';
@@ -578,13 +579,14 @@ async function saveContractQuick(){
   var price=Number(document.getElementById('qc_price').value)||null;
   var don=document.getElementById('qc_date').value||today();
   var toDispo=document.getElementById('qc_dispo').checked;
-  var ins={name:nm,address:addr,rep:rep,stage:'Under Contract',source:'GHL',contract_price:price,contracted_on:don};
+  var dtype=(document.getElementById('qc_type')||{}).value||'Cash';
+  var ins={name:nm,address:addr,rep:rep,stage:'Under Contract',source:'GHL',contract_price:price,contracted_on:don,deal_type:dtype};
   var l=await db.from('acq_leads').insert(ins).select();
   if(l.error)return alert(l.error.message);
   if(toDispo){
     var chk=await db.from('deals').select('id').ilike('address','%'+addr.slice(0,12)+'%');
     if(!(chk.data&&chk.data.length)){
-      var d=await db.from('deals').insert({address:addr,seller_name:nm,stage:'Waiting On Photos',deal_type:'Cash',contract_price:price,contract_date:don}).select();
+      var d=await db.from('deals').insert({address:addr,seller_name:nm,stage:'Waiting On Photos',deal_type:dtype,contract_price:price,contract_date:don}).select();
       if(!d.error&&d.data&&d.data[0])await db.from('acq_leads').update({sent_to_dispo:true,deal_id:d.data[0].id}).eq('id',l.data[0].id);
     }
   }
@@ -669,13 +671,16 @@ async function addOffer(id){
 async function sendToDispo(id){
   var l=D.leads.find(function(x){return x.id===id});if(!l)return;
   if(!l.address){alert('Add the property address first (✏️ Edit details).');return}
-  if(!confirm('Send '+l.address+' into the Dispo command center as a new deal?'))return;
+  var TYPES=['Cash','Novation','Sub-To','Seller Finance','Hybrid','Wrap'];
+  var pick=prompt('Send '+l.address+' to Dispo.\nDeal type: 1 Cash · 2 Novation · 3 Sub-To · 4 Seller Finance · 5 Hybrid · 6 Wrap',String(TYPES.indexOf(l.deal_type||'Cash')+1||1));
+  if(pick===null)return;
+  var dtype=TYPES[(parseInt(pick,10)||1)-1]||'Cash';
   var chk=await db.from('deals').select('id').ilike('address','%'+l.address.slice(0,12)+'%');
   if(chk.data&&chk.data.length){alert('A deal with a similar address already exists in Dispo — check there first.');return}
-  var r=await db.from('deals').insert({address:l.address,seller_name:l.name||null,stage:'Waiting On Photos',deal_type:'Cash',contract_price:l.contract_price||null,contract_date:l.contracted_on||today(),market:l.market||null}).select();
+  var r=await db.from('deals').insert({address:l.address,seller_name:l.name||null,stage:'Waiting On Photos',deal_type:dtype,contract_price:l.contract_price||null,contract_date:l.contracted_on||today(),market:l.market||null}).select();
   if(r.error)return alert(r.error.message);
   var did=(r.data&&r.data[0])?r.data[0].id:null;
-  await db.from('acq_leads').update({sent_to_dispo:true,deal_id:did}).eq('id',id);
+  await db.from('acq_leads').update({sent_to_dispo:true,deal_id:did,deal_type:dtype}).eq('id',id);
   alert('🚀 Deal is live in the Dispo pipeline — Reid takes it from here.');
   closeModal();loadAll();
 }
