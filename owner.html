@@ -300,6 +300,9 @@ async function loadPL(){
             var rdl=await db.from('deals').select('id,fee_target').in('id',idl);
             PL.sync[it.id]=(rdl.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
           } else PL.sync[it.id]=0;
+        }else if(it.sync==='creative'){
+          var rcv=await db.from('acq_leads').select('deal_type').gte('contracted_on',since).lt('contracted_on',nx);
+          PL.sync[it.id]=(rcv.data||[]).filter(function(r){return /sub|seller|hybrid|wrap|creative/i.test(r.deal_type||'')}).length;
         }else if(it.sync==='locked_fees'){
           var rlf=await db.from('deals').select('fee_target').gte('created_at',since).lt('created_at',nx);
           PL.sync[it.id]=(rlf.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
