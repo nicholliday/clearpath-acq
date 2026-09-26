@@ -231,6 +231,24 @@ async function ckCarryOver(stamp){
     }
     if(moved)await kvSet('ck3o_'+stamp,CK.oneoff);
   }catch(e){}
+  // unfinished plan items (plan_nic_<day>) from earlier days move onto today as one-offs
+  try{
+    var r2=await db.from('owner_kv').select('key,value').like('key','plan_nic_%');
+    var rows2=(r2.data||[]).map(function(x){return {d:x.key.slice(9),v:(function(){try{return JSON.parse(x.value)||[]}catch(e){return []}})()}})
+      .filter(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x.d)&&x.d<stamp&&Array.isArray(x.v)&&x.v.length});
+    var have2={};CK.oneoff.forEach(function(it){have2[it.id]=1});
+    var moved2=false;
+    for(var j=0;j<rows2.length;j++){
+      var day2=rows2[j].d,list2=rows2[j].v;
+      var dn2=(await kvGet('ck3d_'+day2))||[];
+      var stay2=[],go2=[];
+      list2.forEach(function(it,ix){ if(!it.id)it.id='plan_'+day2.replace(/-/g,'')+'_x'+ix; (dn2.indexOf(it.id)>=0?stay2:go2).push(it) });
+      if(!go2.length)continue;
+      go2.forEach(function(it){ if(!have2[it.id]){ it.from=it.from||day2; CK.oneoff.push(it); have2[it.id]=1; moved2=true; } });
+      await kvSet('plan_nic_'+day2,stay2);
+    }
+    if(moved2)await kvSet('ck3o_'+stamp,CK.oneoff);
+  }catch(e){}
 }
 function ckShowsOn(it,d){
   var dt=new Date(d+'T12:00:00');
