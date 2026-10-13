@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Clear Path — Deal panel for GHL
 // @namespace    clearpath
-// @version      1.1.0
+// @version      1.2.0
 // @description  Adds a DEAL button on the right side of GHL lead and contact pages with the ACQ DEAL fields in one clean panel.
 // @match        https://spark.magnyfi.com/*
 // @match        https://app.gohighlevel.com/*
@@ -20,14 +20,17 @@
   const css = `
   #cp-deal-btn{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:2147483000;background:#111827;color:#fff;font:700 16px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;writing-mode:vertical-rl;padding:22px 14px;border-radius:10px 0 0 10px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);user-select:none}
   #cp-deal-btn:hover{background:#1f2937}
-  #cp-deal{position:fixed;top:0;right:0;height:100vh;width:600px;max-width:95vw;background:#fff;z-index:2147483001;box-shadow:-6px 0 24px rgba(0,0,0,.18);display:flex;flex-direction:column;font:15px/1.5 Inter,system-ui,sans-serif;color:#111827;transform:translateX(100%);transition:transform .18s ease}
+  #cp-deal{position:fixed;top:0;right:0;height:100vh;width:840px;max-width:95vw;background:#fff;z-index:2147483001;box-shadow:-6px 0 24px rgba(0,0,0,.18);display:flex;flex-direction:column;font:16px/1.5 Inter,system-ui,sans-serif;color:#111827;transform:translateX(100%);transition:transform .18s ease}
   #cp-deal.open{transform:translateX(0)}
+  #cp-deal.drag{transition:none;user-select:none}
+  #cp-deal .grip{position:absolute;left:0;top:0;bottom:0;width:10px;cursor:ew-resize;background:transparent;z-index:5}
+  #cp-deal .grip:hover,#cp-deal.drag .grip{background:#2563eb33}
   #cp-deal header{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px}
   #cp-deal header b{font-size:15px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #cp-deal header button{border:0;background:transparent;font-size:20px;cursor:pointer;color:#6b7280;line-height:1}
   #cp-deal .body{padding:12px 16px 90px;overflow:auto;flex:1}
-  #cp-deal label{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin:12px 0 4px}
-  #cp-deal input,#cp-deal textarea,#cp-deal select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:8px 10px;font:inherit;color:#111827;background:#fff}
+  #cp-deal label{display:block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin:12px 0 4px}
+  #cp-deal input,#cp-deal textarea,#cp-deal select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;font:inherit;color:#111827;background:#fff}
   #cp-deal textarea{resize:none;overflow:hidden;min-height:60px}
   #cp-deal input:focus,#cp-deal textarea:focus,#cp-deal select:focus{outline:2px solid #2563eb;border-color:transparent}
   #cp-deal footer{position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;gap:10px}
@@ -117,7 +120,15 @@
     btn = document.createElement("div"); btn.id = "cp-deal-btn"; btn.textContent = "DEAL";
     btn.addEventListener("click", () => { panel.classList.toggle("open"); if (panel.classList.contains("open")) load(); });
     panel = document.createElement("aside"); panel.id = "cp-deal";
-    panel.innerHTML = `<header><b>Deal</b><button title="Close">×</button></header><div class="body"></div><footer><span class="msg"></span><button>Save</button></footer>`;
+    panel.innerHTML = `<div class="grip" title="Drag to resize"></div><header><b>Deal</b><button title="Close">×</button></header><div class="body"></div><footer><span class="msg"></span><button>Save</button></footer>`;
+    try { const w = parseInt(localStorage.getItem("cp-deal-w") || "", 10); if (w >= 360) panel.style.width = w + "px"; } catch (e) {}
+    const grip = panel.querySelector(".grip");
+    grip.addEventListener("mousedown", (e) => {
+      e.preventDefault(); panel.classList.add("drag");
+      const move = (ev) => { const w = Math.min(window.innerWidth * 0.95, Math.max(360, window.innerWidth - ev.clientX)); panel.style.width = w + "px"; };
+      const up = () => { panel.classList.remove("drag"); document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); try { localStorage.setItem("cp-deal-w", String(parseInt(panel.style.width, 10))); } catch (e) {} };
+      document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
+    });
     panel.querySelector("header button").addEventListener("click", () => panel.classList.remove("open"));
     panel.querySelector("footer button").addEventListener("click", save);
     panel.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); } });
