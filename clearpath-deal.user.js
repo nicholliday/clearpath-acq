@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Clear Path — Deal panel for GHL
 // @namespace    clearpath
-// @version      1.2.0
+// @version      1.3.0
 // @description  Adds a DEAL button on the right side of GHL lead and contact pages with the ACQ DEAL fields in one clean panel.
 // @match        https://spark.magnyfi.com/*
 // @match        https://app.gohighlevel.com/*
@@ -118,10 +118,17 @@
   function build() {
     if (panel) return;
     btn = document.createElement("div"); btn.id = "cp-deal-btn"; btn.textContent = "DEAL";
-    btn.addEventListener("click", () => { panel.classList.toggle("open"); if (panel.classList.contains("open")) load(); });
+    btn.addEventListener("click", () => { panel.classList.toggle("open"); if (panel.classList.contains("open")) { if (panel.__snap) panel.__snap(); load(); } });
     panel = document.createElement("aside"); panel.id = "cp-deal";
     panel.innerHTML = `<div class="grip" title="Drag to resize"></div><header><b>Deal</b><button title="Close">×</button></header><div class="body"></div><footer><span class="msg"></span><button>Save</button></footer>`;
     try { const w = parseInt(localStorage.getItem("cp-deal-w") || "", 10); if (w >= 360) panel.style.width = w + "px"; } catch (e) {}
+    // default width: stretch to the left border of GHL's right sidebar (Tasks column) when no saved size
+    function snapWidth() {
+      try { if (localStorage.getItem("cp-deal-w")) return; } catch (e) {}
+      const col = document.querySelector(".right-sidebar-container, [class*='right-sidebar']");
+      if (col) { const w = window.innerWidth - col.getBoundingClientRect().left; if (w >= 360 && w <= window.innerWidth * 0.95) panel.style.width = Math.round(w) + "px"; }
+    }
+    panel.__snap = snapWidth;
     const grip = panel.querySelector(".grip");
     grip.addEventListener("mousedown", (e) => {
       e.preventDefault(); panel.classList.add("drag");
