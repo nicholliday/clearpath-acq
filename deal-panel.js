@@ -27,7 +27,7 @@
   #cp-deal .msg.err{color:#b91c1c}
   #cp-deal .msg.ok{color:#047857}
   #cp-deal .empty{padding:40px 10px;color:#6b7280;text-align:center}
-  #cp-dark-btn{position:fixed;right:0;top:calc(50% + 150px);z-index:2147483000;background:#111827;color:#fff;font:700 14px/1 Inter,system-ui,sans-serif;letter-spacing:.1em;writing-mode:vertical-rl;padding:16px 12px;border-radius:10px 0 0 10px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);user-select:none;opacity:.85}
+  #cp-dark-btn{position:fixed;right:14px;bottom:14px;z-index:2147483000;width:38px;height:38px;border-radius:50%;background:#111827;color:#fff;font:18px/38px system-ui,sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.3);user-select:none;opacity:.75}
   #cp-dark-btn:hover{opacity:1}
   html.cp-dark{filter:invert(.92) hue-rotate(180deg);background:#111 !important}
   html.cp-dark img,html.cp-dark video,html.cp-dark canvas,html.cp-dark svg image,html.cp-dark [style*="background-image"],html.cp-dark iframe{filter:invert(1) hue-rotate(180deg)}
@@ -140,7 +140,7 @@
   }
 
   // ---- Dark mode toggle (every GHL page) ----
-  function darkApply(on) { document.documentElement.classList.toggle("cp-dark", on); const b = document.getElementById("cp-dark-btn"); if (b) b.textContent = on ? "LIGHT" : "DARK"; }
+  function darkApply(on) { document.documentElement.classList.toggle("cp-dark", on); const b = document.getElementById("cp-dark-btn"); if (b) { b.textContent = on ? "\u2600" : "\u263E"; b.title = on ? "Light mode" : "Dark mode"; } }
   function darkInit() {
     if (document.getElementById("cp-dark-btn")) return;
     const b = document.createElement("div"); b.id = "cp-dark-btn"; b.title = "Toggle dark mode";
