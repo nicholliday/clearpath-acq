@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Clear Path — Deal panel for GHL
 // @namespace    clearpath
-// @version      2.2.0
+// @version      2.3.0
 // @description  DEAL button + dark mode for GHL (Clear Path).
 // @match        https://spark.magnyfi.com/*
 // @match        https://app.gohighlevel.com/*
@@ -15,8 +15,11 @@
 // Clear Path — Deal panel body. Loaded live by clearpath-deal.user.js; edit THIS file, no reinstall needed.
 (function () {
   "use strict";
-  if (document.getElementById("cp-deal-loaded")) return;
+  function cpMark(txt, bg) { try { const d = document.createElement("div"); d.className = "cp-mark"; d.textContent = txt; d.style.cssText = "position:fixed;left:0;bottom:0;z-index:2147483647;background:" + bg + ";color:#fff;padding:3px 8px;font:11px/1.2 monospace;opacity:.85;max-width:60vw;white-space:pre-wrap"; (document.body || document.documentElement).appendChild(d); return d; } catch (e) { return null; } }
+  if (document.getElementById("cp-deal-loaded")) { cpMark("cp-deal: already loaded", "#6b7280"); return; }
   { const mk = document.createElement("meta"); mk.id = "cp-deal-loaded"; (document.head || document.documentElement).appendChild(mk); }
+  const alive = cpMark("cp " + (typeof GM_xmlhttpRequest === "function" ? "tm" : "page") + " v2.3", "#047857");
+  try {
   const FN = "https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/deal-panel";
   const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvaXRicXB2eW5idmxpYnV6eGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3OTU1MTAsImV4cCI6MjA5OTM3MTUxMH0.TymsmmBkOIsyI-_TuC57yi2-fEseH5ivek8w-UD82EQ";
 
@@ -170,7 +173,11 @@
   function tick() {
     const c = ctx();
     if (c) { build(); btn.style.display = ""; } else if (btn) { btn.style.display = "none"; panel.classList.remove("open"); }
+    if (btn && !document.body.contains(btn)) { document.body.appendChild(btn); document.body.appendChild(panel); }
+    const db = document.getElementById("cp-dark-btn"); if (!db && location.pathname.includes("/location/X3V3CEzeEFuuMMN2MsM7/")) darkInit();
     if (location.pathname !== lastPath) { lastPath = location.pathname; if (panel && panel.classList.contains("open") && c) load(); }
   }
   setInterval(tick, 800); tick();
+  if (alive) setTimeout(() => { try { alive.remove(); } catch (e) {} }, 15000);
+  } catch (e) { cpMark("cp-deal error: " + (e && e.stack || e), "#b91c1c"); }
 })();
