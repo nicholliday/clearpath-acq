@@ -40,6 +40,7 @@
 
   function ctx() {
     const u = location.pathname;
+    if (!u.includes("/location/X3V3CEzeEFuuMMN2MsM7/")) return null;
     let m = u.match(/\/contacts\/detail\/([A-Za-z0-9]{15,})/); if (m) return { contactId: m[1] };
     m = u.match(/\/opportunities\/(?:list\/|pipeline\/)?([A-Za-z0-9]{15,})\/?$/); if (m && !/^(list|pipeline|kanban)$/.test(m[1])) return { opportunityId: m[1] };
     return null;
