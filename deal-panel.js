@@ -1,6 +1,8 @@
 // Clear Path — Deal panel body. Loaded live by clearpath-deal.user.js; edit THIS file, no reinstall needed.
 (function () {
   "use strict";
+  if (document.getElementById("cp-deal-loaded")) return;
+  { const mk = document.createElement("meta"); mk.id = "cp-deal-loaded"; (document.head || document.documentElement).appendChild(mk); }
   const FN = "https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/deal-panel";
   const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvaXRicXB2eW5idmxpYnV6eGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3OTU1MTAsImV4cCI6MjA5OTM3MTUxMH0.TymsmmBkOIsyI-_TuC57yi2-fEseH5ivek8w-UD82EQ";
 
