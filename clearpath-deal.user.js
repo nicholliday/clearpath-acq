@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         Clear Path — Deal panel for GHL
 // @namespace    clearpath
-// @version      1.0.0
+// @version      1.1.0
 // @description  Adds a DEAL button on the right side of GHL lead and contact pages with the ACQ DEAL fields in one clean panel.
 // @match        https://spark.magnyfi.com/*
 // @match        https://app.gohighlevel.com/*
 // @grant        GM_xmlhttpRequest
 // @connect      voitbqpvynbvlibuzxbz.supabase.co
+// @updateURL    https://nicholliday.github.io/clearpath-acq/clearpath-deal.user.js
+// @downloadURL  https://nicholliday.github.io/clearpath-acq/clearpath-deal.user.js
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -16,9 +18,9 @@
   const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvaXRicXB2eW5idmxpYnV6eGJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3OTU1MTAsImV4cCI6MjA5OTM3MTUxMH0.TymsmmBkOIsyI-_TuC57yi2-fEseH5ivek8w-UD82EQ";
 
   const css = `
-  #cp-deal-btn{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:2147483000;background:#111827;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;letter-spacing:.08em;writing-mode:vertical-rl;padding:14px 9px;border-radius:8px 0 0 8px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);user-select:none}
+  #cp-deal-btn{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:2147483000;background:#111827;color:#fff;font:700 16px/1 Inter,system-ui,sans-serif;letter-spacing:.12em;writing-mode:vertical-rl;padding:22px 14px;border-radius:10px 0 0 10px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);user-select:none}
   #cp-deal-btn:hover{background:#1f2937}
-  #cp-deal{position:fixed;top:0;right:0;height:100vh;width:460px;max-width:95vw;background:#fff;z-index:2147483001;box-shadow:-6px 0 24px rgba(0,0,0,.18);display:flex;flex-direction:column;font:14px/1.45 Inter,system-ui,sans-serif;color:#111827;transform:translateX(100%);transition:transform .18s ease}
+  #cp-deal{position:fixed;top:0;right:0;height:100vh;width:600px;max-width:95vw;background:#fff;z-index:2147483001;box-shadow:-6px 0 24px rgba(0,0,0,.18);display:flex;flex-direction:column;font:15px/1.5 Inter,system-ui,sans-serif;color:#111827;transform:translateX(100%);transition:transform .18s ease}
   #cp-deal.open{transform:translateX(0)}
   #cp-deal header{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px}
   #cp-deal header b{font-size:15px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
