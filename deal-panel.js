@@ -27,6 +27,7 @@
   #cp-deal .msg.err{color:#b91c1c}
   #cp-deal .msg.ok{color:#047857}
   #cp-deal .empty{padding:40px 10px;color:#6b7280;text-align:center}
+  #cp-deal .addr{font-size:18px;font-weight:700;color:#111827;padding:4px 0 10px;border-bottom:1px solid #e5e7eb;margin-bottom:4px;line-height:1.3}
   `;
   const style = document.createElement("style"); style.textContent = css; document.documentElement.appendChild(style);
 
@@ -62,6 +63,9 @@
     if (!data.ok) { body.innerHTML = `<div class="empty">${data.error || "Nothing here"}</div>`; panel.querySelector("footer button").disabled = true; return; }
     state.oppId = data.opportunityId; state.schema = data.schema;
     panel.querySelector("header b").textContent = data.name || "Deal";
+    const addr = document.createElement("div"); addr.className = "addr";
+    addr.textContent = data.address || (data.name || "").replace(/^[^-]*-\s*/, "") || "No address on file";
+    body.appendChild(addr);
     for (const f of data.schema) {
       const lab = document.createElement("label"); lab.textContent = f.label; body.appendChild(lab);
       let el;
