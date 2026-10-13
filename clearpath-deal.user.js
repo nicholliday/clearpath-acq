@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Clear Path — Deal panel for GHL
 // @namespace    clearpath
-// @version      1.3.0
+// @version      1.4.0
 // @description  Adds a DEAL button on the right side of GHL lead and contact pages with the ACQ DEAL fields in one clean panel.
 // @match        https://spark.magnyfi.com/*
 // @match        https://app.gohighlevel.com/*
@@ -23,7 +23,7 @@
   #cp-deal{position:fixed;top:0;right:0;height:100vh;width:840px;max-width:95vw;background:#fff;z-index:2147483001;box-shadow:-6px 0 24px rgba(0,0,0,.18);display:flex;flex-direction:column;font:16px/1.5 Inter,system-ui,sans-serif;color:#111827;transform:translateX(100%);transition:transform .18s ease}
   #cp-deal.open{transform:translateX(0)}
   #cp-deal.drag{transition:none;user-select:none}
-  #cp-deal .grip{position:absolute;left:0;top:0;bottom:0;width:10px;cursor:ew-resize;background:transparent;z-index:5}
+  #cp-deal .grip{position:absolute;left:0;top:0;bottom:0;width:10px;cursor:ew-resize;background:transparent;z-index:5;border-left:1px solid #e5e7eb}
   #cp-deal .grip:hover,#cp-deal.drag .grip{background:#2563eb33}
   #cp-deal header{padding:14px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px}
   #cp-deal header b{font-size:15px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -130,6 +130,7 @@
     }
     panel.__snap = snapWidth;
     const grip = panel.querySelector(".grip");
+    grip.addEventListener("dblclick", () => { try { localStorage.removeItem("cp-deal-w"); } catch (e) {} panel.style.width = ""; snapWidth(); });
     grip.addEventListener("mousedown", (e) => {
       e.preventDefault(); panel.classList.add("drag");
       const move = (ev) => { const w = Math.min(window.innerWidth * 0.95, Math.max(360, window.innerWidth - ev.clientX)); panel.style.width = w + "px"; };
