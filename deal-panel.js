@@ -27,6 +27,11 @@
   #cp-deal .msg.err{color:#b91c1c}
   #cp-deal .msg.ok{color:#047857}
   #cp-deal .empty{padding:40px 10px;color:#6b7280;text-align:center}
+  #cp-dark-btn{position:fixed;right:0;top:calc(50% + 150px);z-index:2147483000;background:#111827;color:#fff;font:700 14px/1 Inter,system-ui,sans-serif;letter-spacing:.1em;writing-mode:vertical-rl;padding:16px 12px;border-radius:10px 0 0 10px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25);user-select:none;opacity:.85}
+  #cp-dark-btn:hover{opacity:1}
+  html.cp-dark{filter:invert(.92) hue-rotate(180deg);background:#111 !important}
+  html.cp-dark img,html.cp-dark video,html.cp-dark canvas,html.cp-dark svg image,html.cp-dark [style*="background-image"],html.cp-dark iframe{filter:invert(1) hue-rotate(180deg)}
+  html.cp-dark #cp-deal-btn,html.cp-dark #cp-dark-btn{filter:invert(1) hue-rotate(180deg)}
   #cp-deal .addr{font-size:18px;font-weight:700;color:#111827;padding:4px 0 10px;border-bottom:1px solid #e5e7eb;margin-bottom:4px;line-height:1.3}
   `;
   const style = document.createElement("style"); style.textContent = css; document.documentElement.appendChild(style);
@@ -133,6 +138,17 @@
     panel.addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); save(); } });
     document.body.appendChild(btn); document.body.appendChild(panel);
   }
+
+  // ---- Dark mode toggle (every GHL page) ----
+  function darkApply(on) { document.documentElement.classList.toggle("cp-dark", on); const b = document.getElementById("cp-dark-btn"); if (b) b.textContent = on ? "LIGHT" : "DARK"; }
+  function darkInit() {
+    if (document.getElementById("cp-dark-btn")) return;
+    const b = document.createElement("div"); b.id = "cp-dark-btn"; b.title = "Toggle dark mode";
+    let on = false; try { on = localStorage.getItem("cp-dark") === "1"; } catch (e) {}
+    b.addEventListener("click", () => { on = !on; try { localStorage.setItem("cp-dark", on ? "1" : "0"); } catch (e) {} darkApply(on); });
+    (document.body || document.documentElement).appendChild(b); darkApply(on);
+  }
+  if (location.pathname.includes("/location/X3V3CEzeEFuuMMN2MsM7/")) { if (document.body) darkInit(); else document.addEventListener("DOMContentLoaded", darkInit); }
 
   let lastPath = "";
   function tick() {
