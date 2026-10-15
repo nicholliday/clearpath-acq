@@ -257,7 +257,7 @@ async function refreshLead(cid: string): Promise<string> {
 }
 
 async function syncJob(b: any) {
-  const t0 = Date.now(); const deadline = t0 + 60_000;
+  const t0 = Date.now(); const deadline = t0 + 60_000; const budget = Number(b.budget_ms ?? 50_000);
   const out: any = {};
   if (b.opps !== false) out.opps = await syncOpps(deadline);
   // which leads to refresh: recent conversation activity first, then stalest
@@ -266,11 +266,14 @@ async function syncJob(b: any) {
   const { data: tracked } = await sb.from("tom_leads").select("contact_id,msgs_synced_at").neq("mode", "off");
   const tmap = new Map((tracked ?? []).map((x: any) => [x.contact_id, x.msgs_synced_at ? new Date(x.msgs_synced_at).getTime() : 0]));
   for (const c of rc.body?.conversations ?? []) if (tmap.has(c.contactId) && Number(c.lastMessageDate ?? 0) > (tmap.get(c.contactId) ?? 0) - 60e3) todo.add(c.contactId);
+  // GHL's conversation search index can lag 10-15 min (Rose Bedwell, Oct 15): anyone we texted in the last 3h gets their thread re-read directly, every run
+  const { data: hot } = await sb.from("tom_leads").select("contact_id").neq("mode", "off").gte("last_out_at", iso(new Date(Date.now() - 3 * 3600e3))).order("last_out_at", { ascending: false }).limit(Number(b.hot ?? 40));
+  for (const h of hot ?? []) todo.add(h.contact_id);
   const { data: stale } = await sb.from("tom_leads").select("contact_id").neq("mode", "off").or("msgs_synced_at.is.null,msgs_synced_at.lt." + iso(new Date(Date.now() - days(1)))).order("msgs_synced_at", { ascending: true, nullsFirst: true }).limit(Number(b.refresh ?? 20));
   for (const s of stale ?? []) todo.add(s.contact_id);
   let refreshed = 0;
   for (const cid of todo) {
-    if (Date.now() - t0 > 135_000) break;
+    if (Date.now() - t0 > budget) break;
     try { await refreshLead(cid); refreshed++; } catch (e) { await log(cid, "refresh_error", String(e)); }
     await sleep(80);
   }
@@ -538,9 +541,9 @@ async function thinkJob(b: any) {
   const { count: backlog } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "pending").neq("kind", "reply");
   const waitingIds = new Set((waiting ?? []).filter(unassessedReply).map((l: any) => l.contact_id));
   const work = (backlog ?? 0) >= Number(s.max_backlog ?? 40) ? list.filter((l) => waitingIds.has(l.contact_id)) : list;
-  const lim = Number(b.limit ?? 10); const out: any[] = [];
+  const lim = Number(b.limit ?? 10); const budget = Number(b.budget_ms ?? 50_000); const out: any[] = [];
   for (const lead of work.slice(0, lim)) {
-    if (Date.now() - t0 > 130_000) break;
+    if (Date.now() - t0 > budget) break;
     if (lead.hold_until && new Date(lead.hold_until) > now()) continue;
     // CLAIM: one thinker per lead (the 15-min and 3-min think runs overlap and used to draft the same reply twice)
     const { data: got } = await sb.from("tom_leads").update({ facts_at: iso(now()) }).eq("contact_id", lead.contact_id).or(`facts_at.is.null,facts_at.lt.${iso(new Date(Date.now() - 3 * 60e3))}`).select("contact_id");
