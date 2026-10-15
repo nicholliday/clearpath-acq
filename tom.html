@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tom Bot">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="owner-icon-180.png">
+<link rel="icon" type="image/png" href="owner-icon.png">
+<meta name="theme-color" content="#0B1220">
+<title>Tom Bot</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0B1220;--card:#141D2E;--card2:#1B2740;--line:#26334D;--text:#EDF1F7;--mut:#93A1B8;--blue:#3B82F6;--gold:#D4AF37;--green:#10B981;--red:#EF4444;--amber:#F59E0B}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-text-size-adjust:100%}
+body{padding-top:max(0.6rem,env(safe-area-inset-top));padding-bottom:max(4.5rem,env(safe-area-inset-bottom))}
+.wrap{max-width:720px;margin:0 auto;padding:0.6rem 0.8rem}
+.brand{font-size:10px;letter-spacing:0.12em;color:var(--gold);font-weight:700}
+h1{font-size:19px;font-weight:700;margin:2px 0 10px}
+.tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;z-index:50;padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;background:none;border:none;color:var(--mut);font-size:10px;padding:9px 2px 7px;cursor:pointer}
+.tabs button.on{color:var(--gold)}
+.tabs .ic{font-size:19px;display:block;margin-bottom:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 14px;margin-bottom:14px}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;margin-right:6px;margin-bottom:4px}
+.p-reply{background:#064E3B;color:#6EE7B7}.p-nudge{background:#1E3A8A;color:#BFDBFE}.p-flag{background:#450A0A;color:#FCA5A5}.p-closing{background:#42350D;color:#FCE28A}.p-nic{background:#3A2A0D;color:#FCD34D}.p-tom{background:#312E81;color:#C7D2FE}.p-email{background:#1F2937;color:#D1D5DB}.p-book{background:#064E3B;color:#6EE7B7}
+textarea,input,select{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:10px;font-size:15px;line-height:1.35}
+textarea{min-height:92px;resize:vertical}
+.btn{background:var(--blue);border:none;color:#fff;font-weight:700;border-radius:9px;padding:11px 13px;font-size:14px;cursor:pointer;margin:6px 6px 0 0}
+.btn.g{background:var(--gold);color:#101828}.btn.gr{background:var(--green)}.btn.d{background:var(--red)}.btn.mut{background:var(--card2);color:var(--mut);border:1px solid var(--line)}
+.btn:disabled{opacity:.5}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mut{color:var(--mut)}.sm{font-size:12px}.xs{font-size:11px}
+.ctx{font-size:13px;line-height:1.45;color:#C8D1E0;margin:8px 0}
+.thread{font-size:12px;white-space:pre-wrap;background:#0F1726;border:1px solid var(--line);border-radius:9px;padding:8px;color:#AAB6C8;max-height:180px;overflow:auto;margin-top:6px}
+.sellersaid{background:#0F2A22;border:1px solid #14532D;border-radius:9px;padding:8px 10px;font-size:14px;margin:8px 0}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
+.kpi .v{font-size:20px;font-weight:800}.kpi .l{font-size:9px;color:var(--mut);letter-spacing:.05em}
+.sw{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.tog{width:52px;height:30px;border-radius:99px;background:#334155;position:relative;cursor:pointer;flex:none}
+.tog i{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .15s}
+.tog.on{background:var(--green)}.tog.on i{left:25px}
+.empty{text-align:center;color:var(--mut);padding:30px 10px}
+#lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:12px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;background:#1F2937;color:#fff;padding:10px 16px;border-radius:99px;font-size:13px;z-index:99;border:1px solid var(--line);display:none}
+details summary{cursor:pointer;color:var(--mut);font-size:12px;margin-top:6px}
+</style>
+</head>
+<body>
+<div id="lock">
+  <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
+  <h1 style="margin:0">Tom Bot</h1>
+  <input id="pass" type="password" placeholder="Owner passcode" style="max-width:240px;text-align:center">
+  <button class="btn g" style="min-width:240px" onclick="tryLogin()">Enter</button>
+  <div id="lockErr" class="sm" style="color:var(--red)"></div>
+</div>
+<div class="wrap" id="app" style="display:none">
+  <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
+  <div class="row"><h1>Tom Bot <span id="swbadge" class="pill p-flag">SWITCH OFF</span></h1><button class="btn mut" style="margin:0;padding:7px 10px;font-size:12px" onclick="loadAll()">↻</button></div>
+  <div id="main"></div>
+</div>
+<div class="tabs">
+  <button id="t_queue" class="on" onclick="setTab('queue')"><span class="ic">✍️</span>Queue <span id="qn"></span></button>
+  <button id="t_sent" onclick="setTab('sent')"><span class="ic">📤</span>Sent</button>
+  <button id="t_calls" onclick="setTab('calls')"><span class="ic">📞</span>Calls</button>
+  <button id="t_set" onclick="setTab('set')"><span class="ic">⚙️</span>Switch</button>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var SB='https://voitbqpvynbvlibuzxbz.supabase.co', KEY='sb_publishable_QreaC86dKq8FRmJPDkeenA_wZO8G5YG';
+var db=supabase.createClient(SB,KEY);
+var TAB=localStorage.getItem('tom_tab')||'queue';
+var D={drafts:[],sent:[],books:[],set:null,kpi:{}};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._x);t._x=setTimeout(function(){t.style.display='none'},2600)}
+function ago(ts){if(!ts)return'';var m=Math.round((Date.now()-new Date(ts))/60000);if(m<60)return m+'m ago';var h=Math.round(m/60);if(h<48)return h+'h ago';return Math.round(h/24)+'d ago'}
+function ct(ts,opt){return ts?new Date(ts).toLocaleString('en-US',Object.assign({timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'},opt||{})):''}
+function setTab(t){TAB=t;localStorage.setItem('tom_tab',t);render()}
+
+async function tryLogin(){
+  var v=document.getElementById('pass').value.trim();var err=document.getElementById('lockErr');err.textContent='';if(!v)return;
+  var j=null;
+  try{var res=await fetch(SB+'/functions/v1/acq-login',{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY},body:JSON.stringify({passcode:v})});j=await res.json();}catch(e){err.textContent='Could not reach the server';return;}
+  if(!j||!j.ok){err.textContent=(j&&j.error)||'Wrong passcode';return;}
+  if(j.role!=='owner'){err.textContent='Owner passcode only';return;}
+  var r=await db.auth.setSession({access_token:j.access_token,refresh_token:j.refresh_token});
+  if(r.error){err.textContent='Login failed, try again';return;}
+  unlock();
+}
+function unlock(){document.getElementById('lock').style.display='none';document.getElementById('app').style.display='block';loadAll();setInterval(loadAll,60000)}
+(async function(){
+  var r=await db.auth.getSession();var am=(r.data&&r.data.session&&r.data.session.user.app_metadata)||{};
+  if(am.acq_role!=='owner')return;
+  var u=await db.auth.getUser();if(u.error||!u.data||!u.data.user){try{await db.auth.signOut();}catch(e){}return;}
+  unlock();
+})();
+
+async function fn(body){
+  var s=await db.auth.getSession();var tok=s.data&&s.data.session&&s.data.session.access_token;
+  var res=await fetch(SB+'/functions/v1/tom-bot',{method:'POST',headers:{'Content-Type':'application/json','apikey':KEY,'Authorization':'Bearer '+tok},body:JSON.stringify(body)});
+  var j=null;try{j=await res.json()}catch(e){}
+  if(!res.ok)throw new Error((j&&(j.err||j.error))||('HTTP '+res.status));
+  return j||{};
+}
+
+async function loadAll(){
+  var today=new Date();today.setHours(0,0,0,0);var month=new Date().toISOString().slice(0,7)+'-01';
+  var r=await Promise.all([
+    db.from('tom_drafts').select('*').eq('status','pending').order('kind',{ascending:true}).order('created_at',{ascending:true}).limit(60),
+    db.from('tom_drafts').select('id,name,address,stage,kind,channel,as_who,text,nic_fix,status,sent_at,approved_by,book_at,error,created_at').in('status',['sent','failed','approved']).order('created_at',{ascending:false}).limit(60),
+    db.from('tom_bookings').select('*').order('call_at',{ascending:false}).limit(40),
+    db.from('tom_settings').select('*').eq('id',1).single(),
+    db.from('tom_drafts').select('cost_usd,status,created_at').gte('created_at',month),
+    db.from('tom_leads').select('contact_id',{count:'exact',head:true}).neq('mode','off')
+  ]);
+  D.drafts=r[0].data||[];D.sent=r[1].data||[];D.books=r[2].data||[];D.set=r[3].data||null;
+  var rows=r[4].data||[];var cost=0,costT=0,sentT=0,sentM=0;
+  rows.forEach(function(x){cost+=Number(x.cost_usd||0);if(new Date(x.created_at)>=today)costT+=Number(x.cost_usd||0);if(x.status==='sent'){sentM++;if(new Date(x.created_at)>=today)sentT++;}});
+  D.kpi={costM:cost,costT:costT,sentT:sentT,sentM:sentM,leads:r[5].count||0};
+  // replies first
+  D.drafts.sort(function(a,b){var o={reply:0,flag:1,closing:2,nudge:3,seq:4};return (o[a.kind]||9)-(o[b.kind]||9)||(a.created_at<b.created_at?-1:1)});
+  render();
+}
+
+function render(){
+  ['queue','sent','calls','set'].forEach(function(t){document.getElementById('t_'+t).className=(t===TAB?'on':'')});
+  document.getElementById('qn').textContent=D.drafts.length?('('+D.drafts.length+')'):'';
+  var sw=document.getElementById('swbadge');if(D.set){sw.textContent=D.set.enabled?'SWITCH ON':'SWITCH OFF';sw.className='pill '+(D.set.enabled?'p-reply':'p-flag')}
+  var m=document.getElementById('main');
+  if(TAB==='queue')m.innerHTML=renderQueue();else if(TAB==='sent')m.innerHTML=renderSent();else if(TAB==='calls')m.innerHTML=renderCalls();else m.innerHTML=renderSet();
+}
+
+function renderQueue(){
+  if(!D.drafts.length)return'<div class="empty">Nothing waiting. Tom checks the pipeline every 15 minutes.</div>';
+  return D.drafts.map(function(d){
+    var kind=d.kind||'nudge';var isFlag=kind==='flag';
+    var h='<div class="card" id="c'+d.id+'">';
+    h+='<div><span class="pill p-'+kind+'">'+(kind==='reply'?'SELLER REPLIED':kind.toUpperCase())+'</span><span class="pill p-'+(d.as_who==='nic'?'nic':'tom')+'">as '+(d.as_who==='nic'?'Nic':'Tom')+'</span>'+(d.channel==='email'?'<span class="pill p-email">EMAIL</span>':'')+(d.book_at?'<span class="pill p-book">📞 books '+esc(ct(d.book_at))+' CT</span>':'')+'</div>';
+    h+='<div style="font-weight:700;font-size:16px;margin-top:4px">'+esc(d.name||'?')+'</div>';
+    h+='<div class="sm mut">'+esc(d.address||'')+' · '+esc(d.stage||'')+' · drafted '+ago(d.created_at)+'</div>';
+    if(d.context)h+='<div class="ctx">'+esc(d.context)+'</div>';
+    if(kind==='reply'){var last=(d.thread_tail||'').split('\n').filter(function(l){return l.indexOf(' SELLER: ')>-1}).pop();if(last)h+='<div class="sellersaid">💬 '+esc(last.replace(/^.*? SELLER: /,''))+'</div>';}
+    if(d.thread_tail)h+='<details><summary>thread</summary><div class="thread">'+esc(d.thread_tail)+'</div></details>';
+    if(isFlag){
+      h+='<div class="ctx" style="color:#FCA5A5">⚑ '+esc(d.reason||'')+(d.text&&d.text!=='(no text)'?' — '+esc(d.text):'')+'</div>';
+      h+='<button class="btn mut" onclick="skip('+d.id+',\'seen\',14)">Seen, dismiss</button><button class="btn d" onclick="lost(\''+esc(d.contact_id)+'\','+d.id+')">Mark Good Lead, Lost</button>';
+    }else{
+      h+='<textarea id="tx'+d.id+'">'+esc(d.text)+'</textarea>';
+      if(d.reason)h+='<div class="xs mut" style="margin-top:4px">why: '+esc(d.reason)+'</div>';
+      h+='<div><button class="btn gr" id="s'+d.id+'" onclick="send('+d.id+')">Send '+(d.channel==='email'?'email':'text')+'</button><button class="btn mut" onclick="askSkip('+d.id+')">Skip</button><button class="btn mut" onclick="skip('+d.id+',\'later\',7)">Later (1 wk)</button></div>';
+      h+='<div id="sk'+d.id+'" style="display:none;margin-top:8px"><input id="skr'+d.id+'" placeholder="Why? (Tom learns from this — optional)"><button class="btn d" onclick="skip('+d.id+',document.getElementById(\'skr'+d.id+'\').value,3)">Skip it</button></div>';
+    }
+    return h+'</div>';
+  }).join('');
+}
+function askSkip(id){var e=document.getElementById('sk'+id);e.style.display=e.style.display==='none'?'block':'none'}
+async function send(id){
+  var b=document.getElementById('s'+id);b.disabled=true;b.textContent='Sending…';
+  var d=D.drafts.find(function(x){return x.id===id});var text=document.getElementById('tx'+id).value.trim();
+  try{
+    var body={job:'send',draft_id:id};if(d&&text&&text!==d.text)body.text=text;
+    var r=await fn(body);
+    if(r.ok&&r.queued)toast('Approved — goes out at '+ct(r.queued)+' CT (outside texting hours now)');
+    else if(r.ok)toast('Sent ✓');
+    else toast('Not sent: '+(r.err||'?'));
+  }catch(e){toast('Error: '+e.message);b.disabled=false;b.textContent='Send';return;}
+  D.drafts=D.drafts.filter(function(x){return x.id!==id});render();setTimeout(loadAll,1500);
+}
+async function skip(id,reason,days){
+  try{await fn({job:'skip',draft_id:id,reason:reason==='later'||reason==='seen'?'':reason,days:days||3});toast(reason==='later'?'Pushed a week':'Skipped');}catch(e){toast('Error: '+e.message);return;}
+  D.drafts=D.drafts.filter(function(x){return x.id!==id});render();
+}
+async function lost(cid,id){
+  try{var r=await fn({job:'lost',contact_id:cid});if(!r.ok){toast('Could not move: '+(r.err||'?'));return;}toast('Moved to Good Lead, Lost');}catch(e){toast('Error: '+e.message);return;}
+  D.drafts=D.drafts.filter(function(x){return x.id!==id});render();
+}
+
+function renderSent(){
+  var k='<div class="kpis"><div class="kpi"><div class="v">'+D.kpi.sentT+'</div><div class="l">SENT TODAY</div></div><div class="kpi"><div class="v">'+D.kpi.sentM+'</div><div class="l">SENT THIS MONTH</div></div><div class="kpi"><div class="v">$'+(D.kpi.costM||0).toFixed(2)+'</div><div class="l">AI COST / MO</div></div></div>';
+  if(!D.sent.length)return k+'<div class="empty">Nothing sent yet.</div>';
+  return k+D.sent.map(function(d){
+    var st=d.status==='sent'?'<span class="pill p-reply">SENT '+esc(ct(d.sent_at))+'</span>':d.status==='approved'?'<span class="pill p-nudge">QUEUED</span>':'<span class="pill p-flag">FAILED</span>';
+    return'<div class="card">'+st+'<span class="pill p-'+(d.as_who==='nic'?'nic':'tom')+'">as '+(d.as_who==='nic'?'Nic':'Tom')+'</span>'+(d.channel==='email'?'<span class="pill p-email">EMAIL</span>':'')+'<div style="font-weight:700;margin-top:4px">'+esc(d.name||'?')+' <span class="sm mut" style="font-weight:400">'+esc(d.address||'')+'</span></div><div style="margin-top:6px;font-size:14px">'+esc(d.nic_fix||d.text)+'</div>'+(d.error?'<div class="xs" style="color:#FCA5A5;margin-top:4px">'+esc(d.error)+'</div>':'')+'<div class="xs mut" style="margin-top:4px">'+esc(d.stage||'')+(d.approved_by?' · ok by '+esc(d.approved_by.split('@')[0]):'')+'</div></div>';
+  }).join('');
+}
+function renderCalls(){
+  if(!D.books.length)return'<div class="empty">No calls booked yet. When a seller gives Tom a time, it shows here and you get a text 5 minutes before.</div>';
+  return D.books.map(function(b){
+    var open=b.status==='open';
+    return'<div class="card"><span class="pill '+(open?'p-book':'p-email')+'">'+(open?'UPCOMING':b.status.toUpperCase())+'</span><span class="pill p-'+(b.rep==='bt'?'tom':'nic')+'">'+(b.rep==='bt'?'BT':'Nic')+'</span><div style="font-weight:700;font-size:16px;margin-top:4px">'+esc(ct(b.call_at,{weekday:'short'}))+' CT</div><div>'+esc(b.name||'?')+' · '+esc(b.address||'')+'</div><div class="sm mut">'+(b.phone?'<a href="tel:'+esc(b.phone)+'" style="color:var(--gold)">'+esc(b.phone)+'</a> · ':'')+(b.alert_5min_at?'5-min ping sent':'ping 5 min before')+'</div></div>';
+  }).join('');
+}
+function renderSet(){
+  var s=D.set;if(!s)return'<div class="empty">…</div>';
+  var h='<div class="kpis"><div class="kpi"><div class="v">'+D.kpi.leads+'</div><div class="l">LEADS TOM WATCHES</div></div><div class="kpi"><div class="v">'+D.drafts.length+'</div><div class="l">WAITING ON YOU</div></div><div class="kpi"><div class="v">$'+(D.kpi.costT||0).toFixed(2)+'</div><div class="l">AI COST TODAY</div></div></div>';
+  h+='<div class="card">';
+  h+=swRow('enabled','MASTER SWITCH — Tom sends on his own','Off = every text waits for your tap. On = pending drafts go out by themselves inside texting hours.',s.enabled,true);
+  h+=swRow('drafting','Tom writes drafts','Off = Tom stops reading the pipeline and drafting entirely.',s.drafting,false);
+  h+=swRow('ping_on_reply','Text me when a seller replies','One text to '+esc(s.nic_cell)+' per lead per 2 hours, from the Dallas line.',s.ping_on_reply,false);
+  h+='<div class="sw" style="border:0"><div><div style="font-weight:700">Daily send cap</div><div class="xs mut">Hard stop per 24h, approved or auto.</div></div><input type="number" value="'+s.daily_cap+'" style="width:84px;text-align:center" onchange="setVal(\'daily_cap\',Number(this.value))"></div>';
+  h+='</div>';
+  h+='<div class="card xs mut">Model '+esc(s.model)+' · Nic '+esc(s.nic_cell)+' · BT '+esc(s.bt_cell)+' · pings from '+esc(s.alert_from)+'<br>Texting hours by property state: TX 9am–9pm (Sun noon–9), everywhere else 8am–9pm local; FL/OK max 3 per day. Tom never texts a price, never says BT, never mentions agents or listing, never offers rent-backs. Drafts not approved within 3 days expire.</div>';
+  h+='<div id="confirm" style="display:none" class="card"><div style="font-weight:700;color:#FCD34D">Turn the master switch ON?</div><div class="sm" style="margin:6px 0 8px">Tom will start sending his own texts without asking you first (inside texting hours, under the daily cap). You can turn it off any time.</div><button class="btn gr" onclick="setVal(\'enabled\',true);document.getElementById(\'confirm\').style.display=\'none\'">Yes, turn it on</button><button class="btn mut" onclick="document.getElementById(\'confirm\').style.display=\'none\'">Cancel</button></div>';
+  return h;
+}
+function swRow(k,title,sub,on,confirm){return'<div class="sw"><div style="padding-right:10px"><div style="font-weight:700">'+title+'</div><div class="xs mut">'+sub+'</div></div><div class="tog '+(on?'on':'')+'" onclick="'+(confirm&&!on?'document.getElementById(\'confirm\').style.display=\'block\'':'setVal(\''+k+'\','+(!on)+')')+'"><i></i></div></div>'}
+async function setVal(k,v){
+  var o={};o[k]=v;o.updated_at=new Date().toISOString();
+  var r=await db.from('tom_settings').update(o).eq('id',1);
+  if(r.error){toast('Could not save: '+r.error.message);return;}
+  toast(k==='enabled'?(v?'Master switch ON':'Master switch OFF'):'Saved');
+  await db.from('tom_log').insert({event:'setting',detail:k+'='+v+' by owner app'}).then(function(){},function(){});
+  loadAll();
+}
+</script>
+</body>
+</html>
