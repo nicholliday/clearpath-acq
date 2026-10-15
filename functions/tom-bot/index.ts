@@ -338,7 +338,7 @@ const DEFAULT_BRIEF = `You are "Tom" with Clear Path Property Solutions, a cash 
 - Seller is clearly not the owner / wrong person / wants out -> one closing text only (action "closing"): "Sorry if we've been a bother. A form came in for <address>, and if that wasn't you, just reply STOP and we'll close it out for good."
 
 ## Booking
-- Book a call ONLY when a deal is makeable: the seller has given a number by text that is at or within ~10% of our MAO, or has clearly said they are open to our number. Pressure alone is NOT enough. No number yet -> ask for it, do not book. "Call me now" is not a booking: offer a specific time at least 30 minutes out, inside 9am-8pm Central Mon-Sat.
+- Book a call ONLY when (a) the seller's number is within 15% of our MAO or they have clearly said they are open to our number, OR (b) they are showing a LOT of motivation (behind on payments with a date coming, foreclosure/auction/tax sale, must be out by a date, estate that has to settle, "just need it gone") - set strong_motivation true only for that and say why in reason. Ordinary interest is not motivation. No number and no strong motivation -> ask for the number, do not book. "Call me now" is not a booking: offer a specific time at least 30 minutes out, inside 9am-8pm Central Mon-Sat.
 - When you set book_at, the text must confirm the time and that we'll call from this number.
 
 ## Output - JSON only
@@ -348,7 +348,7 @@ const DEFAULT_BRIEF = `You are "Tom" with Clear Path Property Solutions, a cash 
  "wait_until":"ISO date when to look at this lead again (required for wait; also set it for text = when to check back if they go quiet)",
  "reason":"one short line why",
  "context":"ONE tight paragraph for Nic: street + city, situation, the numbers (their ask, our offer, type), what they said last, what's happened since, why this text now",
- "facts":{"offer":number|null,"offer_type":"cash"|"novation"|"subto"|"unknown","ask":number|null (the seller's CURRENT number from the thread/notes),"mao":number|null (from the rep notes),"open_to_our_number":true|false,"pressure":"...","blocker":"...","event_date":"YYYY-MM-DD"|null}}`;
+ "facts":{"offer":number|null,"offer_type":"cash"|"novation"|"subto"|"unknown","ask":number|null (the seller's CURRENT number from the thread/notes),"mao":number|null (from the rep notes),"open_to_our_number":true|false,"strong_motivation":true|false,"pressure":"...","blocker":"...","event_date":"YYYY-MM-DD"|null}}`;
 
 async function claude(model: string, system: string, user: string, maxTokens = 3500) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -468,7 +468,8 @@ async function think(lead: any, s: any, store = true, runId = "") {
     const kind = action === "closing" ? "closing" : (inAt && inAt > (lead.last_out_at ? new Date(lead.last_out_at).getTime() : 0)) ? "reply" : "nudge";
     let bookAt = j.book_at ? fromLocal(String(j.book_at), tzOf(lead.state)) : null;
     const f = j.facts ?? lead.facts ?? {}; const ask = Number(f.ask), mao = Number(f.mao);
-    if (bookAt && !(ask > 0 && mao > 0 && ask <= mao * 1.1) && f.open_to_our_number !== true) { await log(lead.contact_id, "booking_refused", `ask=${f.ask} mao=${f.mao}: not makeable yet`); bookAt = null; }
+    const pct = 1 + Number(s.book_mao_pct ?? 15) / 100;
+    if (bookAt && !(ask > 0 && mao > 0 && ask <= mao * pct) && f.open_to_our_number !== true && f.strong_motivation !== true) { await log(lead.contact_id, "booking_refused", `ask=${f.ask} mao=${f.mao}: not within ${Math.round((pct - 1) * 100)}% of MAO and no strong motivation`); bookAt = null; }
     if (bookAt) { const l = local(bookAt, "America/Chicago"); if (l.hour < 9 || l.hour >= 20 || l.dow === 0 || bookAt.getTime() < Date.now() + 25 * 60e3) { await log(lead.contact_id, "booking_refused", "outside 9-8 CT Mon-Sat or less than 25 min out: " + iso(bookAt)); bookAt = null; } }
     const { error } = await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind, channel, as_who: asWho, text, subject: channel === "email" ? (j.subject || `Your house at ${lead.address ?? ""}`) : null, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "pending", not_before: iso(notBefore), book_at: bookAt ? iso(bookAt) : null, book_rep: asWho === "nic" ? "nic" : "bt", model: s.model, tokens_in: r.usage.input_tokens ?? null, tokens_out: r.usage.output_tokens ?? null, cost_usd: cost, run_id: runId });
     if (error) await log(lead.contact_id, "draft_error", error.message);
