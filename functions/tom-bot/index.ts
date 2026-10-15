@@ -338,7 +338,7 @@ const DEFAULT_BRIEF = `You are "Tom" with Clear Path Property Solutions, a cash 
 - Seller is clearly not the owner / wrong person / wants out -> one closing text only (action "closing"): "Sorry if we've been a bother. A form came in for <address>, and if that wasn't you, just reply STOP and we'll close it out for good."
 
 ## Booking
-- Book a call only when the seller still owns it, still wants it gone, AND (a price they'd take that's close enough, or real pressure: a date, a situation). Anything less: keep warm, no booking.
+- Book a call ONLY when a deal is makeable: the seller has given a number by text that is at or within ~10% of our MAO, or has clearly said they are open to our number. Pressure alone is NOT enough. No number yet -> ask for it, do not book. "Call me now" is not a booking: offer a specific time at least 30 minutes out, inside 9am-8pm Central Mon-Sat.
 - When you set book_at, the text must confirm the time and that we'll call from this number.
 
 ## Output - JSON only
@@ -348,7 +348,7 @@ const DEFAULT_BRIEF = `You are "Tom" with Clear Path Property Solutions, a cash 
  "wait_until":"ISO date when to look at this lead again (required for wait; also set it for text = when to check back if they go quiet)",
  "reason":"one short line why",
  "context":"ONE tight paragraph for Nic: street + city, situation, the numbers (their ask, our offer, type), what they said last, what's happened since, why this text now",
- "facts":{"offer":number|null,"offer_type":"cash"|"novation"|"subto"|"unknown","ask":number|null,"mao":number|null,"pressure":"...","blocker":"...","event_date":"YYYY-MM-DD"|null}}`;
+ "facts":{"offer":number|null,"offer_type":"cash"|"novation"|"subto"|"unknown","ask":number|null (the seller's CURRENT number from the thread/notes),"mao":number|null (from the rep notes),"open_to_our_number":true|false,"pressure":"...","blocker":"...","event_date":"YYYY-MM-DD"|null}}`;
 
 async function claude(model: string, system: string, user: string, maxTokens = 3500) {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -400,6 +400,8 @@ function guard(text: string, lead: any, notesAndThread: string): string | null {
   if (/rent(ing)?\s*(it\s*)?back|lease\s*-?\s*back|stay in the (house|home) after/i.test(text)) return "sale-leaseback";
   if (/\b(bot|robot|automated|AI|a real person|I'm human|not a machine)\b/i.test(text)) return "identity claim";
   if (/have title pull|\bthe info\b|no need to call|no rush|just curious|touch base|circle back|offer expires|third time/i.test(text)) return "banned phrase";
+  if (/calling you (right )?now|call(ing)? you in (a|two|2|five|5|few) min|give me (a|two|2|five|5|a few) min|on my way to call|about to call|ringing you/i.test(text)) return "promised an immediate call";
+  if ((lead.tags ?? []).some((t: string) => /^offer\s*-/i.test(String(t))) && /(never|haven't|havent|didn't|didnt|before I could|yet to|without) .{0,40}(number|offer|price)|(number|offer|price) .{0,30}(never|haven't|didn't) (got|gave|given|sent)/i.test(text)) return "claims no offer was made but lead is tagged offer-made";
   const REPAIRS_RX = new RegExp("\\b(pay|cover|handle|take care of|do) (the |for )?(repairs?|cleanout|clean-out|floors?|work)\\b.*\\b(before|prior to|up ?front)\\b|\\bbefore (we )?clos\\w+.*\\b(repairs?|cleanout|floors?)\\b", "i");
   if (REPAIRS_RX.test(text)) return "repairs before closing";
   // money: any dollar figure in the text must already exist in the notes/thread (restating), never new
@@ -448,6 +450,9 @@ async function think(lead: any, s: any, store = true, runId = "") {
   const inAt = lead.last_in_at ? new Date(lead.last_in_at).getTime() : 0;
   const repLive = repAt && Date.now() - repAt < days(2) && inAt < repAt && (lead.last_rep_touch?.startsWith("sms") || (lead.last_rep_call_sec ?? 0) >= 60);
   if (repLive && action === "text") { action = "wait"; j.wait_until = iso(new Date(repAt + days(3))); j.reason = "rep is live on it (" + lead.last_rep_touch + ")"; }
+  // never stack texts: 30 min minimum after our last outbound unless the seller wrote back since
+  const outAt = lead.last_out_at ? new Date(lead.last_out_at).getTime() : 0;
+  if ((action === "text" || action === "closing") && outAt && Date.now() - outAt < 30 * 60e3 && inAt < outAt) { action = "wait"; j.wait_until = iso(new Date(outAt + 3600e3)); j.reason = "we texted them " + Math.round((Date.now() - outAt) / 60e3) + " min ago, no reply yet"; }
   // window + FL/OK cap
   let notBefore = drift(nextOpen(now(), lead.state));
   if (["FL", "OK"].includes(String(lead.state ?? "").toUpperCase())) {
@@ -461,7 +466,10 @@ async function think(lead: any, s: any, store = true, runId = "") {
   const leadUpd: any = { facts: j.facts ?? lead.facts, facts_at: iso(now()), updated_at: iso(now()) };
   if ((action === "text" || action === "closing") && !g) {
     const kind = action === "closing" ? "closing" : (inAt && inAt > (lead.last_out_at ? new Date(lead.last_out_at).getTime() : 0)) ? "reply" : "nudge";
-    const bookAt = j.book_at ? fromLocal(String(j.book_at), tzOf(lead.state)) : null;
+    let bookAt = j.book_at ? fromLocal(String(j.book_at), tzOf(lead.state)) : null;
+    const f = j.facts ?? lead.facts ?? {}; const ask = Number(f.ask), mao = Number(f.mao);
+    if (bookAt && !(ask > 0 && mao > 0 && ask <= mao * 1.1) && f.open_to_our_number !== true) { await log(lead.contact_id, "booking_refused", `ask=${f.ask} mao=${f.mao}: not makeable yet`); bookAt = null; }
+    if (bookAt) { const l = local(bookAt, "America/Chicago"); if (l.hour < 9 || l.hour >= 20 || l.dow === 0 || bookAt.getTime() < Date.now() + 25 * 60e3) { await log(lead.contact_id, "booking_refused", "outside 9-8 CT Mon-Sat or less than 25 min out: " + iso(bookAt)); bookAt = null; } }
     const { error } = await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind, channel, as_who: asWho, text, subject: channel === "email" ? (j.subject || `Your house at ${lead.address ?? ""}`) : null, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "pending", not_before: iso(notBefore), book_at: bookAt ? iso(bookAt) : null, book_rep: asWho === "nic" ? "nic" : "bt", model: s.model, tokens_in: r.usage.input_tokens ?? null, tokens_out: r.usage.output_tokens ?? null, cost_usd: cost, run_id: runId });
     if (error) await log(lead.contact_id, "draft_error", error.message);
     leadUpd.next_due_at = clampWait(waitUntil, 4); // re-looked at after the text goes (send moves it again)
@@ -505,7 +513,7 @@ async function thinkJob(b: any) {
   const { data: due } = await base().lte("next_due_at", iso(now())).order("next_due_at", { ascending: true }).limit(40);
   const { data: fresh } = await base().is("next_due_at", null).order("stage_changed_at", { ascending: false }).limit(40);
   const list: any[] = []; const seen = new Set<string>();
-  for (const l of [...(waiting ?? []).filter((l: any) => !l.last_out_at || new Date(l.last_in_at) > new Date(l.last_out_at)), ...(due ?? []), ...(fresh ?? [])]) if (!seen.has(l.contact_id) && !busy.has(l.contact_id) && !l.hold_until) { seen.add(l.contact_id); list.push(l); }
+  for (const l of [...(waiting ?? []).filter((l: any) => !l.last_out_at || new Date(l.last_in_at) > new Date(l.last_out_at)), ...(due ?? []), ...(fresh ?? [])]) if (!seen.has(l.contact_id) && !busy.has(l.contact_id) && !(l.hold_until && new Date(l.hold_until) > now())) { seen.add(l.contact_id); list.push(l); }
   // cost control: when Nic already has 40+ drafts waiting, only seller replies get drafted
   const { count: backlog } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "pending").neq("kind", "reply");
   const waitingIds = new Set((waiting ?? []).map((l: any) => l.contact_id));
@@ -557,6 +565,10 @@ async function sendDraft(d: any, s: any, by = "cron"): Promise<any> {
   if (lead.mode === "off" || lead.under_contract) { await sb.from("tom_drafts").update({ status: "expired", guard: "lead no longer worked" }).eq("id", d.id); return { ok: false, err: "lead off" }; }
   if (d.channel === "sms" && (lead.dnd_sms || lead.unsub)) { await sb.from("tom_drafts").update({ status: "blocked", guard: "DND / unsubscribed" }).eq("id", d.id); return { ok: false, err: "dnd" }; }
   if (!windowOpen(now(), lead.state)) { const nb = iso(drift(nextOpen(now(), lead.state))); await sb.from("tom_drafts").update({ status: "approved", not_before: nb, approved_at: d.approved_at ?? iso(now()), approved_by: d.approved_by ?? by }).eq("id", d.id); return { ok: true, queued: nb }; }
+  // never stack: if we texted this lead in the last 30 min and they have not replied since, push this one out
+  const lo = lead.last_out_at ? new Date(lead.last_out_at).getTime() : 0, li = lead.last_in_at ? new Date(lead.last_in_at).getTime() : 0;
+  if (lo && Date.now() - lo < 30 * 60e3 && li < lo && d.kind !== "closing") { const nb = iso(new Date(lo + 30 * 60e3)); await sb.from("tom_drafts").update({ status: "approved", not_before: nb, approved_at: d.approved_at ?? iso(now()), approved_by: d.approved_by ?? by }).eq("id", d.id); return { ok: true, queued: nb }; }
+  if (lead.hold_until && new Date(lead.hold_until) > now()) { await sb.from("tom_drafts").update({ status: "expired", guard: "lead on hold" }).eq("id", d.id); return { ok: false, err: "hold" }; }
   // daily cap
   const { count } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "sent").gte("sent_at", iso(new Date(Date.now() - days(1))));
   if ((count ?? 0) >= s.daily_cap) return { ok: false, err: "daily cap" };
