@@ -149,3 +149,14 @@ Oct 14: Daniel Christofori (Tom), John Connors (Tom), Karen Bostwick (Nic), Aman
 Oct 15: Ryan Shrouder (Tom, x2 — she said "I didn't receive an offer"; $63k restated; Nic/BT owes her the agreement if she says yes), Onis Eads (Nic), Toni Swafford (Tom), Jose Almazan (Nic), Rosario Salazar (email only — unsubscribed), Sandra Young (call confirmed Fri 10/16 10:00am), Marilynn Tisdale (Nic), William Harper (Tom), Theola Mckenzie (Nic, SMS+email, → No Reply), Brittany Davidson (Tom), Jamie Clasen (Nic), Paula Richard (Nic), Lorissa Winkler (one email only — SMS+call DND), Tammy Heflin (Tom, SMS+email), Joe Fasola (Tom), Wing Nut (Nic), Daminnius Guyton (Tom), Carolyn Tanner (Tom), Rachael Meeks (Tom), Herman Dubose (Tom), Gary Lowery (Nic), Early Lawson (Nic).
 Handled without a text: Candy Reid (SMS DND, call task 12/14), Susan Pfeifer (opt-out → Lost), Sarah Bowman (foreclosed + "stop please" → Lost), Gene Sian (BT live on it), Louis Zammy (cool-off; text 10/17).
 Scheduled, not yet sent: Louis Zammy 10/17; Erma Lanus, Linda Wallace, Sherif Youssef, Hoddie Johnson 10/21, Suzanne Gibbs 11/17, John Hoang Trien 10/25, Charles Mixon 10/24, Michael Cabrera; Veronica Martinez (email).
+
+## L. Added Oct 15 (grading Tom Bot's own drafts; switch turned ON 3:39pm CT on Nic's "turn it on!")
+52. **Bookings go to BT** unless the lead is assigned to Nic AND he's actively on it. Attempt Made / No Reply / Untouched always BT. (DB trigger `tom_drafts_book_rep`.)
+53. Seller says they'll call us back → give a direct line: BT's (469) 351-6796; Nic's Dallas (469) 518-3652 only on Nic's active leads.
+54. Seller texts a high ask ("as close to $400,000 as possible") → don't dodge or hint it's high. "Sounds good! I may be able to do that, are you free to call at the moment?"
+55. **Never pitch or explain by text**, never "I've got what I need, I'll call with a number" (invites "just text it"). Acknowledge what they sent, "I'll call you back shortly, what time's good for you?"
+56. Fresh reply (warm) → straight to the call time, no "are you still looking to sell". Cold re-anchor (weeks quiet) → "are you still looking to sell" is fine.
+57. Numbers can't work (far behind, $0 to closing, loan not in their name) → no text at all. We can't help them.
+58. A "no" / "we're going to stop" always gets the one question (not selling anymore, or just not interested in the offer we had?) — never a goodbye.
+59. Nic doesn't want to grade one by one. Tom sends on his own; Claude audits every text daily (scheduled task "Tom Bot daily text review", 7:52am CT) and texts Nic only what's off, one text a day max. Nic's replies become lessons.
+60. Pings to Nic: only the 5-min-before-call text (and the "Booked" text when a call gets locked). No per-reply pings — "too many notifications".
