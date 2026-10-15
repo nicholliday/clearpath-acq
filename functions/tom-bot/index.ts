@@ -250,7 +250,8 @@ async function refreshLead(cid: string): Promise<string> {
   if (/\b(hola|gracias|buenos|buenas|cuanto|cuánto|casa|vender|señor|si\b.*\bpuede|no hablo)\b/i.test(recentIn) || /spanish|español|no english|bad english/i.test(upd.notes_text ?? "")) upd.lang = "es";
   upd.msgs_synced_at = iso(now());
   // a seller who is waiting on us is due NOW
-  if (lastIn && (!lastOut || new Date(lastIn.at) > new Date(lastOut.at)) && !upd.dnd_sms) upd.next_due_at = iso(now());
+  // (only if Tom hasn't already looked at this text — a "wait" decision must stick, not get re-thought every sync)
+  if (lastIn && (!lastOut || new Date(lastIn.at) > new Date(lastOut.at)) && !upd.dnd_sms && !(lead.facts_at && new Date(lead.facts_at) > new Date(lastIn.at))) upd.next_due_at = iso(now());
   await sb.from("tom_leads").update(upd).eq("contact_id", cid);
   return "ok";
 }
@@ -392,6 +393,9 @@ async function packet(lead: any) {
   return { user, thread_tail: lines.slice(-8).join("\n") };
 }
 
+// offering / promising / confirming a phone call (English + Spanish)
+const CALL_RX = /\b(we|i)('ll| will| can| could|'d like to| would like to) (call|ring|phone|try) you\b|\b(call|ring|phone) you (at|around|back|today|tomorrow|then|this|in)\b|\b(can|could|may|should) (i|we) (call|ring|phone) you\b|\bgive you a (quick )?(call|ring)\b|\b(hop|jump|get) on (a|the) (quick )?(call|phone)\b|\b(for|on) a (quick |short |five minute |5 minute )?(call|phone call)\b|\bminutes? on the phone\b|\b(what|which) time (works|is good|is best)\b|\btime (to|for us to|for me to) call\b|\bcall you with\b|\bte llam(o|amos|ar[ée])\b|\ble llam(o|amos|ar[ée])\b|\bllamar(te|le|lo|la)\b/i;
+
 // code guards: the rules that must hold even if the model slips
 function guard(text: string, lead: any, notesAndThread: string): string | null {
   if (!text.trim()) return "empty";
@@ -434,6 +438,17 @@ async function think(lead: any, s: any, store = true, runId = "") {
       const r2 = await claude(s.model, sys, user + `\n\nYour draft was rejected: it contained a number that is not already in the notes or thread (${g}). Never text a new price. Rewrite without any number, or restate only an amount that already appears above. JSON only.`);
       const j2 = parseJson(r2.text); if (j2?.text) { text = String(j2.text).replace(/—|–/g, " - ").trim(); g = guard(text, lead, (lead.notes_text ?? "") + " " + user); if (j2.reason) j.reason = j2.reason; }
     }
+    // Nic only takes calls he can convert: an unqualified seller is never offered or promised a call (qualify by text first)
+    const f0 = j.facts ?? lead.facts ?? {}; const ask0 = Number(f0.ask), mao0 = Number(f0.mao); const pct0 = 1 + Number(s.book_mao_pct ?? 15) / 100;
+    const qualified = (ask0 > 0 && mao0 > 0 && ask0 <= mao0 * pct0) || f0.open_to_our_number === true || f0.strong_motivation === true;
+    if (!g && !qualified && CALL_RX.test(text)) {
+      const r3 = await claude(s.model, sys, user + `\n\nYour draft was rejected: it offers or promises a phone call, but this seller is not qualified yet (no number within 15% of MAO, not open to our number, no strong motivation). Nic only takes calls he can convert. Do NOT propose, promise or confirm a call and leave book_at null. Instead ask ONE qualifying question by text (what they are looking to get for it, or what is driving the sale and their timeline). JSON only.`);
+      const j3 = parseJson(r3.text);
+      if (j3?.text) { text = String(j3.text).replace(/—|–/g, " - ").replace(/\s{2,}/g, " ").trim(); g = guard(text, lead, (lead.notes_text ?? "") + " " + user); if (j3.reason) j.reason = j3.reason; if (j3.context) j.context = j3.context; }
+      j.book_at = null;
+      if (!g && CALL_RX.test(text)) g = "offered a call to an unqualified seller";
+      await log(lead.contact_id, "call_redrafted", (g ? "blocked: " : "ok: ") + text.slice(0, 120));
+    }
   }
   // sender: Nic only if Nic owns it and touched it in the last 2 days
   let asWho = String(j.as_who ?? "tom") === "nic" ? "nic" : "tom";
@@ -469,6 +484,8 @@ async function think(lead: any, s: any, store = true, runId = "") {
     let bookAt = j.book_at ? fromLocal(String(j.book_at), tzOf(lead.state)) : null;
     const f = j.facts ?? lead.facts ?? {}; const ask = Number(f.ask), mao = Number(f.mao);
     const pct = 1 + Number(s.book_mao_pct ?? 15) / 100;
+    // proposing a time ("does 5:30 work?") is not a booking - book when the seller says yes to it
+    if (bookAt && /\b(does|would|will|can|could|is)\b[^.?!]{0,60}\b(work|good|ok|okay|fine)\b[^.?!]{0,60}\?|\b(can|could|may) I call you (at|around)\b|te parece|le parece|está bien si|esta bien si/i.test(text)) { await log(lead.contact_id, "booking_deferred", "time proposed, not confirmed: " + text.slice(0, 100)); bookAt = null; }
     if (bookAt && !(ask > 0 && mao > 0 && ask <= mao * pct) && f.open_to_our_number !== true && f.strong_motivation !== true) { await log(lead.contact_id, "booking_refused", `ask=${f.ask} mao=${f.mao}: not within ${Math.round((pct - 1) * 100)}% of MAO and no strong motivation`); bookAt = null; }
     if (bookAt) { const l = local(bookAt, "America/Chicago"); if (l.hour < 9 || l.hour >= 20 || l.dow === 0 || bookAt.getTime() < Date.now() + 25 * 60e3) { await log(lead.contact_id, "booking_refused", "outside 9-8 CT Mon-Sat or less than 25 min out: " + iso(bookAt)); bookAt = null; } }
     const { error } = await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind, channel, as_who: asWho, text, subject: channel === "email" ? (j.subject || `Your house at ${lead.address ?? ""}`) : null, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "pending", not_before: iso(notBefore), book_at: bookAt ? iso(bookAt) : null, book_rep: asWho === "nic" ? "nic" : "bt", model: s.model, tokens_in: r.usage.input_tokens ?? null, tokens_out: r.usage.output_tokens ?? null, cost_usd: cost, run_id: runId });
@@ -514,10 +531,12 @@ async function thinkJob(b: any) {
   const { data: due } = await base().lte("next_due_at", iso(now())).order("next_due_at", { ascending: true }).limit(40);
   const { data: fresh } = await base().is("next_due_at", null).order("stage_changed_at", { ascending: false }).limit(40);
   const list: any[] = []; const seen = new Set<string>();
-  for (const l of [...(waiting ?? []).filter((l: any) => !l.last_out_at || new Date(l.last_in_at) > new Date(l.last_out_at)), ...(due ?? []), ...(fresh ?? [])]) if (!seen.has(l.contact_id) && !busy.has(l.contact_id) && !(l.hold_until && new Date(l.hold_until) > now())) { seen.add(l.contact_id); list.push(l); }
+  // "waiting" = seller texted last AND Tom hasn't assessed that text yet (assessed-and-waiting leads come back via `due` when their wait ends)
+  const unassessedReply = (l: any) => (!l.last_out_at || new Date(l.last_in_at) > new Date(l.last_out_at)) && !(l.facts_at && new Date(l.facts_at) > new Date(l.last_in_at));
+  for (const l of [...(waiting ?? []).filter(unassessedReply), ...(due ?? []), ...(fresh ?? [])]) if (!seen.has(l.contact_id) && !busy.has(l.contact_id) && !(l.hold_until && new Date(l.hold_until) > now())) { seen.add(l.contact_id); list.push(l); }
   // cost control: when Nic already has 40+ drafts waiting, only seller replies get drafted
   const { count: backlog } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "pending").neq("kind", "reply");
-  const waitingIds = new Set((waiting ?? []).map((l: any) => l.contact_id));
+  const waitingIds = new Set((waiting ?? []).filter(unassessedReply).map((l: any) => l.contact_id));
   const work = (backlog ?? 0) >= Number(s.max_backlog ?? 40) ? list.filter((l) => waitingIds.has(l.contact_id)) : list;
   const lim = Number(b.limit ?? 10); const out: any[] = [];
   for (const lead of work.slice(0, lim)) {
