@@ -524,7 +524,7 @@ async function thinkJob(b: any) {
   if (!s.drafting) return { ok: true, skipped: "drafting off" };
   const t0 = Date.now(); const runId = "run-" + iso(now()).slice(0, 16);
   const modes = s.silent_on ? ["judgment", "silent"] : ["judgment"];
-  const { data: pend } = await sb.from("tom_drafts").select("contact_id").in("status", ["pending", "approved"]);
+  const { data: pend } = await sb.from("tom_drafts").select("contact_id").in("status", ["pending", "approved", "sending"]);
   const busy = new Set((pend ?? []).map((x: any) => x.contact_id));
   const base = () => sb.from("tom_leads").select("*").in("mode", modes).eq("under_contract", false).eq("unsub", false).not("msgs_synced_at", "is", null);
   const { data: waiting } = await sb.from("tom_leads").select("*").in("mode", ["judgment", "silent"]).eq("under_contract", false).eq("unsub", false).not("msgs_synced_at", "is", null).not("last_in_at", "is", null).eq("dnd_sms", false).gte("last_in_at", iso(new Date(Date.now() - days(14)))).order("last_in_at", { ascending: false }).limit(40);
@@ -542,6 +542,9 @@ async function thinkJob(b: any) {
   for (const lead of work.slice(0, lim)) {
     if (Date.now() - t0 > 130_000) break;
     if (lead.hold_until && new Date(lead.hold_until) > now()) continue;
+    // CLAIM: one thinker per lead (the 15-min and 3-min think runs overlap and used to draft the same reply twice)
+    const { data: got } = await sb.from("tom_leads").update({ facts_at: iso(now()) }).eq("contact_id", lead.contact_id).or(`facts_at.is.null,facts_at.lt.${iso(new Date(Date.now() - 3 * 60e3))}`).select("contact_id");
+    if (!got?.length) continue;
     try { const r = await think(lead, s, true, runId); out.push({ name: lead.name, stage: lead.stage, action: r.action, as: r.as_who, guard: r.guard, text: r.text?.slice(0, 160) }); }
     catch (e) { out.push({ name: lead.name, err: String(e).slice(0, 200) }); await log(lead.contact_id, "think_error", String(e)); await sb.from("tom_leads").update({ next_due_at: iso(new Date(Date.now() + 3600e3)) }).eq("contact_id", lead.contact_id); }
   }
@@ -580,18 +583,25 @@ async function pingNic(s: any, text: string, cid: string | null) {
 }
 
 async function sendDraft(d: any, s: any, by = "cron"): Promise<any> {
+  // CLAIM FIRST: exactly one run may own this draft from here on (concurrent send runs used to double- and triple-text sellers)
+  const { data: claimed } = await sb.from("tom_drafts").update({ status: "sending", approved_at: iso(now()), approved_by: d.approved_by ?? by }).eq("id", d.id).eq("status", d.status).select("id");
+  if (!claimed?.length) return { ok: false, err: "claimed by another run" };
+  const back = async (upd: any) => { await sb.from("tom_drafts").update(upd).eq("id", d.id).eq("status", "sending"); };
   const { data: lead } = await sb.from("tom_leads").select("*").eq("contact_id", d.contact_id).single();
-  if (!lead) return { ok: false, err: "no lead" };
-  if (lead.mode === "off" || lead.under_contract) { await sb.from("tom_drafts").update({ status: "expired", guard: "lead no longer worked" }).eq("id", d.id); return { ok: false, err: "lead off" }; }
-  if (d.channel === "sms" && (lead.dnd_sms || lead.unsub)) { await sb.from("tom_drafts").update({ status: "blocked", guard: "DND / unsubscribed" }).eq("id", d.id); return { ok: false, err: "dnd" }; }
-  if (!windowOpen(now(), lead.state)) { const nb = iso(drift(nextOpen(now(), lead.state))); await sb.from("tom_drafts").update({ status: "approved", not_before: nb, approved_at: d.approved_at ?? iso(now()), approved_by: d.approved_by ?? by }).eq("id", d.id); return { ok: true, queued: nb }; }
+  if (!lead) { await back({ status: "failed", error: "no lead" }); return { ok: false, err: "no lead" }; }
+  if (lead.mode === "off" || lead.under_contract) { await back({ status: "expired", guard: "lead no longer worked" }); return { ok: false, err: "lead off" }; }
+  if (d.channel === "sms" && (lead.dnd_sms || lead.unsub)) { await back({ status: "blocked", guard: "DND / unsubscribed" }); return { ok: false, err: "dnd" }; }
+  if (!windowOpen(now(), lead.state)) { const nb = iso(drift(nextOpen(now(), lead.state))); await back({ status: "approved", not_before: nb }); return { ok: true, queued: nb }; }
   // never stack: if we texted this lead in the last 30 min and they have not replied since, push this one out
   const lo = lead.last_out_at ? new Date(lead.last_out_at).getTime() : 0, li = lead.last_in_at ? new Date(lead.last_in_at).getTime() : 0;
-  if (lo && Date.now() - lo < 30 * 60e3 && li < lo && d.kind !== "closing") { const nb = iso(new Date(lo + 30 * 60e3)); await sb.from("tom_drafts").update({ status: "approved", not_before: nb, approved_at: d.approved_at ?? iso(now()), approved_by: d.approved_by ?? by }).eq("id", d.id); return { ok: true, queued: nb }; }
-  if (lead.hold_until && new Date(lead.hold_until) > now()) { await sb.from("tom_drafts").update({ status: "expired", guard: "lead on hold" }).eq("id", d.id); return { ok: false, err: "hold" }; }
+  if (lo && Date.now() - lo < 30 * 60e3 && li < lo && d.kind !== "closing") { const nb = iso(new Date(lo + 30 * 60e3)); await back({ status: "approved", not_before: nb }); return { ok: true, queued: nb }; }
+  if (lead.hold_until && new Date(lead.hold_until) > now()) { await back({ status: "expired", guard: "lead on hold" }); return { ok: false, err: "hold" }; }
+  // one text per seller per 2 minutes, whatever produced it (two thinkers drafting the same reply, or two senders)
+  const { data: justSent } = await sb.from("tom_drafts").select("id").eq("contact_id", lead.contact_id).neq("id", d.id).or(`status.eq.sending,sent_at.gte.${iso(new Date(Date.now() - 2 * 60e3))}`).limit(1);
+  if (justSent?.length) { await back({ status: "expired", guard: "duplicate: another text went out in the last 2 min" }); await log(lead.contact_id, "dup_blocked", d.text.slice(0, 120)); return { ok: false, err: "duplicate" }; }
   // daily cap
   const { count } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "sent").gte("sent_at", iso(new Date(Date.now() - days(1))));
-  if ((count ?? 0) >= s.daily_cap) return { ok: false, err: "daily cap" };
+  if ((count ?? 0) >= s.daily_cap) { await back({ status: "approved" }); return { ok: false, err: "daily cap" }; }
   const r = await ghlSend(lead, d);
   if (!r.ok) {
     const unsub = /UNSUBSCRIBED|DND_ACTIVE/i.test(r.err ?? "");
@@ -600,7 +610,7 @@ async function sendDraft(d: any, s: any, by = "cron"): Promise<any> {
     await log(lead.contact_id, "send_failed", r.err ?? "");
     return { ok: false, err: r.err };
   }
-  await sb.from("tom_drafts").update({ status: "sent", sent_at: iso(now()), ghl_message_id: r.id, approved_at: d.approved_at ?? iso(now()), approved_by: d.approved_by ?? by }).eq("id", d.id);
+  await sb.from("tom_drafts").update({ status: "sent", sent_at: iso(now()), ghl_message_id: r.id }).eq("id", d.id);
   if (r.id) await sb.from("acq_lead_msgs").upsert({ id: r.id, contact_id: lead.contact_id, at: iso(now()), direction: "outbound", kind: d.channel === "email" ? "email" : "sms", body: d.text, status: "sent", source: "tom", fetched_at: iso(now()) }, { onConflict: "id" });
   const recheck = d.kind === "reply" ? 3 : 5;
   await sb.from("tom_leads").update({ last_out_at: iso(now()), last_out_by: "tom", next_due_at: iso(new Date(Date.now() + days(recheck))), updated_at: iso(now()) }).eq("contact_id", lead.contact_id);
@@ -639,6 +649,8 @@ async function sendJob(b: any, by: string) {
     if (r.ok && r.queued) out.queued++; else if (r.ok) out.sent++; else out.failed++;
     await sleep(200);
   }
+  // a run that died mid-send leaves 'sending' behind: never resend blind, mark it so a human can look
+  await sb.from("tom_drafts").update({ status: "failed", error: "lost in flight (run died after claim)" }).eq("status", "sending").lt("approved_at", iso(new Date(Date.now() - 10 * 60e3)));
   // pending drafts older than 3 days are stale: the situation has moved on
   await sb.from("tom_drafts").update({ status: "expired", guard: "not approved within 3 days" }).eq("status", "pending").lt("created_at", iso(new Date(Date.now() - days(3))));
   return out;
