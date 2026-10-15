@@ -76,6 +76,16 @@ function nextOpen(from: Date, state?: string | null): Date {
   for (let i = 0; i < 48 * 4; i++) { if (windowOpen(d, state)) return d; d.setTime(d.getTime() + 15 * 60e3); }
   return d;
 }
+// "2026-10-15T20:00" written in the property's local time -> real instant
+function fromLocal(str: string, tz: string): Date | null {
+  if (!str) return null;
+  const m = String(str).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/); if (!m) { const d = new Date(str); return isNaN(d.getTime()) ? null : d; }
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(String(str).trim())) { const d = new Date(str); return isNaN(d.getTime()) ? null : d; }
+  const guess = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  const l = local(new Date(guess), tz);
+  const asIf = Date.UTC(+l.ymd.slice(0, 4), +l.ymd.slice(5, 7) - 1, +l.ymd.slice(8, 10), l.hour, l.minute);
+  return new Date(guess - (asIf - guess));
+}
 // drifted minutes: never on a round number
 function drift(d: Date): Date { const m = d.getUTCMinutes(); const add = (m % 15 === 0 || m % 10 === 0) ? 3 + Math.floor(Math.random() * 9) : 0; return new Date(d.getTime() + add * 60e3); }
 
@@ -307,7 +317,7 @@ const DEFAULT_BRIEF = `You are "Tom" with Clear Path Property Solutions, a cash 
 - Seller asks for a price by text -> "I don't want to throw out a wrong number by text. Give me five minutes on the phone and I'll give you a real one. What time works?"
 - Seller refuses calls twice -> gather by text, one question per text: occupied or empty; big repairs; when they need it sold; what they're looking to get; photos (kitchen, bathrooms, outside); then "when's a good time to call you with the number?"
 - Sold / under contract elsewhere -> congrats, "has it closed or still under contract?", we're the backup offer; check in every ~2 weeks until it closes.
-- No / not interested -> "No problem. Is it that you're not selling anymore, or just not interested in a cash offer?" Leave the door open.
+- No / not interested / "we're going to stop" -> ALWAYS the one question, never a goodbye: "No problem. Is it that you're not selling anymore, or just not interested in the offer we had?" A "let us know if anything changes" text with no question is a failure.
 - Known event (court, probate hearing, closing, foreclosure date) -> check in right after it, ask how it went, tie the offer to their problem.
 - Spouse/co-owner is the no -> every 3-4 weeks, one question: has anything changed on their end. Probate not opened -> every ~3 weeks, probate progress only.
 - Elderly / distressed sellers: gentle, personal, reference what matters to them, then the price question.
@@ -451,11 +461,12 @@ async function think(lead: any, s: any, store = true, runId = "") {
   const leadUpd: any = { facts: j.facts ?? lead.facts, facts_at: iso(now()), updated_at: iso(now()) };
   if ((action === "text" || action === "closing") && !g) {
     const kind = action === "closing" ? "closing" : (inAt && inAt > (lead.last_out_at ? new Date(lead.last_out_at).getTime() : 0)) ? "reply" : "nudge";
-    const bookAt = j.book_at ? new Date(j.book_at) : null;
-    const { error } = await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind, channel, as_who: asWho, text, subject: channel === "email" ? (j.subject || `Your house at ${lead.address ?? ""}`) : null, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "pending", not_before: iso(notBefore), book_at: bookAt && !isNaN(bookAt.getTime()) ? iso(bookAt) : null, book_rep: lead.assigned_to === BT ? "bt" : "nic", model: s.model, tokens_in: r.usage.input_tokens ?? null, tokens_out: r.usage.output_tokens ?? null, cost_usd: cost, run_id: runId });
+    const bookAt = j.book_at ? fromLocal(String(j.book_at), tzOf(lead.state)) : null;
+    const { error } = await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind, channel, as_who: asWho, text, subject: channel === "email" ? (j.subject || `Your house at ${lead.address ?? ""}`) : null, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "pending", not_before: iso(notBefore), book_at: bookAt ? iso(bookAt) : null, book_rep: lead.assigned_to === BT ? "bt" : "nic", model: s.model, tokens_in: r.usage.input_tokens ?? null, tokens_out: r.usage.output_tokens ?? null, cost_usd: cost, run_id: runId });
     if (error) await log(lead.contact_id, "draft_error", error.message);
     leadUpd.next_due_at = clampWait(waitUntil, 4); // re-looked at after the text goes (send moves it again)
-    if (kind === "reply" && s.ping_on_reply !== false) await pingNic(s, `Tom Bot: ${lead.name ?? "seller"} (${lead.address ?? "?"}) texted "${String(lead.last_in_body ?? "").slice(0, 80)}". Draft is waiting for your yes.`, lead.contact_id);
+    if (bookAt && s.ping_on_booking !== false) await pingNic(s, `Tom Bot: ${lead.name ?? "seller"} (${lead.address ?? "?"}) gave a call time - ${bookAt.toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" })} CT. Approve the draft in the queue to lock it.`, lead.contact_id);
+    else if (kind === "reply" && s.ping_on_reply === true) await pingNic(s, `Tom Bot: ${lead.name ?? "seller"} (${lead.address ?? "?"}) texted "${String(lead.last_in_body ?? "").slice(0, 80)}". Draft is waiting for your yes.`, lead.contact_id);
   } else if ((action === "text" || action === "closing") && g) {
     await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind: "nudge", channel, as_who: asWho, text, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "blocked", guard: g, model: s.model, cost_usd: cost, run_id: runId });
     leadUpd.next_due_at = iso(new Date(Date.now() + days(1)));

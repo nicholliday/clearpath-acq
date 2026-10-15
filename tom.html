@@ -199,7 +199,8 @@ function renderSet(){
   h+='<div class="card">';
   h+=swRow('enabled','MASTER SWITCH — Tom sends on his own','Off = every text waits for your tap. On = pending drafts go out by themselves inside texting hours.',s.enabled,true);
   h+=swRow('drafting','Tom writes drafts','Off = Tom stops reading the pipeline and drafting entirely.',s.drafting,false);
-  h+=swRow('ping_on_reply','Text me when a seller replies','One text to '+esc(s.nic_cell)+' per lead per 2 hours, from the Dallas line.',s.ping_on_reply,false);
+  h+=swRow('ping_on_booking','Text me when a seller gives a call time','So you can approve the draft and lock the call. Plus the 5-min ping before every booked call.',s.ping_on_booking,false);
+  h+=swRow('ping_on_reply','Text me on every seller reply','Off by default - you said too many notifications.',s.ping_on_reply,false);
   h+='<div class="sw" style="border:0"><div><div style="font-weight:700">Daily send cap</div><div class="xs mut">Hard stop per 24h, approved or auto.</div></div><input type="number" value="'+s.daily_cap+'" style="width:84px;text-align:center" onchange="setVal(\'daily_cap\',Number(this.value))"></div>';
   h+='</div>';
   h+='<div class="card xs mut">Model '+esc(s.model)+' · Nic '+esc(s.nic_cell)+' · BT '+esc(s.bt_cell)+' · pings from '+esc(s.alert_from)+'<br>Texting hours by property state: TX 9am–9pm (Sun noon–9), everywhere else 8am–9pm local; FL/OK max 3 per day. Tom never texts a price, never says BT, never mentions agents or listing, never offers rent-backs. Drafts not approved within 3 days expire.</div>';
