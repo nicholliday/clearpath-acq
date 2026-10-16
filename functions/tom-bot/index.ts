@@ -400,6 +400,10 @@ async function packet(lead: any) {
 
 // offering / promising / confirming a phone call (English + Spanish)
 const CALL_RX = /\b(we|i)('ll| will| can| could|'d like to| would like to) (call|ring|phone|try) you\b|\b(call|ring|phone) you (at|around|back|today|tomorrow|then|this|in)\b|\b(can|could|may|should) (i|we) (call|ring|phone) you\b|\bgive you a (quick )?(call|ring)\b|\b(hop|jump|get) on (a|the) (quick )?(call|phone)\b|\b(for|on) a (quick |short |five minute |5 minute )?(call|phone call)\b|\bminutes? on the phone\b|\b(what|which) time (works|is good|is best)\b|\btime (to|for us to|for me to) call\b|\bcall you with\b|\bte llam(o|amos|ar[ée])\b|\ble llam(o|amos|ar[ée])\b|\bllamar(te|le|lo|la)\b/i;
+// offering / scheduling a walkthrough, visit or inspection (Nic, Oct 16: never before an agreed price)
+const WALK_RX = /walk[- ]?thr(ough|u)|\b(come|swing|stop|drop) (by|out|over)\b|come (and )?(see|look at|take a look)|\b(see|look at|check out|view) (it|the (house|property|place)) in person\b|\b(set up|schedule|do|book) (a|an|the) (visit|showing|viewing|inspection|appointment to see)\b|\bsend (someone|our guy|a guy|my partner) (out|by|over)\b|\b(our|my) (team|guy|partner) (can )?(come|stop|swing) (by|out)\b|\binspect(ion)?\b.{0,30}\b(house|property|place)\b/i;
+// "happy to come see it once we agree on a number" is the correct answer to a visit request, not an offer of one
+const WALK_OK_RX = /\bonce we\b|\bafter we (agree|lock|settle)|\bwhen we (have|agree)|number we both agree|agree on (a|the) (number|price)|price (is )?(agreed|locked)/i;
 // a usable why_now names a concrete change; empty, short or "nothing changed" does not count
 const weakWhy = (w: any) => !w || String(w).trim().length < 20 || /^(null|none|n\/a|unknown)$|nothing (has )?changed|no change|same as (before|last)|not (sure|clear)/i.test(String(w).trim());
 
@@ -455,6 +459,14 @@ async function think(lead: any, s: any, store = true, runId = "") {
       j.book_at = null;
       if (!g && CALL_RX.test(text)) g = "offered a call to an unqualified seller";
       await log(lead.contact_id, "call_redrafted", (g ? "blocked: " : "ok: ") + text.slice(0, 120));
+    }
+    // no walkthrough / visit / inspection until the seller has agreed to our number
+    if (!g && WALK_RX.test(text) && !WALK_OK_RX.test(text) && f0.open_to_our_number !== true) {
+      const r5 = await claude(s.model, sys, user + `\n\nYour draft was rejected: it offers, schedules or promises a walkthrough / visit / inspection, but there is no agreed price yet. We never go see a house until the seller has agreed to our number - otherwise the trip is wasted. Rewrite: if the seller asked for a visit, say we're happy to once we have a number we both agree on, and ask if they were good with the offer we already made (restate only an amount already in the notes/thread). Otherwise just drop the visit. JSON only.`);
+      const j5 = parseJson(r5.text);
+      if (j5?.text) { text = String(j5.text).replace(/—|–/g, " - ").replace(/\s{2,}/g, " ").trim(); g = guard(text, lead, (lead.notes_text ?? "") + " " + user); if (j5.reason) j.reason = j5.reason; if (j5.context) j.context = j5.context; if (j5.facts) j.facts = j5.facts; j.book_at = j5.book_at ?? null; j.why_now = j5.why_now ?? null; }
+      if (!g && WALK_RX.test(text) && !WALK_OK_RX.test(text) && (j.facts ?? f0)?.open_to_our_number !== true) g = "offered a walkthrough before an agreed price";
+      await log(lead.contact_id, "walk_redrafted", (g ? "blocked: " : "ok: ") + text.slice(0, 120));
     }
     // no appointment without a reason it converts THIS time: a call needs a concrete why_now (what changed since the last rep conversation)
     if (!g && (j.book_at || CALL_RX.test(text)) && weakWhy(j.why_now)) {
