@@ -542,8 +542,17 @@ async function think(lead: any, s: any, store = true, runId = "") {
       const msg = `Tom: NEW REPLY (${lead.stage}) ${lead.name ?? "seller"} - ${lead.address ?? "?"}. They said: "${said}". ${did}`.slice(0, 480);
       await pingRep(s, s.nic_cell, msg, lead.contact_id); await pingRep(s, s.bt_cell, msg, lead.contact_id);
     } else if (j.important === true) {
+      // the model's "important" is only honored when the facts back it: a number in range / yes to our offer / hard date / strong motivation, or the seller wants a human, is angry, or says bot (Nic, Oct 16: "seller asked what our offer was" is not important)
+      const fi = j.facts ?? lead.facts ?? {}; const askI = Number(fi.ask), maoI = Number(fi.mao); const pctI = 1 + Number(s.book_mao_pct ?? 15) / 100;
+      const why = String(j.important_why ?? "");
+      const backed = (askI > 0 && maoI > 0 && askI <= maoI * pctI) || fi.open_to_our_number === true || fi.strong_motivation === true
+        || (fi.event_date && new Date(fi.event_date).getTime() - Date.now() < days(30) && new Date(fi.event_date).getTime() > Date.now() - days(2))
+        || /\b(bot|robot|automated|real person|human|lawyer|attorney|legal|sue|harass|complain|angry|furious|scam)\b/i.test(why + " " + said);
       const cell = lead.assigned_to === NIC ? s.nic_cell : s.bt_cell;
-      await pingRep(s, cell, `Tom: ${lead.name ?? "seller"} - ${lead.address ?? "?"} - ${String(j.important_why ?? "needs a look").slice(0, 120)}. They said: "${said}". ${did}`.slice(0, 480), lead.contact_id);
+      const { count: recent } = await sb.from("tom_log").select("id", { count: "exact", head: true }).eq("event", "ping").like("detail", cell + " Tom: %").not("detail", "like", cell + " Tom: NEW REPLY%").gte("at", iso(new Date(Date.now() - 3600e3)));
+      if (!backed) await log(lead.contact_id, "ping_suppressed", "not backed by facts: " + why.slice(0, 160));
+      else if ((recent ?? 0) >= 2) await log(lead.contact_id, "ping_suppressed", "rep already had 2 important pings this hour: " + why.slice(0, 120));
+      else await pingRep(s, cell, `Tom: ${lead.name ?? "seller"} - ${lead.address ?? "?"} - ${why.slice(0, 120) || "needs a look"}. They said: "${said}". ${did}`.slice(0, 480), lead.contact_id);
     }
   }
   await bumpUsage("tom_think", 1);
