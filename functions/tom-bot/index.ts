@@ -344,11 +344,13 @@ const DEFAULT_BRIEF = `You are "Tom" with Clear Path Property Solutions, a cash 
 ## Booking
 - Book a call ONLY when (a) the seller's number is within 15% of our MAO or they have clearly said they are open to our number, OR (b) they are showing a LOT of motivation (behind on payments with a date coming, foreclosure/auction/tax sale, must be out by a date, estate that has to settle, "just need it gone") - set strong_motivation true only for that and say why in reason. Ordinary interest is not motivation. No number and no strong motivation -> ask for the number, do not book. "Call me now" is not a booking: offer a specific time at least 30 minutes out, inside 9am-8pm Central Mon-Sat.
 - When you set book_at, the text must confirm the time and that we'll call from this number.
+- why_now (required for any call you book, offer or promise): ONE specific sentence on what is DIFFERENT from the last time a rep spoke to this seller that makes them convertible now - a number that came down into range, a new deadline/event, a yes to our offer, a blocker that cleared. Read the notes and call transcripts to know what the last conversation was. If no rep has ever spoken to them, say why a first call converts (their number vs ours + what's driving it). If nothing has changed, why_now is null and you do NOT offer, propose or confirm a call - ask the one question that would change it instead. A call where nothing changed since last time is a wasted call.
 
 ## Output - JSON only
 {"action":"text"|"wait"|"skip"|"flag"|"closing",
  "as_who":"tom"|"nic", "channel":"sms"|"email", "text":"the text (empty unless action is text/closing)", "subject":"email subject or null",
  "book_at":"ISO datetime in the property's local time or null",
+ "why_now":"one specific sentence: what changed since the last rep conversation that makes this a deal now (required when book_at is set or the text offers a call; else null)",
  "wait_until":"ISO date when to look at this lead again (required for wait; also set it for text = when to check back if they go quiet)",
  "reason":"one short line why",
  "context":"ONE tight paragraph for Nic: street + city, situation, the numbers (their ask, our offer, type), what they said last, what's happened since, why this text now",
@@ -398,6 +400,8 @@ async function packet(lead: any) {
 
 // offering / promising / confirming a phone call (English + Spanish)
 const CALL_RX = /\b(we|i)('ll| will| can| could|'d like to| would like to) (call|ring|phone|try) you\b|\b(call|ring|phone) you (at|around|back|today|tomorrow|then|this|in)\b|\b(can|could|may|should) (i|we) (call|ring|phone) you\b|\bgive you a (quick )?(call|ring)\b|\b(hop|jump|get) on (a|the) (quick )?(call|phone)\b|\b(for|on) a (quick |short |five minute |5 minute )?(call|phone call)\b|\bminutes? on the phone\b|\b(what|which) time (works|is good|is best)\b|\btime (to|for us to|for me to) call\b|\bcall you with\b|\bte llam(o|amos|ar[ée])\b|\ble llam(o|amos|ar[ée])\b|\bllamar(te|le|lo|la)\b/i;
+// a usable why_now names a concrete change; empty, short or "nothing changed" does not count
+const weakWhy = (w: any) => !w || String(w).trim().length < 20 || /^(null|none|n\/a|unknown)$|nothing (has )?changed|no change|same as (before|last)|not (sure|clear)/i.test(String(w).trim());
 
 // code guards: the rules that must hold even if the model slips
 function guard(text: string, lead: any, notesAndThread: string): string | null {
@@ -452,6 +456,14 @@ async function think(lead: any, s: any, store = true, runId = "") {
       if (!g && CALL_RX.test(text)) g = "offered a call to an unqualified seller";
       await log(lead.contact_id, "call_redrafted", (g ? "blocked: " : "ok: ") + text.slice(0, 120));
     }
+    // no appointment without a reason it converts THIS time: a call needs a concrete why_now (what changed since the last rep conversation)
+    if (!g && (j.book_at || CALL_RX.test(text)) && weakWhy(j.why_now)) {
+      const r4 = await claude(s.model, sys, user + `\n\nYour draft was rejected: it books, offers or promises a phone call but why_now is missing or vague ("${String(j.why_now ?? "")}"). Nic only takes a call when something concrete has changed since the last time a rep spoke to this seller (number came down into range, new deadline, yes to our offer, blocker cleared) - or, if no rep ever spoke to them, when their number and motivation make a first call worth it. Re-read the notes, transcripts and thread. If there IS such a change, keep the draft and put that ONE specific fact in why_now. If there is NOT, do NOT propose, promise or confirm a call, leave book_at and why_now null, and ask the one question that would change it. JSON only.`);
+      const j4 = parseJson(r4.text);
+      if (j4?.text) { text = String(j4.text).replace(/—|–/g, " - ").replace(/\s{2,}/g, " ").trim(); g = guard(text, lead, (lead.notes_text ?? "") + " " + user); j.why_now = j4.why_now ?? null; j.book_at = j4.book_at ?? null; if (j4.reason) j.reason = j4.reason; if (j4.context) j.context = j4.context; if (j4.facts) j.facts = j4.facts; }
+      if (weakWhy(j.why_now)) { j.book_at = null; j.why_now = null; if (!g && CALL_RX.test(text)) g = "offered a call with no why_now (nothing changed since the last rep conversation)"; }
+      await log(lead.contact_id, "why_now_check", (g ? "blocked: " : j.why_now ? "ok: " + String(j.why_now).slice(0, 100) + " | " : "no call: ") + text.slice(0, 100));
+    }
   }
   // sender: Nic only if Nic owns it and touched it in the last 2 days
   let asWho = String(j.as_who ?? "tom") === "nic" ? "nic" : "tom";
@@ -479,7 +491,7 @@ async function think(lead: any, s: any, store = true, runId = "") {
   }
   const waitUntil = j.wait_until ? new Date(j.wait_until) : null;
   const clampWait = (d: Date | null, def: number) => { const t = d && !isNaN(d.getTime()) ? d.getTime() : Date.now() + days(def); return iso(new Date(Math.min(Math.max(t, Date.now() + days(1)), Date.now() + days(42)))); };
-  const result: any = { action, as_who: asWho, channel, text, guard: g, reason: j.reason ?? null, context: j.context ?? null, book_at: j.book_at ?? null, wait_until: j.wait_until ?? null, facts: j.facts ?? null, cost, usage: r.usage, not_before: iso(notBefore) };
+  const result: any = { action, as_who: asWho, channel, text, guard: g, reason: j.reason ?? null, context: j.context ?? null, book_at: j.book_at ?? null, why_now: j.why_now ?? null, wait_until: j.wait_until ?? null, facts: j.facts ?? null, cost, usage: r.usage, not_before: iso(notBefore) };
   if (!store) return result;
   const leadUpd: any = { facts: j.facts ?? lead.facts, facts_at: iso(now()), updated_at: iso(now()) };
   if ((action === "text" || action === "closing") && !g) {
@@ -491,7 +503,13 @@ async function think(lead: any, s: any, store = true, runId = "") {
     if (bookAt && /\b(does|would|will|can|could|is)\b[^.?!]{0,60}\b(work|good|ok|okay|fine)\b[^.?!]{0,60}\?|\b(can|could|may) I call you (at|around)\b|te parece|le parece|está bien si|esta bien si/i.test(text)) { await log(lead.contact_id, "booking_deferred", "time proposed, not confirmed: " + text.slice(0, 100)); bookAt = null; }
     if (bookAt && !(ask > 0 && mao > 0 && ask <= mao * pct) && f.open_to_our_number !== true && f.strong_motivation !== true) { await log(lead.contact_id, "booking_refused", `ask=${f.ask} mao=${f.mao}: not within ${Math.round((pct - 1) * 100)}% of MAO and no strong motivation`); bookAt = null; }
     if (bookAt) { const l = local(bookAt, "America/Chicago"); if (l.hour < 9 || l.hour >= 20 || l.dow === 0 || bookAt.getTime() < Date.now() + 25 * 60e3) { await log(lead.contact_id, "booking_refused", "outside 9-8 CT Mon-Sat or less than 25 min out: " + iso(bookAt)); bookAt = null; } }
-    const { error } = await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind, channel, as_who: asWho, text, subject: channel === "email" ? (j.subject || `Your house at ${lead.address ?? ""}`) : null, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "pending", not_before: iso(notBefore), book_at: bookAt ? iso(bookAt) : null, book_rep: asWho === "nic" ? "nic" : "bt", model: s.model, tokens_in: r.usage.input_tokens ?? null, tokens_out: r.usage.output_tokens ?? null, cost_usd: cost, run_id: runId });
+    let whyNow = weakWhy(j.why_now) ? null : String(j.why_now).trim().slice(0, 300);
+    if (bookAt && !whyNow) { // a call a rep moved keeps the reason it was booked on
+      const { data: prev } = await sb.from("tom_bookings").select("why_now").eq("contact_id", lead.contact_id).eq("status", "cancelled").not("why_now", "is", null).gte("created_at", iso(new Date(Date.now() - days(3)))).order("created_at", { ascending: false }).limit(1);
+      if (prev?.[0]?.why_now) whyNow = "(rebooked) " + prev[0].why_now;
+    }
+    if (bookAt && !whyNow) { await log(lead.contact_id, "booking_refused", "no why_now - nothing shown to have changed since the last rep conversation"); bookAt = null; }
+    const { error } = await sb.from("tom_drafts").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, stage: lead.stage, kind, channel, as_who: asWho, text, subject: channel === "email" ? (j.subject || `Your house at ${lead.address ?? ""}`) : null, reason: j.reason ?? null, context: j.context ?? null, thread_tail, status: "pending", not_before: iso(notBefore), book_at: bookAt ? iso(bookAt) : null, why_now: bookAt ? whyNow : null, book_rep: asWho === "nic" ? "nic" : "bt", model: s.model, tokens_in: r.usage.input_tokens ?? null, tokens_out: r.usage.output_tokens ?? null, cost_usd: cost, run_id: runId });
     if (error) await log(lead.contact_id, "draft_error", error.message);
     leadUpd.next_due_at = clampWait(waitUntil, 4); // re-looked at after the text goes (send moves it again)
     if (bookAt && s.ping_on_booking !== false) await pingNic(s, `Tom Bot: ${lead.name ?? "seller"} (${lead.address ?? "?"}) gave a call time - ${bookAt.toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" })} CT. Approve the draft in the queue to lock it.`, lead.contact_id);
@@ -640,9 +658,9 @@ async function sendDraft(d: any, s: any, by = "cron"): Promise<any> {
   await log(lead.contact_id, "sent", `${d.channel} as ${d.as_who} by ${by}: ${d.text.slice(0, 160)}`);
   if (d.book_at) {
     const rep = d.book_rep === "bt" ? "bt" : "nic"; const cell = rep === "bt" ? s.bt_cell : s.nic_cell;
-    await sb.from("tom_bookings").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, phone: lead.phone, call_at: d.book_at, rep, rep_cell: cell, draft_id: d.id, alert_booked_at: iso(now()) });
+    await sb.from("tom_bookings").insert({ contact_id: lead.contact_id, name: lead.name, address: lead.address, phone: lead.phone, call_at: d.book_at, rep, rep_cell: cell, draft_id: d.id, why_now: d.why_now ?? null, alert_booked_at: iso(now()) });
     const when = new Date(d.book_at).toLocaleString("en-US", { timeZone: "America/Chicago", weekday: "short", hour: "numeric", minute: "2-digit" });
-    await sendText(s.alert_from, cell, `📞 Booked: ${lead.name ?? "seller"} - ${lead.address ?? ""} - call ${when} CT (they're expecting it). ${lead.phone ?? ""}`);
+    await sendText(s.alert_from, cell, `📞 Booked: ${lead.name ?? "seller"} - ${lead.address ?? ""} - call ${when} CT (they're expecting it). ${lead.phone ?? ""}\nWhy this time: ${d.why_now ?? "see notes"}`.slice(0, 600));
   }
   return { ok: true, id: r.id };
 }
@@ -703,7 +721,7 @@ async function alertsJob() {
   for (const bk of open ?? []) {
     if (!bk.alert_5min_at) {
       const when = new Date(bk.call_at).toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", minute: "2-digit" });
-      const err = await sendText(s.alert_from, bk.rep_cell || s.nic_cell, `📞 5 min: ${bk.name ?? "seller"} - ${bk.address ?? ""} at ${when} CT. ${bk.phone ?? ""} (they're expecting your call)`);
+      const err = await sendText(s.alert_from, bk.rep_cell || s.nic_cell, `📞 5 min: ${bk.name ?? "seller"} - ${bk.address ?? ""} at ${when} CT. ${bk.phone ?? ""} (they're expecting your call)${bk.why_now ? `\nWhy this time: ${bk.why_now}` : ""}`.slice(0, 600));
       await sb.from("tom_bookings").update({ alert_5min_at: iso(now()) }).eq("id", bk.id); await log(bk.contact_id, err ? "alert_error" : "alert_5min", err ?? when); pinged++;
     }
     if (new Date(bk.call_at).getTime() < Date.now() - 45 * 60e3) await sb.from("tom_bookings").update({ status: "done" }).eq("id", bk.id);
