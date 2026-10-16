@@ -511,6 +511,13 @@ async function think(lead: any, s: any, store = true, runId = "") {
     await log(lead.contact_id, "wait", `until ${leadUpd.next_due_at.slice(0, 10)}: ${String(j.reason ?? "")}`);
   }
   await sb.from("tom_leads").update(leadUpd).eq("contact_id", lead.contact_id);
+  // IMPORTANT -> one text to the rep who owns the lead (Nic's lead -> Nic, otherwise BT). Routine replies never ping anyone.
+  if (j.important === true && s.ping_on_important !== false) {
+    const cell = lead.assigned_to === NIC ? s.nic_cell : s.bt_cell;
+    const said = String(lead.last_in_body ?? "").replace(/\s+/g, " ").slice(0, 110);
+    const did = action === "text" && !g ? `Tom replied: "${text.slice(0, 110)}"` : action === "wait" ? "Tom is holding off." : action === "flag" ? "Tom flagged it for you." : "";
+    await pingRep(s, cell, `Tom: ${lead.name ?? "seller"} - ${lead.address ?? "?"} - ${String(j.important_why ?? "needs a look").slice(0, 120)}. They said: "${said}". ${did}`.slice(0, 480), lead.contact_id);
+  }
   await bumpUsage("tom_think", 1);
   return result;
 }
@@ -578,10 +585,11 @@ async function sendText(from: string, to: string, text: string): Promise<string 
   if (!r.ok) return "openphone " + r.status + " " + (await r.text()).slice(0, 200);
   return null;
 }
-async function pingNic(s: any, text: string, cid: string | null) {
-  // at most one ping per lead per 2 hours
+async function pingNic(s: any, text: string, cid: string | null) { await pingRep(s, s.nic_cell, text, cid); }
+// one text to a rep's cell; at most one per lead per 2 hours
+async function pingRep(s: any, cell: string, text: string, cid: string | null) {
   if (cid) { const { data } = await sb.from("tom_log").select("id").eq("contact_id", cid).eq("event", "ping").gte("at", iso(new Date(Date.now() - 2 * 3600e3))).limit(1); if (data?.length) return; }
-  const err = await sendText(s.alert_from, s.nic_cell, text);
+  const err = await sendText(s.alert_from, cell, text);
   await log(cid, err ? "ping_error" : "ping", err ?? text.slice(0, 200));
 }
 
