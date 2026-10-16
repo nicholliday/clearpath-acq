@@ -511,12 +511,22 @@ async function think(lead: any, s: any, store = true, runId = "") {
     await log(lead.contact_id, "wait", `until ${leadUpd.next_due_at.slice(0, 10)}: ${String(j.reason ?? "")}`);
   }
   await sb.from("tom_leads").update(leadUpd).eq("contact_id", lead.contact_id);
-  // IMPORTANT -> one text to the rep who owns the lead (Nic's lead -> Nic, otherwise BT). Routine replies never ping anyone.
-  if (j.important === true && s.ping_on_important !== false) {
-    const cell = lead.assigned_to === NIC ? s.nic_cell : s.bt_cell;
+  // Who hears about this reply (Nic, Oct 16):
+  //  - a seller reply on a FRESH lead (Attempt Made / No Reply inbound) -> Nic AND BT, every time
+  //  - otherwise only when IMPORTANT -> the rep who owns the lead (Nic's lead -> Nic, BT's or unassigned -> BT)
+  //  - routine replies on worked leads -> nobody. Devon's dispo alerts are a separate system.
+  if (s.ping_on_important !== false) {
     const said = String(lead.last_in_body ?? "").replace(/\s+/g, " ").slice(0, 110);
     const did = action === "text" && !g ? `Tom replied: "${text.slice(0, 110)}"` : action === "wait" ? "Tom is holding off." : action === "flag" ? "Tom flagged it for you." : "";
-    await pingRep(s, cell, `Tom: ${lead.name ?? "seller"} - ${lead.address ?? "?"} - ${String(j.important_why ?? "needs a look").slice(0, 120)}. They said: "${said}". ${did}`.slice(0, 480), lead.contact_id);
+    const sellerWaiting = inAt && inAt > outAt && Date.now() - inAt < days(14);
+    const freshStage = lead.stage_id === ST.attempt || lead.stage_id === ST.noReply;
+    if (freshStage && sellerWaiting) {
+      const msg = `Tom: NEW REPLY (${lead.stage}) ${lead.name ?? "seller"} - ${lead.address ?? "?"}. They said: "${said}". ${did}`.slice(0, 480);
+      await pingRep(s, s.nic_cell, msg, lead.contact_id); await pingRep(s, s.bt_cell, msg, lead.contact_id);
+    } else if (j.important === true) {
+      const cell = lead.assigned_to === NIC ? s.nic_cell : s.bt_cell;
+      await pingRep(s, cell, `Tom: ${lead.name ?? "seller"} - ${lead.address ?? "?"} - ${String(j.important_why ?? "needs a look").slice(0, 120)}. They said: "${said}". ${did}`.slice(0, 480), lead.contact_id);
+    }
   }
   await bumpUsage("tom_think", 1);
   return result;
@@ -588,9 +598,10 @@ async function sendText(from: string, to: string, text: string): Promise<string 
 async function pingNic(s: any, text: string, cid: string | null) { await pingRep(s, s.nic_cell, text, cid); }
 // one text to a rep's cell; at most one per lead per 2 hours
 async function pingRep(s: any, cell: string, text: string, cid: string | null) {
-  if (cid) { const { data } = await sb.from("tom_log").select("id").eq("contact_id", cid).eq("event", "ping").gte("at", iso(new Date(Date.now() - 2 * 3600e3))).limit(1); if (data?.length) return; }
+  if (!cell) return;
+  if (cid) { const { data } = await sb.from("tom_log").select("id").eq("contact_id", cid).eq("event", "ping").like("detail", cell + " %").gte("at", iso(new Date(Date.now() - 2 * 3600e3))).limit(1); if (data?.length) return; }
   const err = await sendText(s.alert_from, cell, text);
-  await log(cid, err ? "ping_error" : "ping", err ?? text.slice(0, 200));
+  await log(cid, err ? "ping_error" : "ping", cell + " " + (err ?? text.slice(0, 200)));
 }
 
 async function sendDraft(d: any, s: any, by = "cron"): Promise<any> {
