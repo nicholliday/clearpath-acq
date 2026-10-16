@@ -711,6 +711,65 @@ async function alertsJob() {
   return { ok: true, pinged };
 }
 
+// ---------- REP INBOX: Nic/BT text the Quo alert line back ("can't make it", "push it to 3pm") ----------
+const CANT_RX = /can'?t make|cannot make|can'?t do|won'?t make|not going to make|not gonna make|reschedul|cancel|push (it|the call|that)|move (it|the call|that)|running late|no show/i;
+function parseNewTime(t: string): { label: string; at: Date | null } | null {
+  const m = t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)\b/i) ?? t.match(/\b(?:at|to)\s+(\d{1,2})(?::(\d{2}))?\b/i);
+  if (!m) return null;
+  let h = Number(m[1]); const min = Number(m[2] ?? 0); const ap = (m[3] ?? "").toLowerCase().replace(/\./g, "");
+  if (ap === "pm" && h < 12) h += 12; if (ap === "am" && h === 12) h = 0;
+  if (!ap && h < 8) h += 12; // "at 3" means 3pm for a 9-8 team
+  const tomorrow = /tomorrow|tmrw|tmw/i.test(t);
+  const ct = local(now(), "America/Chicago"); const base = fromLocal(`${ct.ymd}T00:00`, "America/Chicago")!;
+  const at = new Date(base.getTime() + (tomorrow ? 864e5 : 0) + h * 3600e3 + min * 60e3);
+  const label = `${((h + 11) % 12) + 1}${min ? ":" + String(min).padStart(2, "0") : ""}${h >= 12 ? "pm" : "am"}${tomorrow ? " tomorrow" : ""}`;
+  return { label, at };
+}
+async function inboxJob() {
+  const s = await settings();
+  if (!OPENPHONE) return { ok: false, err: "no OPENPHONE_API_KEY" };
+  if (!opFromCache || opFromCache.number !== s.alert_from) {
+    const nR = await fetch("https://api.openphone.com/v1/phone-numbers", { headers: { Authorization: OPENPHONE } });
+    const nums = ((await nR.json().catch(() => ({}))).data ?? []) as any[];
+    const mine = nums.find((n) => n.number === s.alert_from) || nums[0]; if (!mine) return { ok: false, err: "no OpenPhone number" };
+    opFromCache = { id: mine.id, number: mine.number };
+  }
+  const out: any[] = [];
+  for (const rep of [{ rep: "nic", cell: s.nic_cell, name: "Nic" }, { rep: "bt", cell: s.bt_cell, name: "BT" }]) {
+    if (!rep.cell) continue;
+    const r = await fetch(`https://api.openphone.com/v1/messages?phoneNumberId=${encodeURIComponent(opFromCache.id)}&participants=${encodeURIComponent(rep.cell)}&maxResults=10`, { headers: { Authorization: OPENPHONE } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { await log(null, "inbox_error", `${rep.rep} ${r.status} ${JSON.stringify(j).slice(0, 200)}`); continue; }
+    for (const m of (j.data ?? []) as any[]) {
+      if (m.direction !== "incoming") continue;
+      if (Date.now() - new Date(m.createdAt).getTime() > 30 * 60e3) continue;
+      const { data: seen } = await sb.from("tom_log").select("id").eq("event", "rep_msg").like("detail", `${m.id} %`).limit(1);
+      if (seen?.length) continue;
+      const text = String(m.text ?? m.body ?? "");
+      await log(null, "rep_msg", `${m.id} ${rep.rep}: ${text.slice(0, 200)}`);
+      if (!CANT_RX.test(text)) { out.push({ rep: rep.rep, text, action: "ignored" }); continue; }
+      // the call they mean: this rep's open booking nearest to now (3h back .. 48h ahead)
+      const { data: bks } = await sb.from("tom_bookings").select("*").eq("rep", rep.rep).eq("status", "open").gte("call_at", iso(new Date(Date.now() - 3 * 3600e3))).lte("call_at", iso(new Date(Date.now() + 48 * 3600e3))).order("call_at", { ascending: true });
+      const bk = (bks ?? []).sort((a: any, b: any) => Math.abs(new Date(a.call_at).getTime() - Date.now()) - Math.abs(new Date(b.call_at).getTime() - Date.now()))[0];
+      if (!bk) { await sendText(s.alert_from, rep.cell, "Tom: I don't see an upcoming booked call for you to move. Nothing changed."); out.push({ rep: rep.rep, text, action: "no booking" }); continue; }
+      const { data: lead } = await sb.from("tom_leads").select("*").eq("contact_id", bk.contact_id).single();
+      const when = new Date(bk.call_at).toLocaleString("en-US", { timeZone: "America/Chicago", hour: "numeric", minute: "2-digit" });
+      const nt = parseNewTime(text);
+      const first = lead?.first_name || "there";
+      const sellerText = nt
+        ? `Hey ${first}, it's Tom - something came up on our end and we can't make the ${when} call. Sorry about that. Could we do ${nt.label} instead?`
+        : `Hey ${first}, it's Tom - something came up on our end and we can't make the ${when} call. Sorry about that. What's another time today or tomorrow that works for you?`;
+      await sb.from("tom_bookings").update({ status: "cancelled" }).eq("id", bk.id);
+      await sb.from("tom_drafts").insert({ contact_id: bk.contact_id, name: lead?.name ?? bk.name, address: lead?.address ?? bk.address, stage: lead?.stage ?? null, kind: "reply", channel: "sms", as_who: "tom", text: sellerText, reason: `${rep.name} texted the alert line: "${text.slice(0, 80)}" - call moved`, context: `${rep.name} can't make the ${when} call; Tom asked the seller for a new time${nt ? " and offered " + nt.label : ""}.`, status: "approved", approved_at: iso(now()), approved_by: rep.rep, not_before: iso(now()), model: "rule", cost_usd: 0 });
+      await sb.from("tom_leads").update({ next_due_at: iso(new Date(Date.now() + 3600e3)), updated_at: iso(now()) }).eq("contact_id", bk.contact_id);
+      await log(bk.contact_id, "booking_moved", `${rep.rep} can't make ${when}: "${text.slice(0, 100)}"${nt ? " -> offered " + nt.label : ""}`);
+      await sendText(s.alert_from, rep.cell, `Tom: got it. ${when} call with ${lead?.name ?? bk.name} is off - I'm texting them now${nt ? ` and offering ${nt.label}` : " for a new time"}. I'll ping you when it's rebooked.`);
+      out.push({ rep: rep.rep, text, action: "moved", booking: bk.id });
+    }
+  }
+  return { ok: true, out };
+}
+
 async function lostJob(cid: string, by: string) {
   const { data: lead } = await sb.from("tom_leads").select("*").eq("contact_id", cid).single();
   if (!lead?.opp_id) return { ok: false, err: "no opp" };
@@ -746,6 +805,7 @@ Deno.serve(async (req) => {
         r = { ok: true }; break;
       }
       case "alerts": r = await alertsJob(); break;
+      case "inbox": r = await inboxJob(); break;
       case "lost": r = await lostJob(String(b.contact_id), by); break;
       case "preview": { const s = await settings(); const { data: lead } = await sb.from("tom_leads").select("*").eq("contact_id", b.contact_id).single(); if (!lead) { r = { ok: false, err: "no lead" }; break; } if (b.refresh) await refreshLead(lead.contact_id); const { data: l2 } = await sb.from("tom_leads").select("*").eq("contact_id", b.contact_id).single(); r = await think(l2, s, false); break; }
       case "refresh": r = { ok: true, res: await refreshLead(String(b.contact_id)) }; break;
