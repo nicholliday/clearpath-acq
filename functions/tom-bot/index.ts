@@ -538,7 +538,7 @@ async function thinkJob(b: any) {
   const unassessedReply = (l: any) => (!l.last_out_at || new Date(l.last_in_at) > new Date(l.last_out_at)) && !(l.facts_at && new Date(l.facts_at) > new Date(l.last_in_at));
   for (const l of [...(waiting ?? []).filter(unassessedReply), ...(due ?? []), ...(fresh ?? [])]) if (!seen.has(l.contact_id) && !busy.has(l.contact_id) && !(l.hold_until && new Date(l.hold_until) > now())) { seen.add(l.contact_id); list.push(l); }
   // cost control: when Nic already has 40+ drafts waiting, only seller replies get drafted
-  const { count: backlog } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "pending").neq("kind", "reply");
+  const { count: backlog } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).in("status", ["pending", "approved"]);
   const waitingIds = new Set((waiting ?? []).filter(unassessedReply).map((l: any) => l.contact_id));
   const work = (backlog ?? 0) >= Number(s.max_backlog ?? 40) ? list.filter((l) => waitingIds.has(l.contact_id)) : list;
   const lim = Number(b.limit ?? 10); const budget = Number(b.budget_ms ?? 50_000); const out: any[] = [];
@@ -602,9 +602,9 @@ async function sendDraft(d: any, s: any, by = "cron"): Promise<any> {
   // one text per seller per 2 minutes, whatever produced it (two thinkers drafting the same reply, or two senders)
   const { data: justSent } = await sb.from("tom_drafts").select("id").eq("contact_id", lead.contact_id).neq("id", d.id).or(`status.eq.sending,sent_at.gte.${iso(new Date(Date.now() - 2 * 60e3))}`).limit(1);
   if (justSent?.length) { await back({ status: "expired", guard: "duplicate: another text went out in the last 2 min" }); await log(lead.contact_id, "dup_blocked", d.text.slice(0, 120)); return { ok: false, err: "duplicate" }; }
-  // daily cap
-  const { count } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "sent").gte("sent_at", iso(new Date(Date.now() - days(1))));
-  if ((count ?? 0) >= s.daily_cap) { await back({ status: "approved" }); return { ok: false, err: "daily cap" }; }
+  // stale: the seller wrote since this was drafted, or it has sat 2 days - the thinker will look again with fresh context
+  if (li && li > new Date(d.created_at).getTime()) { await back({ status: "expired", guard: "seller texted after this was drafted" }); return { ok: false, err: "stale" }; }
+  if (Date.now() - new Date(d.created_at).getTime() > days(2)) { await back({ status: "expired", guard: "drafted more than 2 days ago" }); return { ok: false, err: "stale" }; }
   const r = await ghlSend(lead, d);
   if (!r.ok) {
     const unsub = /UNSUBSCRIBED|DND_ACTIVE/i.test(r.err ?? "");
@@ -613,7 +613,7 @@ async function sendDraft(d: any, s: any, by = "cron"): Promise<any> {
     await log(lead.contact_id, "send_failed", r.err ?? "");
     return { ok: false, err: r.err };
   }
-  await sb.from("tom_drafts").update({ status: "sent", sent_at: iso(now()), ghl_message_id: r.id }).eq("id", d.id);
+  await sb.from("tom_drafts").update({ status: "sent", sent_at: iso(now()), ghl_message_id: r.id, paced: d.paced === true }).eq("id", d.id);
   if (r.id) await sb.from("acq_lead_msgs").upsert({ id: r.id, contact_id: lead.contact_id, at: iso(now()), direction: "outbound", kind: d.channel === "email" ? "email" : "sms", body: d.text, status: "sent", source: "tom", fetched_at: iso(now()) }, { onConflict: "id" });
   const recheck = d.kind === "reply" ? 3 : 5;
   await sb.from("tom_leads").update({ last_out_at: iso(now()), last_out_by: "tom", next_due_at: iso(new Date(Date.now() + days(recheck))), updated_at: iso(now()) }).eq("contact_id", lead.contact_id);
@@ -646,10 +646,28 @@ async function sendJob(b: any, by: string) {
     const { data: pend } = await sb.from("tom_drafts").select("id").eq("status", "pending").in("kind", ["reply", "nudge", "seq", "closing"]).lte("not_before", iso(now())).limit(25);
     if (pend?.length) { await sb.from("tom_drafts").update({ status: "approved", approved_at: iso(now()), approved_by: "auto" }).in("id", pend.map((x: any) => x.id)); out.auto = pend.length; }
   }
-  const { data: ready } = await sb.from("tom_drafts").select("*").eq("status", "approved").lte("not_before", iso(now())).order("approved_at", { ascending: true }).limit(25);
-  for (const d of ready ?? []) {
-    const r = await sendDraft({ ...d, text: d.nic_fix ?? d.text }, s, d.approved_by ?? "cron");
-    if (r.ok && r.queued) out.queued++; else if (r.ok) out.sent++; else out.failed++;
+  // daily cap = calendar day, Central time. Checked once per run; when hit, nothing is claimed and the queue simply waits for tomorrow.
+  const ct = local(now(), "America/Chicago"); const dayStart = fromLocal(`${ct.ymd}T00:00`, "America/Chicago")!;
+  const { count: sentToday } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "sent").gte("sent_at", iso(dayStart));
+  if ((sentToday ?? 0) >= Number(s.daily_cap ?? 300)) { out.capped = sentToday; return out; }
+  // pace like a person: a live reply (seller texted in the last 14 days and is waiting) goes now; everything else at most `nudge_per_hour` (default 30), spread out
+  const rate = Number(s.nudge_per_hour ?? 30);
+  const { count: nHour } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "sent").eq("paced", true).gte("sent_at", iso(new Date(Date.now() - 3600e3)));
+  const { count: nTen } = await sb.from("tom_drafts").select("id", { count: "exact", head: true }).eq("status", "sent").eq("paced", true).gte("sent_at", iso(new Date(Date.now() - 600e3)));
+  let nudgeRoom = ((nHour ?? 0) < rate && (nTen ?? 0) < Math.ceil(rate / 6)) ? 1 : 0;
+  const { data: ready } = await sb.from("tom_drafts").select("*").eq("status", "approved").lte("not_before", iso(now())).order("approved_at", { ascending: true }).limit(200);
+  const ids = [...new Set((ready ?? []).map((d: any) => d.contact_id))];
+  const { data: ls } = ids.length ? await sb.from("tom_leads").select("contact_id,last_in_at,last_out_at").in("contact_id", ids) : { data: [] as any[] };
+  const lmap = new Map((ls ?? []).map((l: any) => [l.contact_id, l]));
+  const live = (d: any) => { const l = lmap.get(d.contact_id); const li = l?.last_in_at ? new Date(l.last_in_at).getTime() : 0; const lo = l?.last_out_at ? new Date(l.last_out_at).getTime() : 0; return d.kind === "closing" || (li > lo && Date.now() - li < days(14)); };
+  const queue = [...(ready ?? []).filter(live), ...(ready ?? []).filter((d: any) => !live(d))];
+  let sentNow = 0;
+  for (const d of queue) {
+    if (sentNow >= 10) break;
+    const paced = !live(d);
+    if (paced && nudgeRoom <= 0) continue;
+    const r = await sendDraft({ ...d, text: d.nic_fix ?? d.text, paced }, s, d.approved_by ?? "cron");
+    if (r.ok && r.queued) out.queued++; else if (r.ok) { out.sent++; sentNow++; if (paced) nudgeRoom--; } else out.failed++;
     await sleep(200);
   }
   // a run that died mid-send leaves 'sending' behind: never resend blind, mark it so a human can look
