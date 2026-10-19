@@ -485,12 +485,13 @@ function renderToday(){
   // profit locked TODAY (real deal values, avg-fee fallback)
   (function(){
     var avgFee=T('avgfee',10000);
-    var projs=reps.map(function(rp){
+    var ncon=reps.map(function(){return 0});
+    var projs=reps.map(function(rp,ri){
       var s=0;
       (D.leads||[]).forEach(function(l){
         if(repOf(l)!==rp) return;
         if(l.contracted_on!==t) return;
-        s+=Number(l.projected_profit)||avgFee;
+        s+=Number(l.projected_profit)||avgFee; ncon[ri]++;
       });
       return Math.round(s);
     });
@@ -499,7 +500,9 @@ function renderToday(){
      +'<div style="text-align:center;font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut);margin-bottom:8px">\uD83D\uDCC8 PROFIT LOCKED TODAY <span style="font-size:10px;font-weight:600">\ud83c\udfc6 PR $150K</span></div>'
      +'<div style="display:flex;align-items:baseline">'+reps.map(function(rp,i){
         var v=projs[i], lead=v===best&&v>0;
-        return '<div style="flex:1;text-align:center"><span style="font-size:'+smallSize+';font-weight:800;line-height:1;color:'+(lead?'var(--gold)':'var(--text)')+'">'+fmt$(v)+'</span>'+(lead?' <span style="font-size:18px">\uD83D\uDC51</span>':'')+'</div>';
+        // same size as the other rows (Nic, Oct 19): compact $ so it fits big, full amount on the line under it
+        var short=v>=1000?'$'+(Math.round(v/100)/10).toString().replace(/\.0$/,'')+'K':'$'+v;
+        return '<div style="flex:1;text-align:center"><span style="font-size:'+bigSize+';font-weight:800;line-height:1;color:'+(lead?'var(--gold)':'var(--text)')+'">'+short+'</span>'+(lead?' <span style="font-size:18px">\uD83D\uDC51</span>':'')+'<div style="font-size:11px;color:var(--mut);margin-top:4px">'+fmt$(v)+' \u00b7 '+ncon[i]+' contract'+(ncon[i]===1?'':'s')+'</div></div>';
       }).join('')+'</div>'
      +'</div>';
   })();
