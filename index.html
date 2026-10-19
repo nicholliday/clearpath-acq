@@ -449,7 +449,7 @@ function renderToday(){
     ['\uD83D\uDCB0 OFFERS','offers',6*reps.length,null],
     ['\uD83D\uDCDD CONTRACTS','contracts',Math.max(1,T('contracts_day',1)*reps.length),null]
   ];
-  rows.forEach(function(row,ri){
+  function renderRow(row,ri){
     var label=row[0], key=row[1], target=row[2], fmtFn=row[3];
     var vals=reps.map(function(rp){return stats[rp][key]});
     var best=Math.max.apply(null,vals);
@@ -479,8 +479,10 @@ function renderToday(){
         return '<div style="flex:1;text-align:center"><span style="font-size:'+(fmtFn?smallSize:bigSize)+';font-weight:800;line-height:1;'+numStyle+'">'+disp+'</span>'+(lead?' <span style="font-size:18px">\uD83D\uDC51</span>':'')+metaTag+'</div>';
       }).join('')+'</div>'
      +'</div>';
-  });
-  // 6th row: profit locked TODAY (real deal values, avg-fee fallback)
+  }
+  // Nic, Oct 19: most important first. New leads claimed stays on top, then PROFIT, contracts, offers, talk, convos, dials last.
+  renderRow(rows[0],0);
+  // profit locked TODAY (real deal values, avg-fee fallback)
   (function(){
     var avgFee=T('avgfee',10000);
     var projs=reps.map(function(rp){
@@ -501,6 +503,7 @@ function renderToday(){
       }).join('')+'</div>'
      +'</div>';
   })();
+  rows.slice(1).reverse().forEach(function(row){renderRow(row,1)});
   h+='</div>';
   document.getElementById('v_today').innerHTML=h;
 }
