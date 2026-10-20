@@ -1294,6 +1294,8 @@ function renderScript(){
 
   h+='<div style="padding:6px 18px 26px">';
 
+  // Nic, Oct 20: one tap sends the filled-in purchase contract to the seller in DocuSign while they're on the phone
+  if(ROLE==='owner') h+='<div style="text-align:center;margin:18px 0 6px"><button onclick="scOpen()" style="background:#16A34A;color:#fff;border:none;border-radius:12px;padding:16px 22px;font-size:19px;font-weight:800;letter-spacing:.04em;width:100%;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.25)">\u270D\uFE0F SEND CONTRACT (DOCUSIGN)</button></div>';
   h+=banner('OPENING FRAME');
   h+=b('\u201CBefore you sign, I want to quickly walk you through this so you know exactly what it says. Nothing hidden, nothing confusing.\u201D');
 
@@ -2203,6 +2205,87 @@ function setIdentity(rp){
 }
 function openModal(h){document.getElementById('mbody').innerHTML=h;document.getElementById('modal').classList.add('on')}
 function closeModal(){document.getElementById('modal').classList.remove('on')}
+
+// ===== SEND CONTRACT (DocuSign) — Nic, Oct 20 2026 =====
+// Seller signs first, then it routes to Nic. Texas -> TX PSA, everywhere else -> the other PSA. Server: send-contract.
+var SC={lead:null,list:[]};
+async function scCall(body){
+  var r=await db.auth.getSession(); var t=r.data&&r.data.session&&r.data.session.access_token;
+  if(!t) return {ok:false,error:'Please log in again'};
+  var res=await fetch('https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/send-contract',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t,'apikey':'sb_publishable_QreaC86dKq8FRmJPDkeenA_wZO8G5YG'},body:JSON.stringify(body)});
+  try{return await res.json()}catch(e){return {ok:false,error:'Server error '+res.status}}
+}
+function scRow(l,i){
+  var when=l.called_at?new Date(l.called_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
+  return '<div onclick="scPick('+i+')" style="cursor:pointer;padding:11px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:7px;background:var(--card2)">'
+   +'<div style="font-weight:800">'+esc(l.seller_name||'?')+(when?' <span style="font-size:11px;color:var(--mut);font-weight:600">called '+when+'</span>':'')+'</div>'
+   +'<div style="font-size:12px;color:var(--mut)">'+esc(l.address||'')+(l.price?' · offer $'+Number(l.price).toLocaleString():'')+'</div></div>';
+}
+async function scOpen(){
+  openModal('<div style="font-size:18px;font-weight:800;margin-bottom:6px">✍️ Send contract</div><div class="sm mut" style="margin-bottom:10px">Who are you on the phone with?</div>'
+   +'<input id="scQ" placeholder="🔍 Name, phone or address" oninput="scSearch(this.value)">'
+   +'<div id="scList"><div class="mut sm">Loading your recent calls…</div></div>'
+   +'<button class="btn mut big" onclick="closeModal()">Cancel</button>');
+  var j=await scCall({action:'recent'});
+  SC.list=(j&&j.leads)||[];
+  var el=document.getElementById('scList'); if(!el)return;
+  el.innerHTML=(j&&j.ok===false)?'<div style="color:var(--red)">'+esc(j.error||'error')+'</div>'
+    :(SC.list.length?'<div class="sm mut" style="margin:4px 0 6px">Your last calls</div>'+SC.list.map(scRow).join(''):'<div class="mut sm">No recent calls found. Search above.</div>');
+}
+var scT=null;
+function scSearch(q){
+  clearTimeout(scT);
+  scT=setTimeout(async function(){
+    if(!q||q.trim().length<2){return scOpen()}
+    var j=await scCall({action:'search',q:q}); SC.list=(j&&j.leads)||[];
+    var el=document.getElementById('scList'); if(el) el.innerHTML=SC.list.length?SC.list.map(scRow).join(''):'<div class="mut sm">No match.</div>';
+  },350);
+}
+function scPick(i){ SC.lead=SC.list[i]; scForm(); }
+function scForm(){
+  var l=SC.lead||{}; var tx=/^(TX|TEXAS)$/i.test(l.state||'')||/\b(TX|Texas)\b/i.test(l.address||'');
+  function f(id,lab,val,type,extra){return '<label>'+lab+'</label><input id="'+id+'" type="'+(type||'text')+'" value="'+esc(val==null?'':String(val))+'" '+(extra||'')+'>'}
+  openModal('<div style="font-size:18px;font-weight:800">✍️ Contract for '+esc(l.seller_name||'')+'</div>'
+   +'<div class="sm mut" style="margin:2px 0 12px">'+(tx?'Texas contract':'Tennessee / other-states contract')+' · seller signs first, then it comes to Nic</div>'
+   +f('scName','Seller name (exactly as on title)',l.seller_name)
+   +f('scEmail','Seller email (DocuSign goes here)',l.seller_email,'email','placeholder="ask them for it"')
+   +'<details style="margin-bottom:8px"><summary class="sm mut" style="cursor:pointer">+ second seller</summary>'+f('scName2','Second seller name','')+f('scEmail2','Second seller email','','email')+'</details>'
+   +f('scAddr','Property address',l.address)
+   +'<label>State</label><select id="scState" onchange="scState()"><option value="TX"'+(tx?' selected':'')+'>Texas</option><option value="OTHER"'+(tx?'':' selected')+'>Tennessee / other</option></select>'
+   +'<label>Offer type</label><select id="scType" onchange="scType()"><option value="cash"'+(l.offer_type!=='novation'?' selected':'')+'>Cash</option><option value="novation"'+(l.offer_type==='novation'?' selected':'')+'>Novation</option></select>'
+   +f('scPrice','Purchase price $',l.price||'','number','inputmode="decimal"')
+   +f('scEmd','Earnest money $',l.emd==null?500:l.emd,'number','inputmode="decimal"')
+   +'<div style="display:flex;gap:8px"><div style="flex:1">'+f('scClose','Close within (business days)',l.closing_days||30,'number')+'</div><div style="flex:1">'+f('scInsp','Inspection (business days)',l.inspection_days||20,'number')+'</div></div>'
+   +'<label>Occupancy</label><select id="scOcc"><option value="">(leave blank)</option><option value="vacant">Vacant → vacant</option><option value="owner_to_vacant">Owner occupied → vacant</option><option value="tenant_to_vacant">Tenant → vacant</option><option value="tenant_to_tenant">Tenant → stays tenant</option></select>'
+   +'<label>Additional terms (optional)</label><textarea id="scTerms" rows="2"></textarea>'
+   +'<div id="scMsg" class="sm" style="min-height:18px;margin:4px 0"></div>'
+   +'<button class="btn gr big" id="scGo" onclick="scSend()">✉️ Send to seller now</button>'
+   +'<button class="btn mut big" onclick="scOpen()">← Back</button>');
+}
+function scType(){var t=document.getElementById('scType').value;document.getElementById('scClose').value=t==='novation'?90:30;document.getElementById('scInsp').value=t==='novation'?90:20;}
+function scState(){}
+async function scSend(){
+  var g=function(id){var e=document.getElementById(id);return e?e.value.trim():''};
+  var body={action:'send',contact_id:(SC.lead||{}).contact_id||null,seller_name:g('scName'),seller_email:g('scEmail'),seller2_name:g('scName2'),seller2_email:g('scEmail2'),
+    address:g('scAddr'),state:g('scState')==='TX'?'TX':'OTHER',offer_type:g('scType'),price:Number(g('scPrice')),emd:Number(g('scEmd')),
+    closing_days:Number(g('scClose')),inspection_days:Number(g('scInsp')),occupancy:g('scOcc'),additional_terms:g('scTerms')};
+  var msg=document.getElementById('scMsg'), btn=document.getElementById('scGo');
+  if(!confirmSC(body))return;
+  btn.disabled=true; btn.textContent='Sending…'; msg.style.color='var(--mut)'; msg.textContent='';
+  var j=await scCall(body);
+  if(j&&j.ok){
+    openModal('<div style="text-align:center;padding:10px 0"><div style="font-size:44px">✅</div><div style="font-size:19px;font-weight:800;margin:6px 0">Sent to '+esc(j.sent_to||body.seller_email)+'</div>'
+     +'<div class="mut">Tell them: check your email for "Purchase Contract - '+esc(body.address.split(',')[0])+'" from DocuSign and tap Review Document.</div>'
+     +(j.env==='demo'?'<div style="color:var(--gold);margin-top:10px;font-size:12px">TEST MODE (DocuSign sandbox) — not a real contract yet.</div>':'')
+     +'<button class="btn big" onclick="closeModal()">Done</button></div>');
+  } else { btn.disabled=false; btn.textContent='✉️ Send to seller now'; msg.style.color='var(--red)'; msg.textContent=(j&&j.error)||'Something went wrong'; }
+}
+function confirmSC(b){
+  var m=document.getElementById('scMsg');
+  if(!b.seller_email){m.style.color='var(--red)';m.textContent='Seller email is missing — ask them for it.';return false}
+  if(!(b.price>1000)){m.style.color='var(--red)';m.textContent='Purchase price is missing.';return false}
+  return true;
+}
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
 
 (async function(){
