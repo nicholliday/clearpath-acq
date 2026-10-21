@@ -1218,7 +1218,7 @@ function render(){
             o.offers+=Number(r.offers)||0;o.contracts+=Number(r.contracts)||0;o.rev+=Number(r.closed_rev)||0;
             o.closed+=Number(r.closed)||0;
             o.assigned+=Number(r.assigned)||0;
-            o.talk+=Math.round((Number(r.talk_min)||0)/60);
+            o.talk+=Number(r.talk_min)||0; // sheet talk_min is already MINUTES (Oct 21 fix: was divided by 60 twice)
             o.sheetEra=true;
           }
         });
