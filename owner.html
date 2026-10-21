@@ -707,11 +707,22 @@ async function logOut(){localStorage.removeItem('cp_owner_ok');try{await db.auth
   if(u.error||!u.data||!u.data.user){try{await db.auth.signOut();}catch(e){}return;}
   unlock();
 })();
+// Oct 21 fix: Supabase returns at most 1,000 rows per request - page through so nothing is silently dropped (auto_feed had 2,400+ rows)
+async function allRows(tbl,sel,ord){
+  var out=[];
+  for(var pg=0;pg<100;pg++){
+    var q=await db.from(tbl).select(sel).order(ord||'id').range(pg*1000,pg*1000+999);
+    if(q.error)return {data:null,error:q.error};
+    var rows=q.data||[];out=out.concat(rows);
+    if(rows.length<1000)break;
+  }
+  return {data:out,error:null};
+}
 async function loadAll(){
   var r=await Promise.all([
-    db.from('acq_leads').select('*'),
-    db.from('acq_activity').select('*'),
-    db.from('acq_offers').select('*'),
+    allRows('acq_leads','*'),
+    allRows('acq_activity','*'),
+    allRows('acq_offers','*'),
     db.from('acq_reps').select('*').order('created_at'),
     db.from('acq_targets').select('*'),
     db.from('master_monthly').select('*').order('month'),
@@ -736,17 +747,17 @@ async function loadAll(){
     }
   }catch(e){D.calls=[];}
   try{
-    var dd=await db.from('deals').select('id,stage,fee_target,revenue_closed,seller_name,market,created_at,contract_date,deal_type,address');
+    var dd=await allRows('deals','id,stage,fee_target,revenue_closed,seller_name,market,created_at,contract_date,deal_type,address');
     D.deals=dd.data||[];
-    var dh=await db.from('stage_history').select('deal_id,stage,entered_on');
+    var dh=await allRows('stage_history','deal_id,stage,entered_on');
     D.dhist=dh.data||[];
-    var ds=await db.from('sends').select('*');
+    var ds=await allRows('sends','*');
     D.dsends=ds.data||[];
-    var dw=await db.from('showings').select('*');
+    var dw=await allRows('showings','*');
     D.dshow=dw.data||[];
-    var dof=await db.from('offers').select('*');
+    var dof=await allRows('offers','*');
     D.doffers=dof.data||[];
-    var df=await db.from('auto_feed').select('event,detail,count');
+    var df=await allRows('auto_feed','event,detail,count');
     D.dfeed=df.data||[];
     D.dispoErr=null;
   }catch(e){D.deals=D.deals||[];D.dhist=D.dhist||[];D.dsends=[];D.dshow=[];D.doffers=[];D.dfeed=[];D.dispoErr=''+((e&&e.message)||e);}
