@@ -858,7 +858,10 @@ function render(){
   var expTot=(Number(exp.tools)||0)+(Number(exp.comp)||0)+(Number(exp.other)||0);
   var net=L.rev-spend-expTot;
   var hist=(D.master||[]).filter(function(r){return r.source==='meta'});
-  var HT=hist.reduce(function(a,r){['spend','leads','dials','convos','offers','contracts','closed_rev'].forEach(function(k){a[k]=(a[k]||0)+(Number(r[k])||0)});return a},{});
+  // Oct 21 fix (Nic: "it doesnt say my meta info entirely for august and september"): master_monthly only holds SPEND from Aug 2026 on;
+  // leads/dials/convos/offers/contracts/revenue for Aug+ come from the live tracker (ownAgg), so add them in instead of reading the zeros.
+  var HT=hist.reduce(function(a,r){['spend','leads','dials','convos','offers','contracts','closed_rev'].forEach(function(k){if(k!=='spend'&&r.month>='2026-08')return;a[k]=(a[k]||0)+(Number(r[k])||0)});return a},{});
+  (function(){var lv=ownAgg('2026-08-01',true),lr=ownAgg('2026-08-01');HT.leads=(HT.leads||0)+lv.leads;HT.dials=(HT.dials||0)+lr.dials;HT.convos=(HT.convos||0)+lr.convos;HT.offers=(HT.offers||0)+lr.offers;HT.contracts=(HT.contracts||0)+lv.contracts;HT.closed_rev=(HT.closed_rev||0)+lr.rev;})();
 
   var h='<div style="display:flex;gap:8px;margin-bottom:14px">'
    +'<button class="btn '+(OWN_VIEW==='nic'?'g':'mut')+'" style="flex:1" onclick="setOwnView(\'nic\')">Nic Growth Dashboard</button>'
@@ -915,8 +918,9 @@ function render(){
       // ---- A: break-even line ----
       // ---- A0: ALL-TIME topline (ROAS / cash conversion cycle / CPL) ----
       var _aS=0,_aL=0,_aR=0;
-      hist.forEach(function(r){if(r.month===curM)return;_aS+=Number(r.spend)||0;_aL+=Number(r.leads)||0;_aR+=Number(r.closed_rev)||0;});
-      _aS+=spend;_aL+=L.leads;_aR+=L.rev;
+      // all spend from master_monthly; leads + revenue from master only before Aug 2026, live tracker from Aug 1 on (Oct 21 fix)
+      hist.forEach(function(r){_aS+=Number(r.spend)||0;if(r.month>='2026-08')return;_aL+=Number(r.leads)||0;_aR+=Number(r.closed_rev)||0;});
+      (function(){var lv=ownAgg('2026-08-01',true),lr=ownAgg('2026-08-01');_aL+=lv.leads;_aR+=lr.rev;})();
       var aROAS=(_aS>0&&_aR>0)?Math.round(_aR/_aS*10)/10:null;
       var aCPL=_aL?Math.round(_aS/_aL):null;
       var _cc=[22,22,35,77,16]; // verified Mar-Jul closes: Harris, Taylor, Clearwater, Maple, Magnolia (lead-in to cash days)
@@ -1056,9 +1060,12 @@ function render(){
       var tS=0,tL=0,tC=0,tD=0,tR=0;
       hist.forEach(function(r){
         if(r.month===curM)return;
-        var rv=Number(r.closed_rev)||0, dls=Number(r.closed_deals)||0;
-        h+=mrow(r.month,Number(r.spend)||0,Number(r.leads)||0,Number(r.contracts)||0,dls,rv,false);
-        tS+=Number(r.spend)||0;tL+=Number(r.leads)||0;tC+=Number(r.contracts)||0;tD+=dls;tR+=rv;
+        var rv=Number(r.closed_rev)||0, dls=Number(r.closed_deals)||0, ld=Number(r.leads)||0, ct=Number(r.contracts)||0;
+        // Oct 21 fix: from Aug 2026 master_monthly only stores spend - pull that month's leads/contracts/closes from the live tracker
+        if(r.month>='2026-08'){var _f=r.month+'-01',_d=new Date(_f+'T12:00:00');_d.setMonth(_d.getMonth()+1);var _t=_d.toISOString().slice(0,10).slice(0,8)+'01';
+          var _a=ownAgg(_f,true,_t);ld=_a.leads;ct=_a.contracts;dls=_a.closed;rv=_a.rev;}
+        h+=mrow(r.month,Number(r.spend)||0,ld,ct,dls,rv,false);
+        tS+=Number(r.spend)||0;tL+=ld;tC+=ct;tD+=dls;tR+=rv;
       });
       h+=mrow(curM,spend,LAD.leads,LAD.contracts,LAD.closed,LAD.rev,true);
       tS+=spend;tL+=L.leads;tC+=L.contracts;tD+=L.closed;tR+=L.rev;
