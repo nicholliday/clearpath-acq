@@ -1083,7 +1083,7 @@ function render(){
         tS+=Number(r.spend)||0;tL+=ld;tC+=ct;tD+=dls;tR+=rv;
       });
       h+=mrow(curM,spend,LAD.leads,LAD.contracts,LAD.closed,LAD.rev,true);
-      tS+=spend;tL+=L.leads;tC+=L.contracts;tD+=L.closed;tR+=L.rev;
+      tS+=spend;tL+=LAD.leads;tC+=LAD.contracts;tD+=LAD.closed;tR+=LAD.rev; // Oct 21: Meta-only, same as the row above
       var acpl=tL?Math.round(tS/tL):0;
       h+='<tr style="font-weight:800;border-top:2px solid var(--line)"><td>ALL</td><td style="text-align:right">'+fmt$(tS)+'</td><td style="text-align:right">'+tL+'</td><td style="text-align:right">'+fmt$(acpl)+'</td><td style="text-align:right">'+tC+'</td><td style="text-align:right">'+tD+'</td><td style="text-align:right">'+fmt$(tR)+'</td></tr>';
       h+='</table></div></div>';
