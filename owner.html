@@ -1664,7 +1664,9 @@ function render(){
     }
 
   } else {
-    var avgFee=T('avgfee',15000);
+    // Oct 21 (Nic: "show real avg"): actual Meta avg fee = all-time Meta collected / Meta closes; the $15K setting is only the target
+    var _hCl=0;(D.master||[]).forEach(function(r){if(r.source==='meta'&&r.month&&r.month<'2026-08')_hCl+=Number(r.closed)||0;});_hCl+=ownAgg('2026-08-01',true).closed;
+    var avgFeeTarget=T('avgfee',15000), avgFee=_hCl?(HT.closed_rev||0)/_hCl:avgFeeTarget;
     var cpc=HT.contracts?HT.spend/HT.contracts:0;
     var cpcl=cpc/(STD.closeRate||0.47);
     var ratio=cpcl?avgFee/cpcl:0;
@@ -1673,7 +1675,7 @@ function render(){
     h+='<div class="card"><h2>1\ufe0f\u20e3 Unit economics (Meta, all-time)</h2><div class="tiles">'
      +tile('Cost / contract',fmt$(Math.round(cpc)),'')
      +tile('Est. cost / close',fmt$(Math.round(cpcl)),'at '+Math.round((STD.closeRate||0.47)*100)+'% close')
-     +tile('Avg fee',fmt$(avgFee),'')
+     +tile('Avg fee',fmt$(Math.round(avgFee)),_hCl+' Meta closes \u00b7 target '+fmt$(avgFeeTarget))
      +tile('Return ratio',(Math.round(ratio*10)/10)+':1','',ruleCol)
      +'</div><div style="margin-top:10px;font-weight:800;color:'+ruleCol+'">\u25b6 '+ruleTxt+'</div>'
      +'<div class="sm mut">Rule: \u22653:1 raise budget \u00b7 2\u20133:1 hold \u00b7 <2:1 fix before spending.</div></div>';
