@@ -923,7 +923,7 @@ function render(){
       (function(){var lv=ownAgg('2026-08-01',true),lr=ownAgg('2026-08-01');_aL+=lv.leads;_aR+=lr.rev;})();
       var aROAS=(_aS>0&&_aR>0)?Math.round(_aR/_aS*10)/10:null;
       var aCPL=_aL?Math.round(_aS/_aL):null;
-      var _cc=[22,22,35,77,16]; // verified Mar-Jul closes: Harris, Taylor, Clearwater, Maple, Magnolia (lead-in to cash days)
+      var _cc=[]; // Oct 21 fix: the 5 Mar-Jul closes (22,22,35,77,16) are already in acq_leads - the hardcoded copy counted them twice
       (D.leads||[]).forEach(function(l){if(l.closed_on&&l.created_at){var _d=(new Date(String(l.closed_on).slice(0,10))-new Date(String(l.created_at).slice(0,10)))/86400000;if(_d>=0&&_d<400)_cc.push(_d);}});
       var aCCC=_cc.length?Math.round(_cc.reduce(function(a,b){return a+b},0)/_cc.length):null;
       // ---- robot health ----
