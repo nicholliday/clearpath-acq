@@ -1075,7 +1075,7 @@ function render(){
       var tS=0,tL=0,tC=0,tD=0,tR=0;
       hist.forEach(function(r){
         if(r.month===curM)return;
-        var rv=Number(r.closed_rev)||0, dls=Number(r.closed_deals)||0, ld=Number(r.leads)||0, ct=Number(r.contracts)||0;
+        var rv=Number(r.closed_rev)||0, dls=Number(r.closed)||0, ld=Number(r.leads)||0, ct=Number(r.contracts)||0; // Oct 21: Meta closes = master `closed` (closed_deals included the cold-call Broer deal in June)
         // Oct 21 fix: from Aug 2026 master_monthly only stores spend - pull that month's leads/contracts/closes from the live tracker
         if(r.month>='2026-08'){var _f=r.month+'-01',_d=new Date(_f+'T12:00:00');_d.setMonth(_d.getMonth()+1);var _t=_d.toISOString().slice(0,10).slice(0,8)+'01';
           var _a=ownAgg(_f,true,_t);ld=_a.leads;ct=_a.contracts;dls=_a.closed;rv=_a.rev;}
