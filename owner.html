@@ -348,7 +348,7 @@ async function loadPL(){
     try{
       var rs=await db.from('master_monthly').select('spend,source,month').eq('month',m);
       F.spend=(rs.data||[]).filter(function(r){return r.source==='meta'}).reduce(function(a,r){return a+(Number(r.spend)||0)},0);
-      var rl=await db.from('acq_leads').select('id').gte('created_at',a1).lt('created_at',nx2);F.leads=(rl.data||[]).length;
+      var rl=await db.from('acq_leads').select('id').or('source.is.null,source.neq.Duplicate').gte('created_at',a1).lt('created_at',nx2);F.leads=(rl.data||[]).length;
       var ra=await db.from('acq_activity').select('rep,dials,convos').gte('on_date',a1).lt('on_date',nx2);
       F.dials_nic=0;F.dials_bt=0;F.convos=0;
       (ra.data||[]).forEach(function(r){
@@ -717,7 +717,7 @@ async function loadAll(){
     db.from('master_expenses').select('*')
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
-  D.leads=r[0].data||[];D.act=r[1].data||[];D.offers=r[2].data||[];
+  D.leads=(r[0].data||[]).filter(function(x){return x.source!=='Duplicate'});D.act=r[1].data||[];D.offers=r[2].data||[];
   D.reps=(r[3].data||[]).map(function(x){return x.name});
   D.targets={};(r[4].data||[]).forEach(function(x){D.targets[x.key]=Number(x.value)});
   D.master=r[5].data||[];D.mexp=r[6].data||[];

@@ -288,7 +288,7 @@ async function loadAll(){
     fetchAll('meta_contact_book','contact_id',['contact_id'])
   ]);
   for(var i=0;i<r.length;i++){if(r[i].error){alert(r[i].error.message);return}}
-  D.leads=r[0].data;D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.repPass={};(r[7].data||[]).forEach(function(x){if(x.passcode)D.repPass[x.name]=x.passcode});D.calls=(r[8].data||[]);D.master=(r[9].data||[]);D.mexp=(r[10].data||[]);
+  D.leads=(r[0].data||[]).filter(function(x){return x.source!=='Duplicate'});D.offers=r[1].data;D.act=r[2].data;D.spend=r[4].data;D.ddeals=r[5].data||[];D.dhist=r[6].data||[];D.reps=(r[7].data||[]).map(function(x){return x.name});if(!D.reps.length)D.reps=['Rep 1'];D.repGoals={};(r[7].data||[]).forEach(function(x){D.repGoals[x.name]=Number(x.monthly_goal)||8000});D.repRamp={};(r[7].data||[]).forEach(function(x){if(x.ramp_start)D.repRamp[x.name]=x.ramp_start});D.repPass={};(r[7].data||[]).forEach(function(x){if(x.passcode)D.repPass[x.name]=x.passcode});D.calls=(r[8].data||[]);D.master=(r[9].data||[]);D.mexp=(r[10].data||[]);
   D.firstCall={};
   try{var fc=await fetchAll('acq_lead_first_call','lead_id,first_call_at,first_call_rep',['lead_id']);
       if(!fc.error)(fc.data||[]).forEach(function(x){D.firstCall[x.lead_id]={at:x.first_call_at,rep:x.first_call_rep}});}catch(e){}
