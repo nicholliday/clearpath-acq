@@ -1591,7 +1591,10 @@ function render(){
 
     if(NICTAB==='calc'){
       // live-updating assumptions, standards as fallback
-      var cplLive = tL&&tS ? tS/tL : 41;
+      // Oct 21 fix: tL/tS only exist after the Marketing tab renders - compute all-time CPL here (same rule as the All-time box)
+      var _cS=0,_cL=0;(D.master||[]).forEach(function(r){if(r.source!=='meta')return;_cS+=Number(r.spend)||0;if(r.month&&r.month<'2026-08')_cL+=Number(r.leads)||0;});
+      _cL+=ownAgg('2026-08-01',true).leads;
+      var cplLive = _cL&&_cS ? _cS/_cL : 41;
       var fee = T('avgfee',15000);
       var CR = STD.closeRate; // 0.47
       var LPC = STD.leadsPerContract; // 18.6
