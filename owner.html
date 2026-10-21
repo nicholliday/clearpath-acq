@@ -348,7 +348,8 @@ async function loadPL(){
     try{
       var rs=await db.from('master_monthly').select('spend,source,month').eq('month',m);
       F.spend=(rs.data||[]).filter(function(r){return r.source==='meta'}).reduce(function(a,r){return a+(Number(r.spend)||0)},0);
-      var rl=await db.from('acq_leads').select('id').or('source.is.null,source.neq.Duplicate').gte('created_at',a1).lt('created_at',nx2);F.leads=(rl.data||[]).length;
+      var _pa=new Date(a1+'T00:00:00Z');_pa.setUTCDate(_pa.getUTCDate()-1);var _pb=new Date(nx2+'T00:00:00Z');_pb.setUTCDate(_pb.getUTCDate()+1);
+      var rl=await db.from('acq_leads').select('id,created_at').or('source.is.null,source.neq.Duplicate').gte('created_at',_pa.toISOString()).lt('created_at',_pb.toISOString());F.leads=(rl.data||[]).filter(function(x){var c=chiDay(x.created_at);return c>=a1&&c<nx2}).length;
       var ra=await db.from('acq_activity').select('rep,dials,convos').gte('on_date',a1).lt('on_date',nx2);
       F.dials_nic=0;F.dials_bt=0;F.convos=0;
       (ra.data||[]).forEach(function(r){
@@ -809,12 +810,15 @@ function setOwnView(v){OWN_VIEW=v;localStorage.setItem('cp_own_view',v);render()
 function setExecTab(t){localStorage.setItem('cp_exec_tab',t);render()}
 // Leads with these sources are real deals but NOT ad-generated \u2014 they must never touch ad math (CPL, campaigns, Meta monthly)
 var NONAD={'Repeat':1,'Cold Call':1,'Referral':1};
-function inRange(dstr,from,to){if(!dstr)return false;var d=String(dstr).slice(0,10);return d>=from&&(!to||d<to)}
+// Oct 21 fix: timestamps (created_at etc.) are UTC - bucket them on the Chicago day, not the UTC day (leads after ~7pm landed on tomorrow / next month)
+var _CHI=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'});
+function chiDay(ts){if(!ts)return '';var s=String(ts);if(s.length<=10)return s;var d=new Date(s);return isNaN(d)?s.slice(0,10):_CHI.format(d)}
+function inRange(dstr,from,to){if(!dstr)return false;var d=chiDay(dstr);return d>=from&&(!to||d<to)}
 function ownAgg(from,adOnly,to){
   var o={leads:0,dials:0,convos:0,talk:0,offers:0,contracts:0,assigned:0,closed:0,rev:0,pipeDeals:0,pipeRev:0,cycleDays:[],falls:0};
   (D.leads||[]).forEach(function(l){
     if(adOnly&&NONAD[l.source||''])return;
-    var c=(l.created_at||'').slice(0,10);
+    var c=chiDay(l.created_at);
     if(inRange(c,from,to))o.leads++;
     if(inRange(l.contracted_on,from,to))o.contracts++;
     if(inRange(l.assigned_on,from,to))o.assigned++;
@@ -924,7 +928,7 @@ function render(){
       var aROAS=(_aS>0&&_aR>0)?Math.round(_aR/_aS*10)/10:null;
       var aCPL=_aL?Math.round(_aS/_aL):null;
       var _cc=[]; // Oct 21 fix: the 5 Mar-Jul closes (22,22,35,77,16) are already in acq_leads - the hardcoded copy counted them twice
-      (D.leads||[]).forEach(function(l){if(l.closed_on&&l.created_at){var _d=(new Date(String(l.closed_on).slice(0,10))-new Date(String(l.created_at).slice(0,10)))/86400000;if(_d>=0&&_d<400)_cc.push(_d);}});
+      (D.leads||[]).forEach(function(l){if(l.closed_on&&l.created_at){var _d=(new Date(String(l.closed_on).slice(0,10))-new Date(chiDay(l.created_at)))/86400000;if(_d>=0&&_d<400)_cc.push(_d);}});
       var aCCC=_cc.length?Math.round(_cc.reduce(function(a,b){return a+b},0)/_cc.length):null;
       // ---- robot health ----
       var HWIN={'backup':26,'meta-sync':26,'relay':48};
@@ -1006,7 +1010,7 @@ function render(){
         var k=(l.campaign||'').trim(); if(!k)return;
         if(!ads[k])ads[k]={leads:0,mLeads:0,claimed:0,contracts:0,closed:0,rev:0,fell:0};
         ads[k].leads++;
-        if(((l.created_at||'')+'').slice(0,7)===curM)ads[k].mLeads++;
+        if(chiDay(l.created_at).slice(0,7)===curM)ads[k].mLeads++;
         if(l.claimed_on)ads[k].claimed++;
         if(l.contracted_on)ads[k].contracts++;
         if(l.contracted_on&&l.stage==='Fallout')ads[k].fell++;
@@ -1393,7 +1397,7 @@ function render(){
       var DDEAD=['Closed','Cancelled','Ghosted','Ghosted w/ Memorandum'];
       function stageAsOf(d,cut){
         // deal's stage just before 'cut': last logged move before cut; else entry stage if moves came later; else current stage (never moved). null = not in tracker yet.
-        if(!d.created_at||String(d.created_at).slice(0,10)>=cut)return null;
+        if(!d.created_at||chiDay(d.created_at)>=cut)return null;
         var best=null,bestOn='';
         (D.dhist||[]).forEach(function(hh){if(hh.deal_id===d.id&&hh.entered_on<cut&&hh.entered_on>=bestOn){bestOn=hh.entered_on;best=hh.stage}});
         if(best!=null)return best;
@@ -1552,7 +1556,7 @@ function render(){
       // deal board with aging: oldest first, red past the 34-day cycle
       var nowMs=Date.now();
       var aged=dOpen.map(function(d){
-        var d0=(d.contract_date||d.created_at||'').slice(0,10);
+        var d0=d.contract_date?String(d.contract_date).slice(0,10):chiDay(d.created_at);
         var age=d0?Math.floor((nowMs-new Date(d0+'T12:00:00').getTime())/86400000):null;
         return {d:d,age:age};
       }).sort(function(a,b){return (b.age||0)-(a.age||0)});
