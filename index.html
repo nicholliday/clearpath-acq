@@ -71,6 +71,7 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
   <div id="v_race" class="view"></div>
   <div id="v_metrics" class="view"></div>
   <div id="v_inputs" class="view"></div>
+  <div id="v_dialer" class="view"></div>
 </div>
 
 <div class="help" onclick="openHelp()">?</div>
@@ -78,6 +79,7 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 <div class="modal" id="modal"><div class="mbox" id="mbody"></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@telnyx/webrtc@2.27.10/lib/bundle.js"></script>
 <script>
 var db=supabase.createClient('https://voitbqpvynbvlibuzxbz.supabase.co','sb_publishable_QreaC86dKq8FRmJPDkeenA_wZO8G5YG');
 var D={leads:[],offers:[],act:[],targets:{},spend:[]};
@@ -122,6 +124,7 @@ function buildTabs(){
   var t='<button id="tb_script" onclick="nav(\'script\')"><span class="ic">\ud83d\udcdc</span>Script</button>'
    +'<button id="tb_today" onclick="nav(\'today\')"><span class="ic">\u2600\ufe0f</span>Today</button>'
    +'<button id="tb_goal" onclick="nav(\'goal\')"><span class="ic">\ud83c\udfaf</span>'+((ROLE==='owner'||EMBED_NIC)?'Goal Hitter':'Goals & Pay')+'</button>'
+   +'<button id="tb_dialer" onclick="nav(\'dialer\')"><span class="ic">\u260e\ufe0f</span>Dialer</button>'
    +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\ud83d\udcca</span>KPIs</button>'
    +'<button id="tb_bot" onclick="nav(\'bot\')"><span class="ic">\ud83e\udd16</span>Bot</button>'
    +'<button id="tb_race" onclick="nav(\'race\')"><span class="ic">\ud83c\udfc1</span>Compete</button>'
@@ -152,7 +155,8 @@ function nav(v){
     }
   }
 
-  ['script','today','goal','cmd','bot','earn','race','metrics','inputs','owner'].forEach(function(k){
+  if(v==='dialer'&&window.dlrOpen)dlrOpen();
+  ['script','today','goal','cmd','bot','earn','race','metrics','inputs','owner','dialer'].forEach(function(k){
     var el=document.getElementById('v_'+k), tb=document.getElementById('tb_'+k);
     if(el)el.classList.toggle('on',k===v);
     if(tb)tb.classList.toggle('on',k===v);
@@ -2294,5 +2298,6 @@ document.getElementById('modal').addEventListener('click',function(e){if(e.targe
   else{ROLE='';if(!EMBED_NIC)ME=null;document.getElementById('lock').style.display='';}
 })();
 </script>
+<script src="dialer.js?v=1"></script>
 </body>
 </html>
