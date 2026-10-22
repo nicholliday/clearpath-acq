@@ -23,7 +23,10 @@
     var list = await mics(); var want = savedMic();
     var m = list.find(function (d) { return d.deviceId === want; }) || list.find(function (d) { return d.deviceId === 'default'; }) || list[0];
     var base = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-    return navigator.mediaDevices.getUserMedia({ audio: m ? Object.assign(base, { deviceId: { exact: m.deviceId } }) : base });
+    // before the first permission, device ids are blank -> ask plainly; if a saved mic is gone, fall back to the default
+    if (!m || !m.deviceId) return navigator.mediaDevices.getUserMedia({ audio: base });
+    try { return await navigator.mediaDevices.getUserMedia({ audio: Object.assign({}, base, { deviceId: { exact: m.deviceId } }) }); }
+    catch (err) { if (err && err.name === 'NotAllowedError') throw err; return navigator.mediaDevices.getUserMedia({ audio: base }); }
   }
 
   async function phone() {
@@ -51,7 +54,7 @@
 
   async function start(test) {
     msg('Connecting your headset…');
-    try { micStream = await openMic(); } catch (x) { msg('Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.'); return; }
+    try { micStream = await openMic(); fillMics(); } catch (x) { msg(x && x.name === 'NotAllowedError' ? 'Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.' : 'Could not open the microphone (' + ((x && x.name) || 'error') + '). Pick another mic below and try again.'); return; }
     try { await phone(); } catch (x) { msg(x.message); return; }
     var r = await call('start', { lines: 3, test: !!test });
     if (r.error) { msg(r.error); return; }
