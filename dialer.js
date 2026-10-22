@@ -70,12 +70,17 @@ var DLR_LIVE = false;
     var hb2 = el('dlr_hang'); if (hb2) { hb2.disabled = false; hb2.textContent = 'Hang up'; }
     tick();
   }
-  function startPoll() { if (poll) return; poll = setInterval(tick, 1500); }
+  // Oct 22: keep checking every second the whole time (screen missed a hang-up before); never two checks at once
+  function startPoll() { if (poll) return; poll = setInterval(function () { if (!busy) tick(); }, 1000); }
+  var busy = false;
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && el('dlr_root')) tick(); });
+  window.addEventListener('focus', function () { if (el('dlr_root')) tick(); });
   function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
 
   async function tick() {
-    var s = await call('state'); st = s; render(s);
-    if (!s || ['none', 'stopped', 'done'].indexOf(s.status) >= 0) stopPoll(); else startPoll();
+    busy = true; var s; try { s = await call('state'); } catch (x) { s = null; } finally { busy = false; }
+    if (!s || s.error) return; st = s; render(s);
+    if (['none', 'stopped', 'done'].indexOf(s.status) >= 0) stopPoll(); else startPoll();
     var liveId = s && s.live && s.live.ccid;
     if (liveId && liveId !== lastLive) { lastLive = liveId; loadLead(); }
     if (!liveId) lastLive = null;
@@ -100,7 +105,7 @@ var DLR_LIVE = false;
     var au = el('dlr_audio'); if (au) au.muted = status !== 'connected';
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused'].indexOf(status) >= 0;
     el('dlr_start').style.display = (on || !DLR_LIVE) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
-    el('dlr_stop').style.display = on ? '' : 'none';
+    el('dlr_stop').style.display = on && status !== 'connected' ? '' : 'none'; // one red button at a time
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
     el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
