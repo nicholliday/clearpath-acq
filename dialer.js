@@ -62,7 +62,12 @@
     if (r.error) { msg(r.error); return; }
     msg('Dialing ' + r.leads + ' No Reply leads…'); tick(); startPoll();
   }
-  async function act(a) { var r = await call(a); if (r.error) msg(r.error); tick(); }
+  async function act(a) {
+    if (a === 'hangup_live') { var hb = el('dlr_hang'); if (hb) { hb.disabled = true; hb.textContent = 'Hanging up…'; } el('dlr_status').textContent = 'Hanging up…'; }
+    var r = await call(a); if (r.error) msg(r.error);
+    var hb2 = el('dlr_hang'); if (hb2) { hb2.disabled = false; hb2.textContent = 'Hang up'; }
+    tick();
+  }
   function startPoll() { if (poll) return; poll = setInterval(tick, 1500); }
   function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
 
