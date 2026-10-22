@@ -94,13 +94,15 @@
     var v = el('v_dialer'); if (!v) return;
     if (!el('dlr_root')) v.innerHTML = shell();
     var status = (s && s.status) || 'none';
+    // only hear the line while you're actually on a call (no hiss between calls)
+    var au = el('dlr_audio'); if (au) au.muted = status !== 'connected';
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused'].indexOf(status) >= 0;
     el('dlr_start').style.display = on ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on ? '' : 'none';
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
     el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
-    var head = { none: 'Ready when you are', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '📝 Wrap up — tap Next when ready', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
+    var head = { none: 'Ready when you are', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
     if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
