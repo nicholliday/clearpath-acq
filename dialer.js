@@ -72,15 +72,18 @@ var DLR_LIVE = false;
   }
   // Oct 22: keep checking every second the whole time (screen missed a hang-up before); never two checks at once
   function startPoll() { if (poll) return; poll = setInterval(function () { if (!busy) tick(); }, 1000); }
-  var busy = false;
+  var busy = false, seq = 0;
   document.addEventListener('visibilitychange', function () { if (!document.hidden && el('dlr_root')) tick(); });
   window.addEventListener('focus', function () { if (el('dlr_root')) tick(); });
   function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
 
   async function tick() {
+    // Oct 22 bug: a slow check from BEFORE Start (old session = 'stopped') landed after Start and switched the
+    // checking off, so the screen froze. Now only the newest check counts, and checking never stops during Start.
+    var my = ++seq;
     busy = true; var s; try { s = await call('state'); } catch (x) { s = null; } finally { busy = false; }
-    if (!s || s.error) return; st = s; render(s);
-    if (['none', 'stopped', 'done'].indexOf(s.status) >= 0) stopPoll(); else startPoll();
+    if (my !== seq || !s || s.error) return; st = s; render(s);
+    if (!starting && ['none', 'stopped', 'done'].indexOf(s.status) >= 0) stopPoll(); else startPoll();
     var liveId = s && s.live && s.live.ccid;
     if (liveId && liveId !== lastLive) { lastLive = liveId; loadLead(); }
     if (!liveId) lastLive = null;
