@@ -41,7 +41,7 @@
       if (cl.direction === 'inbound' && cl.state === 'ringing') {
         // the dialer ringing this browser -> pick up with the chosen mic
         try { micStream = micStream || await openMic(); } catch (x) { msg('Microphone blocked — click the icon left of the web address → Microphone → Allow.'); return; }
-        agentCall = cl; cl.answer({ localStream: micStream });
+        agentCall = cl; try { cl.options.localStream = micStream; var tr = micStream.getAudioTracks()[0]; if (tr && tr.getSettings) cl.options.micId = tr.getSettings().deviceId; } catch (x) { } cl.answer();
       }
       if (cl === agentCall && (cl.state === 'hangup' || cl.state === 'destroy')) { agentCall = null; }
     });
@@ -52,7 +52,9 @@
   }
   function msg(t) { var m = el('dlr_msg'); if (m) m.textContent = t || ''; }
 
+  var starting = false;
   async function start(test) {
+    if (starting) return; starting = true; setTimeout(function () { starting = false; }, 8000);
     msg('Connecting your headset…');
     try { micStream = await openMic(); fillMics(); } catch (x) { msg(x && x.name === 'NotAllowedError' ? 'Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.' : 'Could not open the microphone (' + ((x && x.name) || 'error') + '). Pick another mic below and try again.'); return; }
     try { await phone(); } catch (x) { msg(x.message); return; }
