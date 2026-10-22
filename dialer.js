@@ -1,3 +1,5 @@
+// Oct 22: real "Start dialing" hidden until testing is finished (Nic hit it by accident). Flip to true to go live.
+var DLR_LIVE = false;
 // 3-Line Dialer tab for the acq app (Nic, Oct 22 2026). BT + Nic.
 // Works GHL stage 🚫 No Reply (Inbound). Server side = edge function `acq-dialer` (Telnyx Call Control).
 // The browser is just the rep's headset: the server rings it once at Start, it auto-answers, and every
@@ -97,7 +99,7 @@
     // only hear the line while you're actually on a call (no hiss between calls)
     var au = el('dlr_audio'); if (au) au.muted = status !== 'connected';
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused'].indexOf(status) >= 0;
-    el('dlr_start').style.display = on ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
+    el('dlr_start').style.display = (on || !DLR_LIVE) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on ? '' : 'none';
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
     el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
