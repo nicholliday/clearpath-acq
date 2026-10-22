@@ -1,0 +1,55 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clear Path Property Solutions</title><style>
+:root{--bg:#f7f6f2;--card:#ffffff;--ink:#1d2a24;--dim:#5b6b63;--line:#e3e1d9;--brand:#1f6f4a;--brand2:#e9f3ee}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0f1512;--card:#16201b;--ink:#e8efe9;--dim:#9db0a5;--line:#26342c;--brand:#4fbf86;--brand2:#18301f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:0 16px}header{border-bottom:1px solid var(--line);background:var(--card)}
+header .wrap{display:flex;justify-content:space-between;align-items:center;padding-top:14px;padding-bottom:14px;gap:12px;flex-wrap:wrap}
+.logo{font-weight:800;letter-spacing:.2px;color:var(--ink);text-decoration:none}.logo span{color:var(--brand)}
+nav a{color:var(--dim);text-decoration:none;margin-left:16px;font-size:14px}nav a:hover{color:var(--brand)}
+h1{font-size:34px;line-height:1.2;margin:48px 0 12px}h2{font-size:22px;margin:36px 0 10px}p{margin:0 0 14px}
+.lead{font-size:18px;color:var(--dim);max-width:640px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin:22px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.grid .card{margin:0}
+label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}input[type=text],input[type=tel],input[type=email],textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--dim);margin-top:14px}.consent input{margin-top:4px}
+button{margin-top:16px;background:var(--brand);color:#fff;border:0;border-radius:9px;padding:12px 20px;font-weight:700;font-size:15px;cursor:pointer}
+.msg{margin-top:12px;font-weight:600}footer{border-top:1px solid var(--line);margin-top:56px;padding:22px 0;color:var(--dim);font-size:13px}footer a{color:var(--dim)}
+.small{font-size:13px;color:var(--dim)}ul{padding-left:20px}
+</style></head><body>
+<header><div class="wrap"><a class="logo" href="./">Clear Path <span>Property Solutions</span></a><nav><a href="./">Home</a><a href="./#buyers">Buyers list</a><a href="privacy.html">Privacy</a><a href="terms.html">SMS terms</a></nav></div></header><main class="wrap">
+<h1>We buy houses as-is, and bring off-market deals to investors.</h1>
+<p class="lead">Clear Path Property Solutions Inc is a real estate investment company. We buy properties directly from homeowners and offer them to our list of cash buyers and investors across Texas and other U.S. markets.</p>
+<div class="grid">
+ <div class="card"><b>Homeowners</b><p class="small">Fair cash offers, no repairs, no agent fees, and you pick the closing date.</p></div>
+ <div class="card"><b>Investors &amp; buyers</b><p class="small">Off-market properties sent to you first, with photos, numbers, and walkthrough times.</p></div>
+ <div class="card"><b>Talk to a person</b><p class="small">Call or text (469) 728-8628 or email nicholliday@nhinvesting.net.</p></div>
+</div>
+
+<h2 id="buyers">Join our buyers list</h2>
+<div class="card">
+<p class="small">Get new off-market deals by text and email. We only send properties and follow-ups about them.</p>
+<form id="f">
+ <label for="name">Full name</label><input id="name" name="name" type="text" required autocomplete="name">
+ <label for="phone">Mobile phone</label><input id="phone" name="phone" type="tel" required autocomplete="tel">
+ <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email">
+ <label for="markets">Cities or areas you buy in</label><input id="markets" name="markets" type="text" placeholder="e.g. San Antonio, Dallas">
+ <input type="text" name="company_site" id="hp" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
+ <div class="consent"><input type="checkbox" id="consent" required><label for="consent" style="margin:0;font-weight:400">By checking this box, I agree to receive text messages from Clear Path Property Solutions about investment properties for sale and follow-ups about them at the mobile number provided. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of any purchase. See our <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">SMS Terms</a>.</label></div>
+ <button type="submit">Join the list</button>
+ <div class="msg" id="msg" role="status"></div>
+</form>
+</div>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault(); const m = document.getElementById('msg'); const b = e.target.querySelector('button');
+  if (!document.getElementById('consent').checked) { m.textContent = 'Please check the consent box.'; return; }
+  b.disabled = true; m.textContent = 'Sending…';
+  try {
+    const r = await fetch('https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/site-signup', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: document.getElementById('name').value, phone: document.getElementById('phone').value, email: document.getElementById('email').value, markets: document.getElementById('markets').value, hp: document.getElementById('hp').value, consent: true, consent_text: document.querySelector('.consent label').innerText, page: location.href }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.ok) { m.textContent = "You're on the list. We'll text you when a deal fits."; e.target.reset(); } else { m.textContent = j.error || 'Something went wrong. Please text (469) 728-8628.'; }
+  } catch (err) { m.textContent = 'Something went wrong. Please text (469) 728-8628.'; }
+  b.disabled = false;
+});
+</script>
+</main><footer><div class="wrap">© 2026 Clear Path Property Solutions Inc · 30 N Gould St, Sheridan, WY 82801 · <a href="mailto:nicholliday@nhinvesting.net">nicholliday@nhinvesting.net</a> · (469) 728-8628<br><a href="privacy.html">Privacy Policy</a> · <a href="terms.html">SMS Terms &amp; Conditions</a></div></footer></body></html>
