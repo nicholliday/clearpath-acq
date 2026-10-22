@@ -49,11 +49,11 @@
   }
   function msg(t) { var m = el('dlr_msg'); if (m) m.textContent = t || ''; }
 
-  async function start() {
+  async function start(test) {
     msg('Connecting your headset…');
     try { micStream = await openMic(); } catch (x) { msg('Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.'); return; }
     try { await phone(); } catch (x) { msg(x.message); return; }
-    var r = await call('start', { lines: 3 });
+    var r = await call('start', { lines: 3, test: !!test });
     if (r.error) { msg(r.error); return; }
     msg('Dialing ' + r.leads + ' No Reply leads…'); tick(); startPoll();
   }
@@ -85,7 +85,7 @@
     if (!el('dlr_root')) v.innerHTML = shell();
     var status = (s && s.status) || 'none';
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused'].indexOf(status) >= 0;
-    el('dlr_start').style.display = on ? 'none' : '';
+    el('dlr_start').style.display = on ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on ? '' : 'none';
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
     el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
@@ -110,6 +110,7 @@
       + '<div id="dlr_status" style="font-size:20px;font-weight:800;margin:12px 0 6px">…</div><div id="dlr_stats" class="sm"></div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
       + '<button id="dlr_start" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrStart()">▶ Start dialing</button>'
+      + '<button id="dlr_test" class="btn mut" onclick="dlrStart(true)">🧪 Test (calls your cell)</button>'
       + '<button id="dlr_pause" class="btn" onclick="dlrAct(\'pause\')">⏸ Pause</button>'
       + '<button id="dlr_next" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'next\')">▶ Next</button>'
       + '<button id="dlr_hang" class="btn d" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'hangup_live\')">Hang up</button>'

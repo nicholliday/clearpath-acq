@@ -124,7 +124,7 @@ function buildTabs(){
   var t='<button id="tb_script" onclick="nav(\'script\')"><span class="ic">\ud83d\udcdc</span>Script</button>'
    +'<button id="tb_today" onclick="nav(\'today\')"><span class="ic">\u2600\ufe0f</span>Today</button>'
    +'<button id="tb_goal" onclick="nav(\'goal\')"><span class="ic">\ud83c\udfaf</span>'+((ROLE==='owner'||EMBED_NIC)?'Goal Hitter':'Goals & Pay')+'</button>'
-   +'<button id="tb_dialer" onclick="nav(\'dialer\')"><span class="ic">\u260e\ufe0f</span>Dialer</button>'
+   +(ROLE==='owner'?'<button id="tb_dialer" onclick="nav(\'dialer\')"><span class="ic">\u260e\ufe0f</span>Dialer</button>':'')
    +'<button id="tb_cmd" onclick="nav(\'cmd\')"><span class="ic">\ud83d\udcca</span>KPIs</button>'
    +'<button id="tb_bot" onclick="nav(\'bot\')"><span class="ic">\ud83e\udd16</span>Bot</button>'
    +'<button id="tb_race" onclick="nav(\'race\')"><span class="ic">\ud83c\udfc1</span>Compete</button>'
