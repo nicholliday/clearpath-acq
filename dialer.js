@@ -1,5 +1,5 @@
 // Oct 22: real "Start dialing" hidden until testing is finished (Nic hit it by accident). Flip to true to go live.
-var DLR_LIVE = false;
+var DLR_LIVE = (typeof ROLE !== "undefined" && ROLE === "owner"); // Oct 23: Start on for Nic only (real-lead test). BT stays voicemail-only.
 // 3-Line Dialer tab for the acq app (Nic, Oct 22 2026). BT + Nic.
 // Works GHL stage 🚫 No Reply (Inbound). Server side = edge function `acq-dialer` (Telnyx Call Control).
 // The browser is just the rep's headset: the server rings it once at Start, it auto-answers, and every
