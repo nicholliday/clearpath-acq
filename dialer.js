@@ -124,7 +124,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Calling…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
-    if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
+    if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; var onCall = status === 'connected'; live.style.borderColor = onCall ? '#16A34A' : '#9CA3AF'; el('dlr_ltag').style.color = onCall ? '#16A34A' : '#6B7280'; el('dlr_ltag').textContent = onCall ? '🟢 YOU\'RE ON THE PHONE WITH' : '☎️ CALL ENDED — LAST CALL WAS'; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
     else { live.style.display = 'none'; }
     var stx = (s && s.stats) || {};
     el('dlr_stats').innerHTML = s && s.id ? ('<b>' + (stx.dials || 0) + '</b> dials · <b>' + (stx.talked || 0) + '</b> pickups · <b>' + (stx.convos || 0) + '</b> convos (45s+) · <b>' + (stx.voicemails || 0) + '</b> voicemails · <b>' + (s.left || 0) + '</b> of ' + (s.total || 0) + ' leads left') : '';
@@ -174,7 +174,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     return '<div id="dlr_root"><audio id="dlr_audio" autoplay></audio>'
       + '<div class="card"><h2>📞 3-Line Dialer</h2><div class="sm mut">Calls your 🚫 No Reply leads 3 at a time. Each lead gets a double dial once a day. Voicemails are left for you; only real people are put through.</div>'
       + '<div id="dlr_status" style="font-size:20px;font-weight:800;margin:12px 0 6px">…</div>'
-      + '<div id="dlr_live" style="display:none;border:3px solid #16A34A;border-radius:12px;padding:12px 14px;margin:8px 0"><div class="sm" style="color:#16A34A;font-weight:800">🟢 YOU\'RE ON THE PHONE WITH</div><div id="dlr_lname" style="font-size:30px;font-weight:900;line-height:1.15"></div><div id="dlr_lphone" style="font-size:14px"></div><div id="dlr_lead"></div></div>'
+      + '<div id="dlr_live" style="display:none;border:3px solid #16A34A;border-radius:12px;padding:12px 14px;margin:8px 0"><div id="dlr_ltag" class="sm" style="color:#16A34A;font-weight:800">🟢 YOU\'RE ON THE PHONE WITH</div><div id="dlr_lname" style="font-size:30px;font-weight:900;line-height:1.15"></div><div id="dlr_lphone" style="font-size:14px"></div><div id="dlr_lead"></div></div>'
       + '<div id="dlr_stats" class="sm"></div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
       + '<button id="dlr_start" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrStart()">▶ Start dialing</button>'
