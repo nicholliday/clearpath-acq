@@ -151,7 +151,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
   function renderScr(s) {
     if (vmRec) return; var u = s && s.screener; var sig = u || '-'; if (sig === scrSig) return; scrSig = sig;
     el('dlr_scr').innerHTML = '<div style="font-weight:700;margin-bottom:4px">🤖 Your screener line</div>'
-      + '<div class="mut" style="margin-bottom:4px">For phones that answer with \'say your name and why you\'re calling\'. Say: <i>"Hi, it\'s ' + (typeof ME !== 'undefined' && ME === 'BT Bendu' ? 'Tom' : 'Nic') + ' with Clear Path, calling about the cash offer you asked for on your property."</i></div>'
+      + '<div class="mut" style="margin-bottom:4px">For phones that answer with \'say your name and why you\'re calling\'. Say: <i>"Hi, it\'s ' + (ROLE === 'owner' ? 'Nic' : 'Tom') + ' with Clear Path, calling about the cash offer you asked for on your property."</i></div>'
       + (u ? '<a href="#" onclick="dlrPlayScr();return false">▶ play</a> · <a href="#" onclick="dlrRecord(\'screener\');return false"><b>re-record</b></a>' : '<a href="#" onclick="dlrRecord(\'screener\');return false"><b>＋ Record it</b></a>');
   }
   window.dlrPlayScr = function () { if (st && st.screener) new Audio(st.screener).play().catch(function () { }); };
