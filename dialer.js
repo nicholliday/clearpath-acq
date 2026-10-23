@@ -181,5 +181,9 @@ var DLR_LIVE = false;
   window.dlrStart = start;
   window.dlrAct = act;
   window.dlrMic = function (v) { try { localStorage.setItem(MIC_KEY, v); } catch (x) { } micStream = null; };
-  window.dlrOpen = function () { var v = el('v_dialer'); if (v && !el('dlr_root')) v.innerHTML = shell(); fillMics(); tick(); };
+  // Oct 22: timers get paused by Chrome when you're on your phone and the window is in the back, so the screen
+  // didn't change until you clicked it. Now the database pushes every dialer change straight to the page.
+  var live = null;
+  function listen() { if (live || !db.channel) return; live = db.channel('acq-dialer-' + Date.now()).on('postgres_changes', { event: '*', schema: 'public', table: 'acq_dialer_sessions' }, function () { tick(); }).subscribe(); }
+  window.dlrOpen = function () { var v = el('v_dialer'); if (v && !el('dlr_root')) v.innerHTML = shell(); fillMics(); listen(); tick(); };
 })();
