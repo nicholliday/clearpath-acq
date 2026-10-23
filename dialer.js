@@ -235,5 +235,5 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
   // didn't change until you clicked it. Now the database pushes every dialer change straight to the page.
   var live = null;
   function listen() { if (live || !db.channel) return; live = db.channel('acq-dialer-' + Date.now()).on('postgres_changes', { event: '*', schema: 'public', table: 'acq_dialer_sessions' }, function () { tick(); }).subscribe(); }
-  window.dlrOpen = function () { var v = el('v_dialer'); if (v && !el('dlr_root')) v.innerHTML = shell(); fillMics(); listen(); tick(); };
+  window.dlrOpen = function () { var v = el('v_dialer'); if (v && !el('dlr_root')) v.innerHTML = shell(); fillMics(); listen(); tick(); if (dlrLive()) phone().catch(function () { }); }; // Oct 23: log the headset in as soon as the tab opens, so Start rings faster
 })();
