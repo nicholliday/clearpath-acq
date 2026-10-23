@@ -115,6 +115,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
     el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
+    el('dlr_vmbtn').style.display = status === 'connected' ? '' : 'none';
     var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
@@ -160,6 +161,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
       + '<button id="dlr_pause" class="btn" onclick="dlrAct(\'pause\')">⏸ Pause</button>'
       + '<button id="dlr_next" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'next\')">▶ Next</button>'
       + '<button id="dlr_hang" class="btn d" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'hangup_live\')">Hang up</button>'
+      + '<button id="dlr_vmbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'mark_vm\')" title="It\'s a voicemail - drop it, leave my recording, keep dialing">📼 Voicemail</button>'
       + '<button id="dlr_stop" class="btn d" onclick="dlrAct(\'stop\')">■ Stop</button>'
       + '</div><div id="dlr_msg" class="sm" style="color:#e11d48;margin-top:8px"></div>'
       + '<div class="sm" style="margin-top:10px">🎤 <select id="dlr_mic" onchange="dlrMic(this.value)" style="max-width:260px"></select></div>'
