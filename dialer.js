@@ -6,7 +6,7 @@ var DLR_LIVE = false;
 // seller who picks up is bridged straight in. Voicemails/no-answers never reach the rep.
 (function () {
   var FN = 'https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/acq-dialer';
-  var client = null, agentCall = null, micStream = null, poll = null, lastLive = null, st = null, vmRec = null;
+  var client = null, agentCall = null, micStream = null, poll = null, lastLive = null, st = null, vmRec = null, vmSig = null;
   var MIC_KEY = 'acq_dialer_mic';
 
   async function call(action, extra) {
@@ -123,7 +123,17 @@ var DLR_LIVE = false;
       var tag = l.state === 'done' || l.state === 'dropped' ? (RES[l.result] || l.result || '') : (LABEL[l.state] || l.state);
       return '<div class="row" style="padding:5px 0;border-bottom:1px solid var(--line);font-size:13px"><span>' + e((l.name || '').split(' - ')[0]) + ' <span class="mut">' + pretty(l.phone) + (l.attempt === 2 ? ' · 2nd' : '') + '</span></span><span class="mut">' + e(tag) + '</span></div>';
     }).join('');
-    el('dlr_vm').innerHTML = s && s.has_vm ? '📼 Voicemail recorded ✓ <a href="#" onclick="dlrRecord();return false">re-record</a>' : '⚠️ No voicemail recorded yet — machines get hung up on. <a href="#" onclick="dlrRecord();return false">Record one</a>';
+    // voicemails: as many as you like; each seller gets one at most once a week, never the same one twice in a row
+    if (!vmRec) {
+      var vms = (s && s.vms) || [], sig = vms.join('|');
+      if (sig !== vmSig) {
+        vmSig = sig;
+        el('dlr_vm').innerHTML = '<div style="font-weight:700;margin-bottom:4px">📼 Your voicemails (' + vms.length + ')</div>'
+          + (vms.length ? '' : '<div class="mut">None yet — machines just get hung up on. Record a few different ones.</div>')
+          + vms.map(function (u, i) { return '<div style="padding:3px 0">#' + (i + 1) + ' <a href="#" onclick="dlrPlay(' + i + ');return false">▶ play</a> · <a href="#" onclick="dlrDel(' + i + ');return false" style="color:#e11d48">delete</a></div>'; }).join('')
+          + '<div style="margin-top:6px"><a href="#" onclick="dlrRecord();return false"><b>＋ Record ' + (vms.length ? 'another' : 'one') + '</b></a></div>';
+      }
+    }
   }
 
   function shell() {
@@ -159,21 +169,23 @@ var DLR_LIVE = false;
     for (var i = 0; i < n; i++) { var x = Math.max(-1, Math.min(1, src[Math.floor(i * ratio)])); out.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
     return new Uint8Array(out.buffer);
   }
+  window.dlrPlay = function (i) { var u = st && st.vms && st.vms[i]; if (u) new Audio(u).play().catch(function () { }); };
+  window.dlrDel = async function (i) { var u = st && st.vms && st.vms[i]; if (!u) return; await call('del_vm', { url: u }); vmSig = null; tick(); };
   window.dlrRecord = async function () {
     var box = el('dlr_vm');
-    if (vmRec) { vmRec.stop(); return; }
+    if (vmRec) { if (vmRec.stop) vmRec.stop(); return; }
     var stream; try { stream = await openMic(); } catch (x) { msg('Microphone blocked.'); return; }
     var chunks = []; vmRec = new MediaRecorder(stream);
     vmRec.ondataavailable = function (ev) { chunks.push(ev.data); };
     vmRec.onstop = async function () {
-      stream.getTracks().forEach(function (t) { t.stop(); }); vmRec = null; box.textContent = 'Saving…';
+      stream.getTracks().forEach(function (t) { t.stop(); }); vmRec = 'saving'; box.textContent = 'Saving…';
       try {
         var ab = await new Blob(chunks).arrayBuffer(); var ctx = new AudioContext(); var buf = await ctx.decodeAudioData(ab); ctx.close();
         var wav = toWav(buf); var bin = ''; for (var i = 0; i < wav.length; i += 0x8000) bin += String.fromCharCode.apply(null, wav.subarray(i, i + 0x8000));
         var r = await call('save_vm', { audio: btoa(bin), mime: 'audio/wav' });
         if (r.error) msg(r.error); else { new Audio(r.url).play().catch(function () { }); }
       } catch (x) { msg('Could not save the recording.'); }
-      tick();
+      vmRec = null; vmSig = null; tick();
     };
     vmRec.start(); box.innerHTML = '🔴 Recording… say your voicemail, then <a href="#" onclick="dlrRecord();return false"><b>tap here to stop</b></a>';
   };
