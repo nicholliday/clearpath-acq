@@ -98,8 +98,8 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
   }
 
   // Oct 23 (Nic: "it felt chaotic") -> every line in plain words
-  var NOW = { dialing: '📞 Ringing', answered: '📲 Picking up…', bridged: '🟢 YOU\'RE ON WITH THEM', machine: '📼 Voicemail — waiting for the beep', voicemail: '📼 Leaving your voicemail', redial: '📼 Voicemail — calling right back' };
-  var DONE = { talked: '✅ You talked', voicemail_left: '📼 Voicemail left', machine_redial: '📼 Voicemail — called back', machine_no_vm: '📼 Voicemail (no message left)', machine_vm_this_week: '📼 Voicemail (already got one this week)', no_answer: 'No answer', busy: 'Busy', hung_up: 'Picked up & hung up', cut_for_live: '✂️ Hung up so you could talk', cut_requeued: '✂️ Hung up so you could talk — calling again next', rep_busy: '↩️ Picked up while you were busy — calling again next' };
+  var NOW = { dialing: '📞 Ringing', answered: '📲 Picking up…', bridged: '🟢 YOU\'RE ON WITH THEM', machine: '📬 Voicemail — waiting for the beep', voicemail: '📬 Leaving your voicemail', redial: '📬 Voicemail — calling right back' };
+  var DONE = { talked: '✅ You talked', voicemail_left: '📬 Voicemail left', machine_redial: '📬 Voicemail — called back', machine_no_vm: '📬 Voicemail (no message left)', machine_vm_this_week: '📬 Voicemail (already got one this week)', no_answer: 'No answer', busy: 'Busy', hung_up: 'Picked up & hung up', cut_for_live: '✂️ Hung up so you could talk', cut_requeued: '✂️ Hung up so you could talk — calling again next', rep_busy: '↩️ Picked up while you were busy — calling again next' };
   function lineText(l) { var t = (l.state === 'done' || l.state === 'dropped') ? (DONE[l.result] || l.result || '') : (NOW[l.state] || l.state); return t + (l.attempt === 2 && l.state === 'dialing' ? ' (2nd try)' : ''); }
 
   function render(s) {
@@ -139,7 +139,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
       var vms = (s && s.vms) || [], sig = vms.join('|');
       if (sig !== vmSig) {
         vmSig = sig;
-        el('dlr_vm').innerHTML = '<div style="font-weight:700;margin-bottom:4px">📼 Your voicemails (' + vms.length + ')</div>'
+        el('dlr_vm').innerHTML = '<div style="font-weight:700;margin-bottom:4px">📬 Your voicemails (' + vms.length + ')</div>'
           + (vms.length ? '' : '<div class="mut">None yet — machines just get hung up on. Record a few different ones.</div>')
           + vms.map(function (u, i) { return '<div style="padding:3px 0">#' + (i + 1) + ' <a href="#" onclick="dlrPlay(' + i + ');return false">▶ play</a> · <a href="#" onclick="dlrDel(' + i + ');return false" style="color:#e11d48">delete</a></div>'; }).join('')
           + '<div style="margin-top:6px"><a href="#" onclick="dlrRecord();return false"><b>＋ Record ' + (vms.length ? 'another' : 'one') + '</b></a></div>';
@@ -179,7 +179,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
       + '<button id="dlr_next" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'next\')">▶ Next</button>'
       + '<button id="dlr_hang" class="btn d" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'hangup_live\')">Hang up</button>'
       + '<button id="dlr_scrbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'screener\')" title="Their phone is screening the call - play my name + reason">🤖 Screener</button>'
-      + '<button id="dlr_vmbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'mark_vm\')" title="It\'s a voicemail - drop it, leave my recording, keep dialing">📼 Voicemail</button>'
+      + '<button id="dlr_vmbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'mark_vm\')" title="It\'s a voicemail - drop it, leave my recording, keep dialing">📬 Voicemail</button>'
       + '<button id="dlr_stop" class="btn d" onclick="dlrAct(\'stop\')">■ Stop</button>'
       + '</div><div id="dlr_msg" class="sm" style="color:#e11d48;margin-top:8px"></div>'
       + '<div class="sm" style="margin-top:10px">🎤 <select id="dlr_mic" onchange="dlrMic(this.value)" style="max-width:260px"></select></div>'
