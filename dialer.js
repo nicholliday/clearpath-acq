@@ -106,6 +106,9 @@ var DLR_LIVE = false;
     var status = (s && s.status) || 'none';
     // only hear the line while you're actually on a call (no hiss between calls)
     var au = el('dlr_audio'); if (au) au.muted = status !== 'connected';
+    // Oct 23: Nic wanted to hear that it's calling -> soft US ringback (2s on / 4s off) while lines ring, off the moment someone picks up
+    var ringing = status === 'ready' && ((s && s.lines) || []).some(function (l) { return l.state === 'dialing' || l.state === 'answered'; });
+    ringback(ringing);
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused'].indexOf(status) >= 0;
     el('dlr_start').style.display = (on || !DLR_LIVE) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on && status !== 'connected' ? '' : 'none'; // one red button at a time
@@ -136,6 +139,17 @@ var DLR_LIVE = false;
     }
   }
 
+  var rb = null;
+  function ringback(on) {
+    if (on && !rb) {
+      try {
+        var ctx = new AudioContext(), g = ctx.createGain(); g.gain.value = 0; g.connect(ctx.destination);
+        [440, 480].forEach(function (f) { var o = ctx.createOscillator(); o.frequency.value = f; o.connect(g); o.start(); });
+        var beat = function () { var t = ctx.currentTime; g.gain.setValueAtTime(0.03, t); g.gain.setValueAtTime(0, t + 2); };
+        beat(); rb = { ctx: ctx, iv: setInterval(beat, 6000) };
+      } catch (x) { rb = null; }
+    } else if (!on && rb) { clearInterval(rb.iv); try { rb.ctx.close(); } catch (x) { } rb = null; }
+  }
   function shell() {
     return '<div id="dlr_root"><audio id="dlr_audio" autoplay></audio>'
       + '<div class="card"><h2>📞 3-Line Dialer</h2><div class="sm mut">Calls your 🚫 No Reply leads 3 at a time. Each lead gets a double dial once a day. Voicemails are left for you; only real people are put through.</div>'
