@@ -97,8 +97,10 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
       + (i.notes && i.notes.length ? '<div class="sm" style="max-height:220px;overflow:auto;border-top:1px solid var(--line);padding-top:6px">' + i.notes.map(function (n) { return '<div style="margin-bottom:8px"><b class="mut">' + e(String(n.at || '').slice(0, 10)) + '</b><br>' + e(n.body).replace(/\n/g, '<br>') + '</div>'; }).join('') + '</div>' : '<div class="sm mut">No GHL notes yet.</div>');
   }
 
-  var LABEL = { dialing: 'ringing…', answered: 'answered…', machine: 'voicemail…', voicemail: 'leaving voicemail', bridged: 'LIVE', done: '', dropped: 'dropped' };
-  var RES = { talked: '✅ talked', voicemail_left: '📼 voicemail left', machine_redial: '📼 machine → redial', machine_no_vm: '📼 machine', no_answer: 'no answer', busy: 'busy', hung_up: 'hung up', cut_for_live: 'cut (you went live)', rep_busy: 'dropped (you were on a call)', rep_not_ready: 'dropped (paused)' };
+  // Oct 23 (Nic: "it felt chaotic") -> every line in plain words
+  var NOW = { dialing: '📞 Ringing', answered: '📲 Picking up…', bridged: '🟢 YOU\'RE ON WITH THEM', machine: '📼 Voicemail — waiting for the beep', voicemail: '📼 Leaving your voicemail', redial: '📼 Voicemail — calling right back' };
+  var DONE = { talked: '✅ You talked', voicemail_left: '📼 Voicemail left', machine_redial: '📼 Voicemail — called back', machine_no_vm: '📼 Voicemail (no message left)', machine_vm_this_week: '📼 Voicemail (already got one this week)', no_answer: 'No answer', busy: 'Busy', hung_up: 'Picked up & hung up', cut_for_live: '✂️ Hung up so you could talk', cut_requeued: '✂️ Hung up so you could talk — calling again next', rep_busy: '↩️ Picked up while you were busy — calling again next' };
+  function lineText(l) { var t = (l.state === 'done' || l.state === 'dropped') ? (DONE[l.result] || l.result || '') : (NOW[l.state] || l.state); return t + (l.attempt === 2 && l.state === 'dialing' ? ' (2nd try)' : ''); }
 
   function render(s) {
     var v = el('v_dialer'); if (!v) return;
@@ -116,6 +118,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
     el('dlr_vmbtn').style.display = status === 'connected' ? '' : 'none';
+    el('dlr_scrbtn').style.display = status === 'connected' ? '' : 'none';
     var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
@@ -123,10 +126,14 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     else { live.style.display = 'none'; }
     var stx = (s && s.stats) || {};
     el('dlr_stats').innerHTML = s && s.id ? ('<b>' + (stx.dials || 0) + '</b> dials · <b>' + (stx.talked || 0) + '</b> pickups · <b>' + (stx.convos || 0) + '</b> convos (45s+) · <b>' + (stx.voicemails || 0) + '</b> voicemails · <b>' + (s.left || 0) + '</b> of ' + (s.total || 0) + ' leads left') : '';
-    el('dlr_lines').innerHTML = (s && s.lines || []).map(function (l) {
-      var tag = l.state === 'done' || l.state === 'dropped' ? (RES[l.result] || l.result || '') : (LABEL[l.state] || l.state);
-      return '<div class="row" style="padding:5px 0;border-bottom:1px solid var(--line);font-size:13px"><span>' + e((l.name || '').split(' - ')[0]) + ' <span class="mut">' + pretty(l.phone) + (l.attempt === 2 ? ' · 2nd' : '') + '</span></span><span class="mut">' + e(tag) + '</span></div>';
-    }).join('');
+    // one row per seller (their latest call): who's being called RIGHT NOW on top, then what just happened
+    var seen = {}, latest = [];
+    ((s && s.lines) || []).forEach(function (l) { if (!seen[l.phone]) { seen[l.phone] = 1; latest.push(l); } });
+    var active = latest.filter(function (l) { return NOW[l.state]; }), recent = latest.filter(function (l) { return !NOW[l.state]; }).slice(0, 6);
+    var row = function (l, big) { return '<div class="row" style="padding:' + (big ? '9px' : '5px') + ' 0;border-bottom:1px solid var(--line);font-size:' + (big ? '15px' : '13px') + '"><span><b>' + e((l.name || '').split(' - ')[0]) + '</b> <span class="mut">' + pretty(l.phone) + '</span></span><span' + (big ? ' style="font-weight:700"' : ' class="mut"') + '>' + e(lineText(l)) + '</span></div>'; };
+    el('dlr_lines').innerHTML = '<div class="sm mut" style="margin-bottom:4px">RIGHT NOW</div>' + (active.length ? active.map(function (l) { return row(l, true); }).join('') : '<div class="sm mut">Nothing ringing.</div>')
+      + (recent.length ? '<div class="sm mut" style="margin:12px 0 4px">JUST HAPPENED</div>' + recent.map(function (l) { return row(l, false); }).join('') : '');
+    renderScr(s);
     // voicemails: as many as you like; each seller gets one at most once a week, never the same one twice in a row
     if (!vmRec) {
       var vms = (s && s.vms) || [], sig = vms.join('|');
@@ -140,6 +147,14 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     }
   }
 
+  var scrSig = null;
+  function renderScr(s) {
+    if (vmRec) return; var u = s && s.screener; var sig = u || '-'; if (sig === scrSig) return; scrSig = sig;
+    el('dlr_scr').innerHTML = '<div style="font-weight:700;margin-bottom:4px">🤖 Your screener line</div>'
+      + '<div class="mut" style="margin-bottom:4px">For phones that answer with \'say your name and why you\'re calling\'. Say: <i>"Hi, it\'s ' + (typeof ME !== 'undefined' && ME === 'BT Bendu' ? 'Tom' : 'Nic') + ' with Clear Path, calling about the cash offer you asked for on your property."</i></div>'
+      + (u ? '<a href="#" onclick="dlrPlayScr();return false">▶ play</a> · <a href="#" onclick="dlrRecord(\'screener\');return false"><b>re-record</b></a>' : '<a href="#" onclick="dlrRecord(\'screener\');return false"><b>＋ Record it</b></a>');
+  }
+  window.dlrPlayScr = function () { if (st && st.screener) new Audio(st.screener).play().catch(function () { }); };
   var rb = null;
   function ringback(on) {
     if (on && !rb) {
@@ -154,20 +169,22 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
   function shell() {
     return '<div id="dlr_root"><audio id="dlr_audio" autoplay></audio>'
       + '<div class="card"><h2>📞 3-Line Dialer</h2><div class="sm mut">Calls your 🚫 No Reply leads 3 at a time. Each lead gets a double dial once a day. Voicemails are left for you; only real people are put through.</div>'
-      + '<div id="dlr_status" style="font-size:20px;font-weight:800;margin:12px 0 6px">…</div><div id="dlr_stats" class="sm"></div>'
+      + '<div id="dlr_status" style="font-size:20px;font-weight:800;margin:12px 0 6px">…</div>'
+      + '<div id="dlr_live" style="display:none;border:3px solid #16A34A;border-radius:12px;padding:12px 14px;margin:8px 0"><div class="sm" style="color:#16A34A;font-weight:800">🟢 YOU\'RE ON THE PHONE WITH</div><div id="dlr_lname" style="font-size:30px;font-weight:900;line-height:1.15"></div><div id="dlr_lphone" style="font-size:14px"></div><div id="dlr_lead"></div></div>'
+      + '<div id="dlr_stats" class="sm"></div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
       + '<button id="dlr_start" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrStart()">▶ Start dialing</button>'
       + '<button id="dlr_test" class="btn mut" onclick="dlrStart(true)">🧪 Test (calls your cell)</button>'
       + '<button id="dlr_pause" class="btn" onclick="dlrAct(\'pause\')">⏸ Pause</button>'
       + '<button id="dlr_next" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'next\')">▶ Next</button>'
       + '<button id="dlr_hang" class="btn d" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'hangup_live\')">Hang up</button>'
+      + '<button id="dlr_scrbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'screener\')" title="Their phone is screening the call - play my name + reason">🤖 Screener</button>'
       + '<button id="dlr_vmbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'mark_vm\')" title="It\'s a voicemail - drop it, leave my recording, keep dialing">📼 Voicemail</button>'
       + '<button id="dlr_stop" class="btn d" onclick="dlrAct(\'stop\')">■ Stop</button>'
       + '</div><div id="dlr_msg" class="sm" style="color:#e11d48;margin-top:8px"></div>'
       + '<div class="sm" style="margin-top:10px">🎤 <select id="dlr_mic" onchange="dlrMic(this.value)" style="max-width:260px"></select></div>'
-      + '<div id="dlr_vm" class="sm" style="margin-top:8px"></div></div>'
-      + '<div id="dlr_live" class="card" style="display:none;border:2px solid #16A34A"><div class="sm mut">ON THE PHONE WITH</div><div id="dlr_lname" style="font-size:22px;font-weight:800"></div><div id="dlr_lphone" class="sm"></div><div id="dlr_lead"></div></div>'
-      + '<div class="card"><h2>Lines</h2><div id="dlr_lines"></div></div></div>';
+      + '<div id="dlr_vm" class="sm" style="margin-top:8px"></div><div id="dlr_scr" class="sm" style="margin-top:10px"></div></div>'
+      + '<div class="card"><h2>Your 3 lines</h2><div id="dlr_lines"></div></div></div>';
   }
 
   async function fillMics() {
@@ -187,8 +204,9 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
   }
   window.dlrPlay = function (i) { var u = st && st.vms && st.vms[i]; if (u) new Audio(u).play().catch(function () { }); };
   window.dlrDel = async function (i) { var u = st && st.vms && st.vms[i]; if (!u) return; await call('del_vm', { url: u }); vmSig = null; tick(); };
-  window.dlrRecord = async function () {
-    var box = el('dlr_vm');
+  window.dlrRecord = async function (kind) {
+    kind = kind === 'screener' ? 'screener' : 'vm';
+    var box = el(kind === 'screener' ? 'dlr_scr' : 'dlr_vm');
     if (vmRec) { if (vmRec.stop) vmRec.stop(); return; }
     var stream; try { stream = await openMic(); } catch (x) { msg('Microphone blocked.'); return; }
     var chunks = []; vmRec = new MediaRecorder(stream);
@@ -198,12 +216,12 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
       try {
         var ab = await new Blob(chunks).arrayBuffer(); var ctx = new AudioContext(); var buf = await ctx.decodeAudioData(ab); ctx.close();
         var wav = toWav(buf); var bin = ''; for (var i = 0; i < wav.length; i += 0x8000) bin += String.fromCharCode.apply(null, wav.subarray(i, i + 0x8000));
-        var r = await call('save_vm', { audio: btoa(bin), mime: 'audio/wav' });
+        var r = await call('save_vm', { audio: btoa(bin), mime: 'audio/wav', kind: kind });
         if (r.error) msg(r.error); else { new Audio(r.url).play().catch(function () { }); }
       } catch (x) { msg('Could not save the recording.'); }
-      vmRec = null; vmSig = null; tick();
+      vmRec = null; vmSig = null; scrSig = null; tick();
     };
-    vmRec.start(); box.innerHTML = '🔴 Recording… say your voicemail, then <a href="#" onclick="dlrRecord();return false"><b>tap here to stop</b></a>';
+    vmRec.start(); box.innerHTML = '🔴 Recording… say your ' + (kind === 'screener' ? 'screener line' : 'voicemail') + ', then <a href="#" onclick="dlrRecord();return false"><b>tap here to stop</b></a>';
   };
 
   window.dlrStart = start;
