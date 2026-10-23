@@ -1,5 +1,5 @@
 // Oct 22: real "Start dialing" hidden until testing is finished (Nic hit it by accident). Flip to true to go live.
-var DLR_LIVE = (typeof ROLE !== "undefined" && ROLE === "owner"); // Oct 23: Start on for Nic only (real-lead test). BT stays voicemail-only.
+function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } // Oct 23: Start on for Nic only (real-lead test). BT stays voicemail-only.
 // 3-Line Dialer tab for the acq app (Nic, Oct 22 2026). BT + Nic.
 // Works GHL stage 🚫 No Reply (Inbound). Server side = edge function `acq-dialer` (Telnyx Call Control).
 // The browser is just the rep's headset: the server rings it once at Start, it auto-answers, and every
@@ -110,12 +110,12 @@ var DLR_LIVE = (typeof ROLE !== "undefined" && ROLE === "owner"); // Oct 23: Sta
     var ringing = status === 'ready' && ((s && s.lines) || []).some(function (l) { return l.state === 'dialing' || l.state === 'answered'; });
     ringback(ringing);
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused'].indexOf(status) >= 0;
-    el('dlr_start').style.display = (on || !DLR_LIVE) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
+    el('dlr_start').style.display = (on || !dlrLive()) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on && status !== 'connected' ? '' : 'none'; // one red button at a time
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
     el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
-    var head = { none: DLR_LIVE ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
+    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
     if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
