@@ -62,7 +62,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     try { await phone(); } catch (x) { msg(x.message); return; }
     var r = await call('start', { lines: 3, test: !!test });
     if (r.error) { msg(r.error); return; }
-    msg('Dialing ' + r.leads + ' No Reply leads…'); tick(); startPoll();
+    msg(r.leads + ' No Reply leads in today\'s list — calling 3 at a time.'); tick(); startPoll();
   }
   async function act(a) {
     if (a === 'hangup_live') { var hb = el('dlr_hang'); if (hb) { hb.disabled = true; hb.textContent = 'Hanging up…'; } el('dlr_status').textContent = 'Hanging up…'; }
