@@ -98,7 +98,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
   }
 
   // Oct 23 (Nic: "it felt chaotic") -> every line in plain words
-  var NOW = { dialing: '📞 Ringing', checking: '📲 Picked up — checking it\'s a real person…', screener: '🤖 Phone screener — playing your line, waiting for them…', ending: '…', answered: '📲 Picking up…', bridged: '🟢 YOU\'RE ON WITH THEM', machine: '📬 Voicemail — handling it for you', voicemail: '📬 Leaving your voicemail', redial: '📬 Voicemail — calling right back' };
+  var NOW = { dialing: '📞 Ringing', checking: '📲 Picked up — checking it\'s a real person…', connecting: '📲 Connecting you…', screener: '🤖 Phone screener — playing your line, waiting for them…', ending: '…', answered: '📲 Picking up…', bridged: '🟢 YOU\'RE ON WITH THEM', machine: '📬 Voicemail — handling it for you', voicemail: '📬 Leaving your voicemail', redial: '📬 Voicemail — calling right back' };
   var DONE = { talked: '✅ You talked', voicemail_left: '📬 Voicemail left', machine_redial: '📬 Voicemail — called back', machine_no_vm: '📬 Voicemail (no message left)', machine_vm_this_week: '📬 Voicemail (already got one this week)', no_answer: 'No answer', machine: '📬 Voicemail (hung up, calling back)', screener_no_pickup: '🤖 Screener — they didn\'t pick up', join_failed: 'Couldn\'t connect', busy: 'Busy', hung_up: 'Picked up & hung up', cut_for_live: '✂️ Hung up so you could talk', cut_requeued: '✂️ Hung up so you could talk — calling again next', rep_busy: '↩️ Picked up while you were busy — calling again next' };
   function lineText(l) { var t = (l.state === 'done' || l.state === 'dropped') ? (DONE[l.result] || l.result || '') : (NOW[l.state] || l.state); return t + (l.attempt === 2 && l.state === 'dialing' ? ' (2nd try)' : ''); }
 
@@ -133,7 +133,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     ((s && s.lines) || []).forEach(function (l) { if (!seen[l.phone]) { seen[l.phone] = 1; latest.push(l); } });
     var active = latest.filter(function (l) { return NOW[l.state]; }), recent = latest.filter(function (l) { return !NOW[l.state]; }).slice(0, 6);
     var row = function (l, big) { return '<div class="row" style="padding:' + (big ? '9px' : '5px') + ' 0;border-bottom:1px solid var(--line);font-size:' + (big ? '15px' : '13px') + '"><span><b>' + e((l.name || '').split(' - ')[0]) + '</b> <span class="mut">' + pretty(l.phone) + '</span></span><span' + (big ? ' style="font-weight:700"' : ' class="mut"') + '>' + e(lineText(l)) + '</span></div>'; };
-    var chk = active.filter(function (l) { return l.state === 'checking'; })[0];
+    var chk = active.filter(function (l) { return l.state === 'checking' || l.state === 'connecting'; })[0];
     if (status === 'ready' && chk) el('dlr_status').textContent = '📲 ' + (chk.name || '').split(' - ')[0] + ' picked up — connecting…';
     el('dlr_lines').innerHTML = '<div class="sm mut" style="margin-bottom:4px">RIGHT NOW</div>' + (active.length ? active.map(function (l) { return row(l, true); }).join('') : '<div class="sm mut">Nothing ringing.</div>')
       + (recent.length ? '<div class="sm mut" style="margin:12px 0 4px">JUST HAPPENED</div>' + recent.map(function (l) { return row(l, false); }).join('') : '');
