@@ -119,7 +119,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
     el('dlr_vmbtn').style.display = status === 'connected' ? '' : 'none';
     el('dlr_scrbtn').style.display = status === 'connected' ? '' : 'none';
-    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
+    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Dialing 3 lines…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
     if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
@@ -176,7 +176,7 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
       + '<button id="dlr_start" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrStart()">▶ Start dialing</button>'
       + '<button id="dlr_test" class="btn mut" onclick="dlrStart(true)">🧪 Test (calls your cell)</button>'
       + '<button id="dlr_pause" class="btn" onclick="dlrAct(\'pause\')">⏸ Pause</button>'
-      + '<button id="dlr_next" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'next\')">▶ Next</button>'
+      + '<button id="dlr_next" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'next\')">▶ Next Dial</button>'
       + '<button id="dlr_hang" class="btn d" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'hangup_live\')">Hang up</button>'
       + '<button id="dlr_scrbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'screener\')" title="Their phone is screening the call - play my name + reason">🤖 Screener</button>'
       + '<button id="dlr_vmbtn" class="btn" style="font-size:17px;padding:12px 22px" onclick="dlrAct(\'mark_vm\')" title="It\'s a voicemail - drop it, leave my recording, keep dialing">📬 Voicemail</button>'
