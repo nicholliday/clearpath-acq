@@ -66,7 +66,15 @@ function dlrLive() { return typeof ROLE !== "undefined" && ROLE === "owner"; } /
   }
   async function act(a) {
     if (a === 'hangup_live') { var hb = el('dlr_hang'); if (hb) { hb.disabled = true; hb.textContent = 'Hanging up…'; } el('dlr_status').textContent = 'Hanging up…'; }
+    // Oct 24 (Nic): the Screener button gave no sign it worked, so he tapped it twice. Now it shows what happened.
+    var sb = a === 'screener' ? el('dlr_scrbtn') : null;
+    if (sb) { if (sb.disabled) return; sb.disabled = true; sb.textContent = '⏳ Sending…'; }
     var r = await call(a); if (r.error) msg(r.error);
+    if (sb) {
+      sb.textContent = r.error ? '❌ Didn\'t play — tap to retry' : '✅ Playing your line… wait for them';
+      sb.style.background = r.error ? '#fde2e2' : '#dcfce7';
+      setTimeout(function () { var b = el('dlr_scrbtn'); if (b) { b.disabled = false; b.textContent = '🤖 Screener'; b.style.background = ''; } }, r.error ? 1500 : 12000);
+    }
     var hb2 = el('dlr_hang'); if (hb2) { hb2.disabled = false; hb2.textContent = 'Hang up'; }
     tick();
   }
