@@ -165,7 +165,10 @@ function nav(v){
 }
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 function fmt$(n){return n==null||isNaN(n)?'—':'$'+Number(n).toLocaleString()}
-function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+// Oct 28 2026 (Nic: "acq app says 1 lead today" - it was 3): dates are bucketed on the Chicago day, not the UTC date string.
+// A lead at 7:24pm CT is created_at 00:24Z the next day; .slice(0,10) put it on tomorrow. Same bug owner.html fixed with chiDay().
+function chiDay(iso){if(!iso)return '';var d=new Date(iso);if(isNaN(d))return String(iso).slice(0,10);return d.toLocaleDateString('en-CA',{timeZone:'America/Chicago'})}
+function today(){return chiDay(new Date().toISOString())}
 function daysAgo(n){var d=new Date();d.setDate(d.getDate()-n);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function monthStart(){return today().slice(0,8)+'01'}
 function quarterStart(){var d=new Date();var q=Math.floor(d.getMonth()/3)*3;return d.getFullYear()+'-'+String(q+1).padStart(2,'0')+'-01'}
@@ -235,7 +238,7 @@ function stlAvgFor(rep,from){
   var tot=0,n=0;
   (D.leads||[]).forEach(function(l){
     if(!l.phone||!l.created_at)return;
-    if(l.created_at.slice(0,10)<from)return;
+    if(chiDay(l.created_at)<from)return;
     var t0=new Date(l.created_at).getTime(),best=null,bRep=null;
     var _f=D.firstCall&&D.firstCall[l.id]; if(_f&&_f.at){best=new Date(_f.at).getTime();bRep=_f.rep}
     if(best!=null&&(!rep||bRep===rep)){tot+=Math.max(0,Math.round((best-stlStart(l.created_at))/60000));n++}
@@ -404,7 +407,7 @@ function renderToday(){
   }).join('')+'</div>';
 
   var leadsToday=0;
-  (D.leads||[]).forEach(function(l){ if(l.created_at && l.created_at.slice(0,10)===t) leadsToday++; });
+  (D.leads||[]).forEach(function(l){ if(l.created_at && chiDay(l.created_at)===t) leadsToday++; });
   h+='<div style="text-align:center;padding:6px 0 10px;border-bottom:1px solid var(--line)">'
    +'<span style="font-size:13px;letter-spacing:.14em;font-weight:800;color:var(--mut)">\uD83D\uDCE5 LEADS TODAY </span>'
    +'<span style="font-size:26px;font-weight:800;color:var(--gold);margin-left:8px">'+leadsToday+'</span>'
@@ -1026,7 +1029,7 @@ function coBench(){
   (D.reps||[]).forEach(function(rp){var r=repRange(rp,from);t.mdials+=r.mdials;t.mconvos+=r.mconvos;t.mtalkSec+=r.mtalkSec||0;t.offers+=r.offers;t.contracts+=r.contracts;});
   var lc=0,cc=0;
   D.leads.forEach(function(l){
-    if(l.created_at && l.created_at.slice(0,10)>=from) lc++;
+    if(l.created_at && chiDay(l.created_at)>=from) lc++;
     if(l.contracted_on && l.contracted_on>=from) cc++;
   });
   function pk(v,ok,std){ return ok ? {v:v, co:true} : {v:std, co:false}; }
@@ -1049,7 +1052,7 @@ function repBench(rep){
   var lc=0, cc=0;
   D.leads.forEach(function(l){
     if(repOf(l)!==rep) return;
-    if(l.created_at && l.created_at.slice(0,10)>=from) lc++;
+    if(l.created_at && chiDay(l.created_at)>=from) lc++;
     if(l.contracted_on && l.contracted_on>=from) cc++;
   });
   function pick(persVal, ok, coVal){ return ok ? {v:persVal, you:true} : {v:coVal.v, you:false, co:coVal.co}; }
