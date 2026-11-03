@@ -470,6 +470,8 @@ function renderToday(){
         var prT=target?target/reps.length:0;
         // Nic, Nov 3: dials green line is per rep - Nic 150, BT 330
         if(key==='dials')prT=/^Nic/i.test(rp)?150:330;
+        // Nic, Nov 3: BT offers green at 7
+        if(key==='offers'&&!/^Nic/i.test(rp))prT=7;
         var pctR=prT?Math.min(100,Math.round(v/prT*100)):null;
         var metaBits=[];
         if(pctR!=null)metaBits.push(pctR>=100?'<span style="color:var(--green);font-weight:800">DONE</span>':pctR+'%');
