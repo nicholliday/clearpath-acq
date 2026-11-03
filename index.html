@@ -458,8 +458,7 @@ function renderToday(){
   ];
   function renderRow(row,ri){
     var label=row[0], key=row[1], target=row[2], fmtFn=row[3];
-    // Nic, Nov 3: talk row uses minutes (talkSec). stats.talk is rounded hours, so it showed 327 min as "0h 5m"
-    var vals=reps.map(function(rp){return key==='talk'?(stats[rp].talkSec||0):stats[rp][key]});
+    var vals=reps.map(function(rp){return stats[rp][key]}); // talk is in minutes here
     var best=Math.max.apply(null,vals);
     var teamV=vals.reduce(function(a,b){return a+b},0);
     var pct=target?Math.min(100,Math.round(teamV/target*100)):0;
@@ -474,7 +473,7 @@ function renderToday(){
         var isNicR=/^Nic/i.test(rp);
         if(key==='dials')prT=isNicR?156:330;
         if(key==='offers')prT=isNicR?2:7;
-        if(key==='talk')prT=isNicR?120:300; // minutes: Nic 2 hrs, BT 5 hrs
+        if(key==='talk')prT=isNicR?120:300; // minutes (stats.talk is minutes): Nic 2 hrs, BT 5 hrs
         if(key==='convos')prT=isNicR?20:32;
         var pctR=prT?Math.min(100,Math.round(v/prT*100)):null;
         var metaBits=[];
