@@ -292,7 +292,7 @@ function plWkLbl(wk){
   return s[a.getMonth()]+' '+a.getDate()+' – '+(b.getMonth()!==a.getMonth()?s[b.getMonth()]+' ':'')+b.getDate();
 }
 // ---- Roll-forward (Nov 3, Nic): when a month ends, every unchecked to-do takes the matching slot in the next month,
-// and the item it displaces is pushed to the month after, and so on. Never stacks: each month keeps its slot count.
+// and everything it displaces is pushed to the month after, and so on: the unfinished list shifts back a month, never stacks.
 // Metric lines (targets / money / auto-synced / linked hours) are monthly rates and do not roll.
 function plIsTodo(it){return it.target==null&&!it.money&&!it.sync&&!it.link}
 function plKey(it){
@@ -321,9 +321,10 @@ async function plRollInto(m,incoming,secsHint,depth){
       Array.prototype.splice.apply(v.items,[last+1,0].concat(inc));
       return;
     }
-    var queue=inc.concat(own.map(function(i){return v.items[i]}));
-    own.forEach(function(idx,j){v.items[idx]=queue[j]});
-    overflow=overflow.concat(queue.slice(own.length));
+    // whole group shifts a month: all of last month's leftovers come in, all of this month's matching items move out
+    var out=own.map(function(i){return v.items[i]}),first=own[0],skip={};own.forEach(function(i){skip[i]=1});
+    var nx=[];v.items.forEach(function(it,i){if(i===first)nx=nx.concat(inc);if(!skip[i])nx.push(it)});
+    v.items=nx;overflow=overflow.concat(out);
   });
   v.secs=v.secs||[];incoming.forEach(function(it){if(it.sec&&v.secs.indexOf(it.sec)<0)v.secs.push(it.sec)});
   await kvSet('plan_'+m,v);
