@@ -291,8 +291,55 @@ function plWkLbl(wk){
   var a=new Date(wk+'T12:00:00'),b=new Date(plWkEnd(wk)+'T12:00:00'),s=PL_MOS.map(function(x){return x.slice(0,3)});
   return s[a.getMonth()]+' '+a.getDate()+' – '+(b.getMonth()!==a.getMonth()?s[b.getMonth()]+' ':'')+b.getDate();
 }
+// ---- Roll-forward (Nov 3, Nic): when a month ends, every unchecked to-do takes the matching slot in the next month,
+// and the item it displaces is pushed to the month after, and so on. Never stacks: each month keeps its slot count.
+// Metric lines (targets / money / auto-synced / linked hours) are monthly rates and do not roll.
+function plIsTodo(it){return it.target==null&&!it.money&&!it.sync&&!it.link}
+function plKey(it){
+  var st=String(it.t||'');
+  if(it.grp)return it.sec+'|'+it.grp+'|'+st.replace(/\s*[\d+×].*$/,'').trim().toLowerCase();
+  if(/^read:/i.test(st))return it.sec+'|read';
+  return it.sec+'|other';
+}
+function plMonthAdd(m,n){var y=+m.slice(0,4),mo=+m.slice(5,7)-1+n;var d=new Date(y,mo,1,12);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+function plCarry(it,fromM){var c=JSON.parse(JSON.stringify(it));c.id=String(it.id).replace(/_r[a-z0-9]+$/,'')+'_r'+Math.random().toString(36).slice(2,7);c.carry=c.carry||PL_MOS[+fromM.slice(5,7)-1];return c}
+async function plRollInto(m,incoming,secsHint,depth){
+  if(!incoming.length||(depth||0)>24)return;
+  var v=await kvGet('plan_'+m);
+  if(!v)v={goal:'Every section green',secs:(secsHint||[]).slice(),items:[],weeks:[],done:[],notes:{},res:{}};
+  v.items=v.items||[];v.done=v.done||[];
+  var groups={},order=[];
+  incoming.forEach(function(it){var k=plKey(it);if(!groups[k]){groups[k]=[];order.push(k)}groups[k].push(it)});
+  var overflow=[];
+  order.forEach(function(k){
+    var inc=groups[k],own=[];
+    v.items.forEach(function(it,i){if(plIsTodo(it)&&plKey(it)===k&&v.done.indexOf(it.id)<0)own.push(i)});
+    if(!own.length){
+      var last=-1;v.items.forEach(function(it,i){if(it.sec===inc[0].sec&&(it.grp||'')===(inc[0].grp||''))last=i});
+      if(last<0)v.items.forEach(function(it,i){if(it.sec===inc[0].sec)last=i});
+      if(last<0)last=v.items.length-1;
+      Array.prototype.splice.apply(v.items,[last+1,0].concat(inc));
+      return;
+    }
+    var queue=inc.concat(own.map(function(i){return v.items[i]}));
+    own.forEach(function(idx,j){v.items[idx]=queue[j]});
+    overflow=overflow.concat(queue.slice(own.length));
+  });
+  v.secs=v.secs||[];incoming.forEach(function(it){if(it.sec&&v.secs.indexOf(it.sec)<0)v.secs.push(it.sec)});
+  await kvSet('plan_'+m,v);
+  if(overflow.length)await plRollInto(plMonthAdd(m,1),overflow.map(function(it){return plCarry(it,m)}),v.secs,(depth||0)+1);
+}
+async function plRollPrev(m){
+  if(m!==today().slice(0,7))return;
+  var pm=plMonthAdd(m,-1),pv=await kvGet('plan_'+pm);
+  if(!pv||pv.rolled)return;
+  var und=(pv.items||[]).filter(function(it){return plIsTodo(it)&&(pv.done||[]).indexOf(it.id)<0});
+  pv.rolled=today();await kvSet('plan_'+pm,pv);
+  await plRollInto(m,und.map(function(it){return plCarry(it,pm)}),pv.secs);
+}
 async function loadPL(){
   var m=PL.m;
+  try{await plRollPrev(m)}catch(e){}
   var v=await kvGet('plan_'+m);
   if(!v&&PL_SEED[m]){v=JSON.parse(JSON.stringify(PL_SEED[m]));await kvSet('plan_'+m,v);}
   if(v){v.items=v.items||[];v.weeks=v.weeks||[];v.done=v.done||[];v.notes=v.notes||{};v.res=v.res||{};}
@@ -507,7 +554,7 @@ function plRender(){
        var rows=D2.items.filter(function(it){return it.sec===sc});
        var sdone=rows.filter(function(it){return it.target?plProg(it)>=it.target:D2.done.indexOf(it.id)>=0}).length;
        out+='<div class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">'+(ICONS[sc]||'\u2b50')+' '+esc(sc)+'</h2><span class="sm" style="font-weight:800;color:'+(rows.length&&sdone>=rows.length?'var(--green)':'var(--mut)')+'">'+sdone+'/'+rows.length+'</span></div>'
-        +(function(){var o='',g=null;rows.forEach(function(it){if((it.grp||'')!==g){g=it.grp||'';if(g)o+='<div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.08em;margin:12px 0 2px">'+esc(g.toUpperCase())+'</div>';}o+=plRow(it);});return o;})()
+        +(function(){var o='',g=null;rows.forEach(function(it){if((it.grp||'')!==g){g=it.grp||'';if(g)o+='<div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.08em;margin:12px 0 2px">'+esc(g.toUpperCase())+'</div>';}o+=plRow(it,it.carry?'\u21aa carried from '+it.carry:'');});return o;})()
         +'<div class="row" style="gap:8px;margin-top:8px"><input id="pla_m::'+esc(sc)+'" placeholder="Add to '+esc(sc)+'" style="flex:1;margin:0;font-size:13px"><button class="btn mut" onclick="plAdd(\'m::'+esc(sc)+'\')">+</button></div></div>';
      });
      if(loose.length)out+='<div class="card"><h2>\u2b50 Other</h2>'+loose.map(function(it){return plRow(it)}).join('')+'</div>';
