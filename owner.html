@@ -511,8 +511,8 @@ function plRender(){
      if(loose.length)out+='<div class="card"><h2>\u2b50 Other</h2>'+loose.map(function(it){return plRow(it)}).join('')+'</div>';
      return out;
    })();
-  // weeks
-  var t=today(),W=D2.weeks,cur=-1;
+  // weeks: removed Nov 3 (Nic: "remove this section for this month and every month"); week data stays saved in owner_kv
+  var t=today(),W=[],cur=-1;
   W.forEach(function(w,i){if(t>=w.wk&&t<=plWkEnd(w.wk))cur=i});
   if(cur<0&&W.length&&t>plWkEnd(W[W.length-1].wk))cur=W.length-1;
   W.forEach(function(w,i){
