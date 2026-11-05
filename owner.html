@@ -533,12 +533,15 @@ function plRender(){
   var D2=PL.data;
   var tot=0,dn=0;
   if(D2){[D2.items].concat(D2.weeks.map(function(w){return w.items})).forEach(function(a){a.forEach(function(it){tot++;if(it.target?plProg(it)>=it.target:D2.done.indexOf(it.id)>=0)dn++})});}
-  h+='<div class="card"><div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">'
-   +'<button class="btn mut" onclick="plShift(-1)">◀</button>'
-   +'<span style="font-weight:800;font-size:15px;padding:6px 12px;border:1px solid var(--line);border-radius:10px">'+mName+' '+y+'</span>'
-   +'<button class="btn mut" onclick="plShift(1)">▶</button>'
-   +(PL.m!==today().slice(0,7)?'<button class="btn g" onclick="PL.m=today().slice(0,7);PL.loaded=\'\';render()">This month</button>':'')
-   +(D2?'<span style="font-weight:800;margin-left:auto;color:'+(tot&&dn>=tot?'var(--green)':'var(--gold)')+'">'+dn+' / '+tot+' done</span>':'')
+  // Nov 5 (Nic): month name as a big header across the bar
+  h+='<div class="card"><div style="display:flex;gap:8px;align-items:center">'
+   +'<button class="btn mut" aria-label="Previous month" onclick="plShift(-1)">◀</button>'
+   +'<div style="flex:1;text-align:center;font-weight:800;font-size:30px;letter-spacing:.02em;line-height:1.1;padding:6px 0">'+mName+' <span style="color:var(--mut);font-weight:700">'+y+'</span></div>'
+   +'<button class="btn mut" aria-label="Next month" onclick="plShift(1)">▶</button>'
+   +'</div>'
+   +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">'
+   +(PL.m!==today().slice(0,7)?'<button class="btn g" style="padding:4px 10px;margin:0;font-size:12px" onclick="PL.m=today().slice(0,7);PL.loaded=\'\';render()">This month</button>':'<span></span>')
+   +(D2?'<span style="font-weight:800;color:'+(tot&&dn>=tot?'var(--green)':'var(--gold)')+'">'+dn+' / '+tot+' done</span>':'')
    +'</div>'
    +(D2?'<div style="height:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+(tot?Math.round(dn*100/tot):0)+'%;background:'+(tot&&dn>=tot?'var(--green)':'var(--gold)')+'"></div></div>':'')
    +'</div>';
