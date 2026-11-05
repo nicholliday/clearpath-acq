@@ -490,6 +490,16 @@ function plRow(it,tag){
   var gone=(PL.loaded&&PL.loaded<today().slice(0,7));
   if(it.target){
     var pv=plProg(it),pc=Math.min(100,Math.round(pv*100/it.target));on=pv>=it.target;
+    var hero=it.money&&/^(closed|generated)/i.test(it.t||'');
+    if(hero){
+      return '<div style="padding:14px;margin:8px 0;border:2px solid var(--gold);border-radius:14px;background:rgba(212,175,55,.08)">'
+       +'<div onclick="plHowT(\''+it.id+'\')" style="display:flex;justify-content:space-between;align-items:baseline;cursor:pointer;gap:10px">'
+       +'<span style="font-size:16px;font-weight:800">'+(it.sync?'\u26a1 ':'')+esc(it.t)+plHowLbl(it)+'</span>'
+       +'<span style="font-size:22px;font-weight:800;color:'+(on?'var(--green)':'var(--gold)')+';white-space:nowrap">'+plNum(it,pv)+'<span style="font-size:14px;color:var(--mut);font-weight:600"> / '+plNum(it,it.target)+'</span></span></div>'
+       +'<div style="height:12px;background:var(--bg);border-radius:6px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+pc+'%;background:'+(on?'var(--green)':'var(--gold)')+';border-radius:6px"></div></div>'
+       +plFunnel(it)+plHowBox(it,0)
+       +'</div>';
+    }
     return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div style="display:flex;gap:10px;align-items:center">'
      +'<div style="min-width:24px;height:24px;border-radius:6px;border:2px solid '+(on?'var(--green)':gone?'var(--red)':'var(--line)')+';background:'+(on?'var(--green)':gone?'var(--red)':'transparent')+';color:'+(gone&&!on?'#fff':'#0B1220')+';font-weight:900;display:flex;align-items:center;justify-content:center;font-size:14px">'+(on?'\u2713':gone?'\u2715':'')+'</div>'
      +'<div onclick="plHowT(\''+it.id+'\')" style="flex:1;font-size:14px;cursor:pointer">'+(it.sync?'\u26a1 ':'')+esc(it.t)+' <b style="color:'+(on?'var(--green)':'var(--gold)')+'">'+plNum(it,pv)+' / '+plNum(it,it.target)+(it.money?'':' '+esc(it.unit||''))+'</b>'+plHowLbl(it)+'</div>'
@@ -536,25 +546,7 @@ function plRender(){
     h+='<div class="card" style="text-align:center"><div class="mut" style="margin-bottom:10px">'+mName+' isn’t planned yet.</div><button class="btn g" onclick="plStart()">Plan '+mName+'</button></div>';
     return h;
   }
-  // Nov 5 (Nic picked option F): gold summary card, Generated + Closed/funded bars
-  (function(){
-    var pick=function(re){var r=null;D2.items.forEach(function(it){if(!r&&it.target&&re.test(it.t||''))r=it});return r};
-    var bars=[pick(/^closed/i),pick(/^generated/i)].filter(Boolean);
-    if(!bars.length)return;
-    var dim=new Date(y,mo+1,0).getDate(),cm=today().slice(0,7);
-    var left=PL.m<cm?0:PL.m>cm?dim:dim-(+today().slice(8,10))+1;
-    var k=function(v){return v>=1000?'$'+(Math.round(v/100)/10).toString().replace(/\.0$/,'')+'K':'$'+Math.round(v)};
-    h+='<div style="background:var(--card);border:2px solid var(--gold);color:var(--text);border-radius:20px;padding:20px;margin-bottom:12px">'
-     +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--gold)"><span>'+mName.toUpperCase()+'</span><span>'+(PL.m<cm?'MONTH DONE':left+' DAYS LEFT')+'</span></div>';
-    bars.forEach(function(it){
-      var v=plProg(it),t=Number(it.target)||0,pc=t?Math.min(100,Math.round(v*100/t)):0;
-      h+='<div style="margin-top:14px"><div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800"><span>'+(/^closed/i.test(it.t)?'Closed':esc(it.t))+'</span><span>'+k(v)+' / '+k(t)+'</span></div>'
-       +'<div style="height:12px;background:var(--bg);border-radius:6px;margin-top:7px;overflow:hidden"><div style="width:'+pc+'%;height:100%;background:var(--gold);border-radius:6px"></div></div></div>';
-    });
-    h+='</div>';
-  })();
-  // month milestone
-  var mr=D2.res.month||'';
+  // Nov 5 (Nic): top summary card removed; Closed + Generated rows in Money are highlighted instead (plRow)
   // Nov 5 (Nic): milestone card removed; month notes moved to the bottom
   h+=(function(){
      var secs=(D2.secs||[]).slice();
