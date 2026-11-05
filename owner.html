@@ -544,7 +544,7 @@ function plRender(){
     var dim=new Date(y,mo+1,0).getDate(),cm=today().slice(0,7);
     var left=PL.m<cm?0:PL.m>cm?dim:dim-(+today().slice(8,10))+1;
     var k=function(v){return v>=1000?'$'+(Math.round(v/100)/10).toString().replace(/\.0$/,'')+'K':'$'+Math.round(v)};
-    h+='<div style="background:var(--card);border:2px solid rgba(212,175,55,.55);color:var(--text);border-radius:20px;padding:20px;margin-bottom:12px">'
+    h+='<div style="background:var(--card);border:2px solid var(--gold);color:var(--text);border-radius:20px;padding:20px;margin-bottom:12px">'
      +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--gold)"><span>'+mName.toUpperCase()+'</span><span>'+(PL.m<cm?'MONTH DONE':left+' DAYS LEFT')+'</span></div>';
     bars.forEach(function(it){
       var v=plProg(it),t=Number(it.target)||0,pc=t?Math.min(100,Math.round(v*100/t)):0;
@@ -555,13 +555,8 @@ function plRender(){
   })();
   // month milestone
   var mr=D2.res.month||'';
-  h+='<div class="card" style="border:2px solid '+(mr==='hit'?'var(--green)':mr==='miss'?'var(--red)':'var(--gold)')+'">'
-   +'<div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.1em">🎯 '+mName.toUpperCase()+' MILESTONE</div>'
-   +'<div onclick="plGoal()" style="font-size:16px;font-weight:800;margin:6px 0 8px;cursor:pointer;line-height:1.35">'+(D2.goal?esc(D2.goal):'<span class="mut">Tap to set the milestone</span>')+'</div>'
-   +plHitRow('month','Month result:')
-   +'<textarea placeholder="Month review: what happened, what I learned" style="margin-top:8px;min-height:60px;font-family:inherit" onchange="plNote(\'month\',this.value)">'+esc(D2.notes.month||'')+'</textarea>'
-   +'</div>'
-   +(function(){
+  // Nov 5 (Nic): milestone card removed; month notes moved to the bottom
+  h+=(function(){
      var secs=(D2.secs||[]).slice();
      D2.items.forEach(function(it){if(it.sec&&secs.indexOf(it.sec)<0)secs.push(it.sec)});
      if(!secs.length)return '<div class="card"><div class="sm mut" style="margin-bottom:4px">Hit the month when all of these are done:</div>'+D2.items.map(function(it){return plRow(it)}).join('')
@@ -579,6 +574,8 @@ function plRender(){
      if(loose.length)out+='<div class="card"><h2>\u2b50 Other</h2>'+loose.map(function(it){return plRow(it)}).join('')+'</div>';
      return out;
    })();
+  h+='<div class="card"><h2 style="margin:0 0 8px">\ud83d\udcdd Notes</h2>'
+   +'<textarea placeholder="Notes for '+mName+': what happened, what I learned" style="min-height:90px;font-family:inherit" onchange="plNote(\'month\',this.value)">'+esc(D2.notes.month||'')+'</textarea></div>';
   // weeks: removed Nov 3 (Nic: "remove this section for this month and every month"); week data stays saved in owner_kv
   var t=today(),W=[],cur=-1;
   W.forEach(function(w,i){if(t>=w.wk&&t<=plWkEnd(w.wk))cur=i});
