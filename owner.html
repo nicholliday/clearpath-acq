@@ -495,7 +495,7 @@ function plRow(it,tag){
       return '<div style="padding:14px;margin:8px 0;border:2px solid var(--gold);border-radius:14px;background:rgba(212,175,55,.08)">'
        +'<div onclick="plHowT(\''+it.id+'\')" style="display:flex;justify-content:space-between;align-items:baseline;cursor:pointer;gap:10px">'
        +'<span style="font-size:16px;font-weight:800">'+(it.sync?'\u26a1 ':'')+esc(it.t)+plHowLbl(it)+'</span>'
-       +'<span style="font-size:22px;font-weight:800;color:'+(on?'var(--green)':'var(--gold)')+';white-space:nowrap">'+plNum(it,pv)+'<span style="font-size:14px;color:var(--mut);font-weight:600"> / '+plNum(it,it.target)+'</span></span></div>'
+       +'<span style="font-size:22px;font-weight:800;color:'+(on?'var(--green)':'var(--gold)')+';white-space:nowrap">'+plNum(it,pv)+'<span style="font-size:14px;color:var(--mut);font-weight:600"> / '+plNum(it,it.target)+'</span> <span onclick="event.stopPropagation();plEdit(\''+it.id+'\')" class="sm mut" style="cursor:pointer;padding:2px 4px;font-size:13px">\u270e</span></span></div>'
        +'<div style="height:12px;background:var(--bg);border-radius:6px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+pc+'%;background:'+(on?'var(--green)':'var(--gold)')+';border-radius:6px"></div></div>'
        +plFunnel(it)+plHowBox(it,0)
        +'</div>';
