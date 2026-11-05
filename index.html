@@ -47,6 +47,17 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 .help{position:fixed;right:16px;bottom:74px;z-index:90;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#D4AF37,#E8C55A);color:#101828;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(212,175,55,.45)}
 #lock{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
 .mut{color:var(--mut)}.sm{font-size:11px}.warn{color:var(--red);font-size:11px;font-weight:700}
+/* Nic, Nov 5: Tom's booked calls - red alarm for now / in 5 min, blue dot for later */
+#callbar{display:none;margin:0 0 12px}
+.cb-now{display:flex;align-items:center;gap:12px;background:#3B0A0A;border:2px solid var(--red);border-radius:12px;padding:12px 14px;margin-bottom:8px;animation:cbflash 1s ease-in-out infinite;text-decoration:none;color:#fff}
+.cb-now .cb-lbl{font-weight:900;font-size:18px;letter-spacing:.5px;color:#fff;white-space:nowrap}
+.cb-now .cb-who{font-weight:700;font-size:15px;flex:1;min-width:0}
+.cb-now .cb-ph{font-weight:800;font-size:15px;color:#FCA5A5;white-space:nowrap}
+@keyframes cbflash{0%,100%{background:#3B0A0A;box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{background:#7F1D1D;box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.cb-later{display:flex;align-items:center;gap:10px;padding:6px 8px;font-size:13px;color:var(--text)}
+.cb-later .dot{width:10px;height:10px;border-radius:50%;background:var(--blue);flex:none;box-shadow:0 0 6px var(--blue)}
+.cb-later .cb-when{color:var(--blue);font-weight:800;white-space:nowrap}
+.cb-later .cb-ph{color:var(--mut);margin-left:auto;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -60,6 +71,7 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 <div class="wrap">
   <div class="brand">CLEAR PATH PROPERTY SOLUTIONS</div>
   <h1><span id="appTitle">Acq Tracker</span> <span id="roleBadge" class="pill p-uc" style="display:none">OWNER</span> <span id="whoBadge" class="sm mut" style="float:right;font-weight:700;margin-top:6px"></span></h1>
+  <div id="callbar"></div>
 
   <div id="v_script" class="view"></div>
   <div id="v_owner" class="view"></div>
@@ -137,6 +149,46 @@ function buildTabs(){
   var wb=document.getElementById('whoBadge');
   if(wb) wb.textContent = ROLE==='owner' ? '\uD83D\uDC64 Owner' : (ME ? '\uD83D\uDC64 '+ME : '');
   nav('today');
+  callBarStart();
+}
+// Nic, Nov 5: "CALL NOW / CALL IN 5 MIN in red, blue dot for later today" - reads Tom's bookings for THIS rep only (Nic never sees BT's, BT never sees Nic's), today only
+var CB_ROWS=[];
+function callBarRep(){
+  if(ROLE==='owner'&&!ME)return 'nic';
+  var m=String(ME||'').toLowerCase();
+  return m.indexOf('bt')===0||m.indexOf('bendu')>=0?'bt':'nic';
+}
+async function callBarFetch(){
+  try{
+    var from=new Date(Date.now()-30*60e3).toISOString(), to=new Date(Date.now()+7*864e5).toISOString();
+    var r=await db.from('tom_bookings').select('id,name,address,phone,call_at,rep,status').eq('rep',callBarRep()).eq('status','open').gte('call_at',from).lte('call_at',to).order('call_at');
+    if(!r.error)CB_ROWS=(r.data||[]).filter(function(b){return chiDay(b.call_at)===today()}); // Nic, Nov 5: same-day calls only, and only your own
+  }catch(e){}
+  callBarRender();
+}
+function callBarRender(){
+  var el=document.getElementById('callbar'); if(!el)return;
+  var now=Date.now(), h='';
+  CB_ROWS.forEach(function(b){
+    var t=new Date(b.call_at).getTime(), dm=(t-now)/60e3, ph=String(b.phone||'').replace(/[^0-9]/g,''), tel=ph?'tel:+1'+ph.slice(-10):'#';
+    var who=(b.name||'Seller')+(b.address?' \u00B7 '+String(b.address).split('\n')[0]:'');
+    var pretty=ph?ph.slice(-10).replace(/(\d{3})(\d{3})(\d{4})/,'($1) $2-$3'):'';
+    if(dm<=1){ // due now (or up to 30 min overdue)
+      h+='<a class="cb-now" href="'+tel+'"><span class="cb-lbl">\uD83D\uDD34 CALL NOW</span><span class="cb-who">'+who+'</span><span class="cb-ph">'+pretty+'</span></a>';
+    } else if(dm<=5){
+      h+='<a class="cb-now" href="'+tel+'"><span class="cb-lbl">\uD83D\uDD34 CALL IN '+Math.ceil(dm)+' MIN</span><span class="cb-who">'+who+'</span><span class="cb-ph">'+pretty+'</span></a>';
+    } else {
+      var d=new Date(t), sameDay=d.toDateString()===new Date().toDateString();
+      var when=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}).toLowerCase();
+      h+='<div class="cb-later"><span class="dot"></span><span class="cb-when">'+when+'</span><span>'+who+'</span><span class="cb-ph">'+pretty+'</span></div>';
+    }
+  });
+  el.innerHTML=h; el.style.display=h?'block':'none';
+}
+function callBarStart(){
+  callBarFetch();
+  setInterval(callBarFetch,60e3);   // new bookings every minute
+  setInterval(callBarRender,15e3);  // countdown flips to red on time
 }
 function nav(v){
   var tt=document.getElementById('appTitle');
