@@ -536,20 +536,22 @@ function plRender(){
     h+='<div class="card" style="text-align:center"><div class="mut" style="margin-bottom:10px">'+mName+' isn’t planned yet.</div><button class="btn g" onclick="plStart()">Plan '+mName+'</button></div>';
     return h;
   }
-  // Nov 5 (Nic picked it): gold pace card for the month's Generated goal
+  // Nov 5 (Nic picked option F): gold summary card, Generated + Closed/funded bars
   (function(){
-    var g=null;D2.items.forEach(function(it){if(!g&&it.target&&/^generated/i.test(it.t||''))g=it});
-    if(!g)return;
-    var gv=plProg(g),gt=Number(g.target)||0;if(!gt)return;
-    var dim=new Date(y,mo+1,0).getDate(),cm=today().slice(0,7),day=PL.m<cm?dim:PL.m>cm?0:+today().slice(8,10);
-    var pace=Math.round(gt*day/dim),pc=Math.min(100,Math.round(gv*100/gt)),ahead=gv>=pace;
+    var pick=function(re){var r=null;D2.items.forEach(function(it){if(!r&&it.target&&re.test(it.t||''))r=it});return r};
+    var bars=[pick(/^generated/i),pick(/^closed/i)].filter(Boolean);
+    if(!bars.length)return;
+    var dim=new Date(y,mo+1,0).getDate(),cm=today().slice(0,7);
+    var left=PL.m<cm?0:PL.m>cm?dim:dim-(+today().slice(8,10))+1;
     var k=function(v){return v>=1000?'$'+(Math.round(v/100)/10).toString().replace(/\.0$/,'')+'K':'$'+Math.round(v)};
     h+='<div style="background:var(--gold);color:#0B1220;border-radius:20px;padding:20px;margin-bottom:12px">'
-     +'<div style="font-size:12px;font-weight:800;letter-spacing:.14em">'+mName.toUpperCase()+' · DAY '+day+' OF '+dim+'</div>'
-     +'<div style="font-size:40px;font-weight:800;line-height:1.05;margin-top:8px">'+k(gv)+' <span style="font-size:18px">of '+k(gt)+' generated</span></div>'
-     +'<div style="height:12px;background:rgba(11,18,32,.18);border-radius:6px;margin-top:14px;overflow:hidden"><div style="width:'+pc+'%;height:100%;background:#0B1220;border-radius:6px"></div></div>'
-     +'<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:800;margin-top:10px"><span>'+(PL.m<cm?'Month done':'Pace for today: '+k(pace))+'</span><span>'+(gv>=gt?'Hit ✓':ahead?'Ahead ↑':'Behind ↓')+'</span></div>'
-     +'</div>';
+     +'<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;letter-spacing:.14em"><span>'+mName.toUpperCase()+'</span><span>'+(PL.m<cm?'MONTH DONE':left+' DAYS LEFT')+'</span></div>';
+    bars.forEach(function(it){
+      var v=plProg(it),t=Number(it.target)||0,pc=t?Math.min(100,Math.round(v*100/t)):0;
+      h+='<div style="margin-top:14px"><div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800"><span>'+(/^closed/i.test(it.t)?'Funded':esc(it.t))+'</span><span>'+k(v)+' / '+k(t)+'</span></div>'
+       +'<div style="height:12px;background:rgba(11,18,32,.2);border-radius:6px;margin-top:7px;overflow:hidden"><div style="width:'+pc+'%;height:100%;background:#0B1220;border-radius:6px"></div></div></div>';
+    });
+    h+='</div>';
   })();
   // month milestone
   var mr=D2.res.month||'';
@@ -570,6 +572,7 @@ function plRender(){
        var rows=D2.items.filter(function(it){return it.sec===sc});
        var sdone=rows.filter(function(it){return it.target?plProg(it)>=it.target:D2.done.indexOf(it.id)>=0}).length;
        out+='<div class="card"><div class="row" style="margin-bottom:6px"><h2 style="margin:0">'+(ICONS[sc]||'\u2b50')+' '+esc(sc)+'</h2><span class="sm" style="font-weight:800;color:'+(rows.length&&sdone>=rows.length?'var(--green)':'var(--mut)')+'">'+sdone+'/'+rows.length+'</span></div>'
+        +'<div style="height:6px;background:var(--bg);border-radius:3px;margin:0 0 6px;overflow:hidden"><div style="height:100%;width:'+(rows.length?Math.round(sdone*100/rows.length):0)+'%;background:var(--green);border-radius:3px"></div></div>'
         +(function(){var o='',g=null;rows.forEach(function(it){if((it.grp||'')!==g){g=it.grp||'';if(g)o+='<div class="sm" style="color:var(--gold);font-weight:800;letter-spacing:.08em;margin:12px 0 2px">'+esc(g.toUpperCase())+'</div>';}o+=plRow(it);});return o;})()
         +'<div class="row" style="gap:8px;margin-top:8px"><input id="pla_m::'+esc(sc)+'" placeholder="Add to '+esc(sc)+'" style="flex:1;margin:0;font-size:13px"><button class="btn mut" onclick="plAdd(\'m::'+esc(sc)+'\')">+</button></div></div>';
      });
