@@ -535,9 +535,9 @@ function plRender(){
   if(D2){[D2.items].concat(D2.weeks.map(function(w){return w.items})).forEach(function(a){a.forEach(function(it){tot++;if(it.target?plProg(it)>=it.target:D2.done.indexOf(it.id)>=0)dn++})});}
   // Nov 5 (Nic): month name as a big header across the bar
   h+='<div class="card"><div style="display:flex;gap:8px;align-items:center">'
-   +'<button class="btn mut" aria-label="Previous month" onclick="plShift(-1)">◀</button>'
-   +'<div style="flex:1;text-align:center;font-weight:800;font-size:30px;letter-spacing:.02em;line-height:1.1;padding:6px 0">'+mName+' <span style="color:var(--mut);font-weight:700">'+y+'</span></div>'
-   +'<button class="btn mut" aria-label="Next month" onclick="plShift(1)">▶</button>'
+   +'<button class="btn mut" aria-label="Previous month" style="font-size:22px;padding:14px 16px;margin:0" onclick="plShift(-1)">◀</button>'
+   +'<div style="flex:1;text-align:center;font-weight:900;font-size:clamp(40px,8vw,96px);letter-spacing:.04em;line-height:1;padding:10px 0;text-transform:uppercase">'+mName+' <span style="color:var(--gold);font-weight:800">'+y+'</span></div>'
+   +'<button class="btn mut" aria-label="Next month" style="font-size:22px;padding:14px 16px;margin:0" onclick="plShift(1)">▶</button>'
    +'</div>'
    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">'
    +(PL.m!==today().slice(0,7)?'<button class="btn g" style="padding:4px 10px;margin:0;font-size:12px" onclick="PL.m=today().slice(0,7);PL.loaded=\'\';render()">This month</button>':'<span></span>')
