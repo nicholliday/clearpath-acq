@@ -58,6 +58,8 @@ th{color:var(--mut);font-weight:600;font-size:10px;letter-spacing:.05em}
 .cb-later .dot{width:10px;height:10px;border-radius:50%;background:var(--blue);flex:none;box-shadow:0 0 6px var(--blue)}
 .cb-later .cb-when{color:var(--blue);font-weight:800;white-space:nowrap}
 .cb-later .cb-ph{color:var(--mut);margin-left:auto;white-space:nowrap}
+.cb-done{flex:none;width:36px;height:36px;border-radius:9px;border:2px solid #fff;background:transparent;color:#fff;font-size:18px;font-weight:900;cursor:pointer;margin-left:6px}
+.cb-done.sm{width:26px;height:26px;font-size:13px;border-color:var(--line);color:var(--mut)}
 </style>
 </head>
 <body>
@@ -163,8 +165,19 @@ async function callBarFetch(){
     var from=new Date(Date.now()-30*60e3).toISOString(), to=new Date(Date.now()+7*864e5).toISOString();
     var r=await db.from('tom_bookings').select('id,name,address,phone,call_at,rep,status').eq('rep',callBarRep()).eq('status','open').gte('call_at',from).lte('call_at',to).order('call_at');
     if(!r.error)CB_ROWS=(r.data||[]).filter(function(b){return chiDay(b.call_at)===today()}); // Nic, Nov 5: same-day calls only, and only your own
+    // Nic, Nov 5: "rubi was called but it's still flashing" - auto-check when a call to that number is logged after the booking time
+    for(var k=0;k<CB_ROWS.length;k++){var b=CB_ROWS[k], ph10=String(b.phone||'').replace(/[^0-9]/g,'').slice(-10); if(!ph10)continue;
+      var since=new Date(new Date(b.call_at).getTime()-10*60e3).toISOString();
+      var c=await db.from('acq_calls').select('id').like('phone','%'+ph10).gte('called_at',since).limit(1);
+      if(!c.error&&c.data&&c.data.length){await callBarDone(b.id,false);CB_ROWS.splice(k,1);k--;}
+    }
   }catch(e){}
   callBarRender();
+}
+async function callBarDone(id,rerender){
+  try{await db.from('tom_bookings').update({status:'done'}).eq('id',id);}catch(e){}
+  CB_ROWS=CB_ROWS.filter(function(b){return b.id!==id});
+  if(rerender!==false)callBarRender();
 }
 function callBarRender(){
   var el=document.getElementById('callbar'); if(!el)return;
@@ -174,13 +187,13 @@ function callBarRender(){
     var who=(b.name||'Seller')+(b.address?' \u00B7 '+String(b.address).split('\n')[0]:'');
     var pretty=ph?ph.slice(-10).replace(/(\d{3})(\d{3})(\d{4})/,'($1) $2-$3'):'';
     if(dm<=1){ // due now (or up to 30 min overdue)
-      h+='<a class="cb-now" href="'+tel+'"><span class="cb-lbl">\uD83D\uDD34 CALL NOW</span><span class="cb-who">'+who+'</span><span class="cb-ph">'+pretty+'</span></a>';
+      h+='<div class="cb-now"><a class="cb-lbl" href="'+tel+'" style="color:#fff;text-decoration:none">\uD83D\uDD34 CALL NOW</a><a class="cb-who" href="'+tel+'" style="color:#fff;text-decoration:none">'+who+'</a><span class="cb-ph">'+pretty+'</span><button class="cb-done" onclick="callBarDone('+b.id+')" title="Called - clear">\u2713</button></div>';
     } else if(dm<=5){
-      h+='<a class="cb-now" href="'+tel+'"><span class="cb-lbl">\uD83D\uDD34 CALL IN '+Math.ceil(dm)+' MIN</span><span class="cb-who">'+who+'</span><span class="cb-ph">'+pretty+'</span></a>';
+      h+='<div class="cb-now"><a class="cb-lbl" href="'+tel+'" style="color:#fff;text-decoration:none">\uD83D\uDD34 CALL IN '+Math.ceil(dm)+' MIN</a><a class="cb-who" href="'+tel+'" style="color:#fff;text-decoration:none">'+who+'</a><span class="cb-ph">'+pretty+'</span><button class="cb-done" onclick="callBarDone('+b.id+')" title="Called - clear">\u2713</button></div>';
     } else {
       var d=new Date(t), sameDay=d.toDateString()===new Date().toDateString();
       var when=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}).toLowerCase();
-      h+='<div class="cb-later"><span class="dot"></span><span class="cb-when">'+when+'</span><span>'+who+'</span><span class="cb-ph">'+pretty+'</span></div>';
+      h+='<div class="cb-later"><span class="dot"></span><span class="cb-when">'+when+'</span><span>'+who+'</span><span class="cb-ph">'+pretty+'</span><button class="cb-done sm" onclick="callBarDone('+b.id+')" title="Called - clear">\u2713</button></div>';
     }
   });
   el.innerHTML=h; el.style.display=h?'block':'none';
