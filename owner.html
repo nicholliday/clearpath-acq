@@ -294,6 +294,18 @@ function plWkLbl(wk){
 // ---- Roll-forward (Nov 3, Nic): when a month ends, every unchecked to-do takes the matching slot in the next month,
 // and everything it displaces is pushed to the month after, and so on: the unfinished list shifts back a month, never stacks.
 // Metric lines (targets / money / auto-synced / linked hours) are monthly rates and do not roll.
+// Nov 5 (Nic): one funnel drawing used by Acq, Dispo and Whole business
+function fnlSvg(rows,step){
+  var n=rows.length;step=step||Math.min(21,Math.round(170/n));
+  var o='<svg viewBox="0 0 300 '+(n*28-4)+'" style="width:100%;display:block" aria-hidden="true">';
+  rows.forEach(function(s,i){
+    var tw=(300-i*step)/2,bw=(300-(i+1)*step)/2,y=i*28;
+    o+='<polygon points="'+(150-tw)+','+y+' '+(150+tw)+','+y+' '+(150+bw)+','+(y+24)+' '+(150-bw)+','+(y+24)+'" fill="'+(s.f||'#8a6f1f')+'"/>'
+     +'<text x="150" y="'+(y+16.5)+'" text-anchor="middle" fill="'+(s.t||'#fff')+'" font-size="12.5" font-weight="700">'+s.v+(s.l?' '+s.l:'')
+     +(s.s?' <tspan font-size="9" font-weight="400" opacity="0.85">· '+s.s+'</tspan>':'')+'</text>';
+  });
+  return o+'</svg>';
+}
 function plIsTodo(it){return it.target==null&&!it.money&&!it.sync&&!it.link}
 function plKey(it){
   var st=String(it.t||'');
@@ -1611,6 +1623,20 @@ function render(){
       var mWalks=moRows(D.dshow).length;
       var dDays=Math.max(1,R.days);
       function dpd(v,dec){var x=v/dDays;return '<span class="sm" style="color:var(--mut);font-weight:400"> \u00b7'+(dec?(Math.round(x*10)/10):Math.round(x))+'/d</span>'}
+      var dIn=(D.deals||[]).filter(function(d){return d.created_at&&inRange(chiDay(d.created_at),R.from,R.to)}).length;
+      var phN=Object.keys(stageThisMonth('Photos Received (Live)')).length, cxN=Object.keys(stageThisMonth('Cancelled')).length;
+      h+='<div class="card" style="margin-bottom:30px"><h2>\u23f3 Dispo funnel \u2014 '+R.label+'</h2>'
+       +fnlSvg([
+         {v:dIn,l:'contracts in',s:(Math.round(dIn*10/dDays)/10)+'/day'},
+         {v:phN,l:'photos live'},
+         {v:mSentTo.toLocaleString(),l:'buyers sent to',s:Math.round(mSentTo/dDays)+'/day'},
+         {v:mWalks,l:'walkthroughs',s:(Math.round(mWalks*10/dDays)/10)+'/day'},
+         {v:mOffers,l:'offers',s:(Math.round(mOffers*10/dDays)/10)+'/day'},
+         {v:cxN,l:'cancelled'},
+         {v:asnN,l:'assigned'},
+         {v:clsN,l:'closed'},
+         {v:fmt$(Math.round(dRev)),l:''}
+       ],21)+'</div>';
       h+='<div class="card" style="margin-bottom:30px"><h2>DISPO REPS \u2014 '+R.label+'</h2>'
        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
        +'<div style="flex:1;min-width:130px;background:var(--bg);border:1px solid var(--blue);border-radius:10px;padding:10px;text-align:center">'
@@ -1653,17 +1679,20 @@ function render(){
     if(NICTAB==='funnel'){
       function frow(lbl,val,sub,conv){return '<div style="padding:9px 0;border-bottom:1px solid var(--line)"><div class="row"><span style="font-weight:800">'+lbl+'</span><span style="font-weight:800">'+val+'</span></div>'+(sub?'<div class="sm mut">'+sub+'</div>':'')+(conv?'<div class="sm" style="color:var(--gold)">\u2193 '+conv+'</div>':'')+'</div>'}
       var claimed=0;(D.leads||[]).forEach(function(l){if(l.claimed_on&&l.claimed_on>=m0)claimed++});
+      var pc=function(a,b){return b?Math.round(a*100/b)+'%':''};
       h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+fmtMonth(curM)+'</h2>'
-       +frow('\ud83d\udcb8 Ad spend',fmt$(spend),null, L.leads&&spend?fmt$(Math.round(spend/L.leads))+' per lead':null)
-       +frow('\ud83d\udce5 Leads',L.leads,null, L.leads?Math.round(claimed/L.leads*100)+'% claimed':null)
-       +frow('\ud83c\udd95 Claimed',claimed,null,null)
-       +frow('\ud83d\udcde Dials',L.dials,null, L.dials&&L.convos?Math.round(L.convos/L.dials*100)+'% convo rate':null)
-       +frow('\ud83d\udcac Convos',L.convos,stlFmt(L.talk)+' talk', L.convos&&L.offers?Math.round(L.offers/L.convos*100)+'% to offer':null)
-       +frow('\ud83d\udcb0 Offers',L.offers,null, L.offers&&L.contracts?Math.round(L.contracts/L.offers*100)+'% to contract':null)
-       +frow('\ud83d\udcdd Contracts',L.contracts,fmt$(L.pipeRev)+' projected in pipe', L.contracts?Math.round(L.assigned/L.contracts*100)+'% assigned':null)
-       +frow('\ud83e\udd1d Assigned',L.assigned,null, L.assigned?Math.round(L.closed/L.assigned*100)+'% closed':null)
-       +frow('\ud83c\udfc1 Closed',L.closed,null,null)
-       +frow('\ud83d\udcb5 Collected',fmt$(L.rev), spend?('ROAS '+(spend?Math.round(L.rev/spend*10)/10:0)+'x'):null,null)
+       +fnlSvg([
+         {v:fmt$(spend),l:'spend',s:(L.leads&&spend?fmt$(Math.round(spend/L.leads))+'/lead':'')},
+         {v:L.leads,l:'leads',s:(L.leads?pc(claimed,L.leads)+' claimed':'')},
+         {v:L.dials.toLocaleString(),l:'dials',s:(L.dials?pc(L.convos,L.dials)+' convo':'')},
+         {v:L.convos,l:'convos',s:stlFmt(L.talk)+' talk'},
+         {v:L.offers,l:'offers',s:(L.convos?pc(L.offers,L.convos)+' of convos':'')},
+         {v:L.contracts,l:'contracts',s:(L.offers?pc(L.contracts,L.offers)+' of offers':'')},
+         {v:L.assigned,l:'assigned'},
+         {v:L.closed,l:'closed'},
+         {v:fmt$(L.rev),l:'',s:(spend?'ROAS '+(Math.round(L.rev/spend*10)/10)+'x':'')}
+       ])
+       +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(L.pipeRev)+' projected in pipe</div>'
        +'</div>';
     }
 
