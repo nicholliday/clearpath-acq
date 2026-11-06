@@ -1194,7 +1194,6 @@ function render(){
          +(!isToday?'<button class="btn g" onclick="ckSetDate(\''+today()+'\')">Today</button>':'')
          +'<button class="btn mut" style="margin-left:auto" onclick="CK.showCal=!CK.showCal;render()">\ud83d\udcc5</button>'
          +'<button class="btn mut" onclick="CK.showStats=!CK.showStats;render()">\ud83d\udcca Checklist data</button>'
-         +'<span style="font-weight:800;color:'+(dn>=tot&&tot?'var(--green)':'var(--gold)')+'">'+dn+' / '+tot+' done</span>'
          +(CK.streak?'<span style="font-weight:800;color:#FF9D42;margin-left:10px">\ud83d\udd25 '+CK.streak+' day'+(CK.streak>1?'s':'')+'</span>':'')
          +'</div>'
          +'<div style="height:10px;background:var(--bg);border:1px solid var(--line);border-radius:6px;margin-top:10px;overflow:hidden"><div style="height:100%;width:'+(tot?Math.round(dn*100/tot):0)+'%;background:'+(dn>=tot&&tot?'var(--green)':'linear-gradient(90deg,var(--gold),#FF9D42)')+';border-radius:6px;transition:width .4s"></div></div>'
