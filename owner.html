@@ -829,6 +829,14 @@ async function loadAll(){
     D.dshow=dw.data||[];
     var dof=await allRows('offers','*');
     D.doffers=dof.data||[];
+    // Nov 5: live dispo-app tables for the whole-business funnel
+    try{
+      var _r=await allRows('dispo_reps','id,role');D.dreps=_r.data||[];
+      var _k=await allRows('dispo_kpi_daily','id,rep_id,day,dials,convos,talk_seconds');D.dkpi=_k.data||[];
+      var _s=await allRows('dispo_sent','deal_id,buyer_id,at','at');D.dsent2=_s.data||[];
+      var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at');D.ddb=_b.data||[];
+      var _d=await allRows('dispo_deals','id,assignment_signed_on,closed_at,closed_fee');D.dd2=_d.data||[];
+    }catch(e){D.dreps=D.dreps||[];D.dkpi=D.dkpi||[];D.dsent2=D.dsent2||[];D.ddb=D.ddb||[];D.dd2=D.dd2||[];}
     var df=await allRows('auto_feed','event,detail,count');
     D.dfeed=df.data||[];
     D.dispoErr=null;
@@ -1680,18 +1688,42 @@ function render(){
       function frow(lbl,val,sub,conv){return '<div style="padding:9px 0;border-bottom:1px solid var(--line)"><div class="row"><span style="font-weight:800">'+lbl+'</span><span style="font-weight:800">'+val+'</span></div>'+(sub?'<div class="sm mut">'+sub+'</div>':'')+(conv?'<div class="sm" style="color:var(--gold)">\u2193 '+conv+'</div>':'')+'</div>'}
       var claimed=0;(D.leads||[]).forEach(function(l){if(l.claimed_on&&l.claimed_on>=m0)claimed++});
       var pc=function(a,b){return b?Math.round(a*100/b)+'%':''};
+      // DISPO numbers from the dispo app (Devon = dispo role reps)
+      var inM=function(x){return x&&chiDay(x).slice(0,7)===curM};
+      var dRep={};(D.dreps||[]).forEach(function(r){if(r.role==='dispo')dRep[r.id]=1});
+      var dk={dials:0,convos:0,talk:0};(D.dkpi||[]).forEach(function(k){if(dRep[k.rep_id]&&String(k.day).slice(0,7)===curM){dk.dials+=k.dials||0;dk.convos+=k.convos||0;dk.talk+=k.talk_seconds||0}});
+      var dTexts=(D.dsent2||[]).filter(function(x){return inM(x.at)}).length;
+      var dOff=(D.ddb||[]).filter(function(x){return inM(x.offer_at)}).length;
+      var dWalk=(D.ddb||[]).filter(function(x){return ['walked','offered','assigned','backup'].indexOf(x.stage)>=0&&inM(x.touched_at)}).length;
+      var dAsn=(D.dd2||[]).filter(function(x){return x.assignment_signed_on&&String(x.assignment_signed_on).slice(0,7)===curM}).length;
+      var dCl=(D.dd2||[]).filter(function(x){return inM(x.closed_at)});
+      var dRv=dCl.reduce(function(a,x){return a+(Number(x.closed_fee)||0)},0);
+      var hdr=function(t){return '<div style="font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--gold);margin:14px 0 6px;text-align:center">'+t+'</div>'};
       h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+fmtMonth(curM)+'</h2>'
+       +hdr('MARKETING')
        +fnlSvg([
          {v:fmt$(spend),l:'spend',s:(L.leads&&spend?fmt$(Math.round(spend/L.leads))+'/lead':'')},
-         {v:L.leads,l:'leads',s:(L.leads?pc(claimed,L.leads)+' claimed':'')},
-         {v:L.dials.toLocaleString(),l:'dials',s:(L.dials?pc(L.convos,L.dials)+' convo':'')},
-         {v:L.convos,l:'convos',s:stlFmt(L.talk)+' talk'},
+         {v:L.leads,l:'leads',s:(L.leads?pc(claimed,L.leads)+' claimed':'')}
+       ],21)
+       +hdr('SALES')
+       +fnlSvg([
+         {v:L.dials.toLocaleString(),l:'dials'},
+         {v:L.convos,l:'convos',s:(L.dials?pc(L.convos,L.dials)+' of dials':'')},
+         {v:stlFmt(L.talk),l:'talk time'},
          {v:L.offers,l:'offers',s:(L.convos?pc(L.offers,L.convos)+' of convos':'')},
-         {v:L.contracts,l:'contracts',s:(L.offers?pc(L.contracts,L.offers)+' of offers':'')},
-         {v:L.assigned,l:'assigned'},
-         {v:L.closed,l:'closed'},
-         {v:fmt$(L.rev),l:'',s:(spend?'ROAS '+(Math.round(L.rev/spend*10)/10)+'x':'')}
-       ])
+         {v:L.contracts,l:'contracts',s:(L.offers?pc(L.contracts,L.offers)+' of offers':'')}
+       ],21)
+       +hdr('DISPO')
+       +fnlSvg([
+         {v:dTexts.toLocaleString(),l:'texts',s:'deal sends'},
+         {v:dk.dials.toLocaleString(),l:'dials'},
+         {v:dk.convos,l:'convos',s:(dk.dials?pc(dk.convos,dk.dials)+' of dials':'')},
+         {v:dOff,l:'offers received'},
+         {v:dWalk,l:'walkthroughs'},
+         {v:dAsn,l:'assigned'},
+         {v:dCl.length,l:'closed'},
+         {v:fmt$(Math.round(dRv)),l:'revenue',s:(spend?'ROAS '+(Math.round(dRv/spend*10)/10)+'x':'')}
+       ],21)
        +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(L.pipeRev)+' projected in pipe</div>'
        +'</div>';
     }
