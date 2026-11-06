@@ -837,6 +837,13 @@ async function loadAll(){
       var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at,walked_at');D.ddb=_b.data||[];
       var _d=await allRows('dispo_deals','id,assignment_signed_on,emd_in_at,closed_at,closed_fee,ghl_opportunity_id');D.dd2=_d.data||[];
       var _l=await allRows('closings_ledger','*');D.ledger=_l.data||[];
+      // Nov 6 (Nic): dispo "texts" = texts the dispo rep sent to buyers himself (not AI, not blasts) - separate from deal sends
+      var _dr=(D.dreps||[]).filter(function(r){return r.role==='dispo'}).map(function(r){return r.id});
+      var _ri=(await db.from('rep_ids').select('external_id,rep_id')).data||[];
+      var _ids=_ri.filter(function(x){return _dr.indexOf(x.rep_id)>=0}).map(function(x){return x.external_id});
+      if(!_ids.length)_ids=['1ltQGarSR869bCv1TzA3','US3Fq8aUgc']; // Devon's GHL + OpenPhone user ids
+      D.dtexts=[];
+      if(_ids.length){for(var _o=0;_o<100000;_o+=1000){var _t=await db.from('dispo_touches').select('id,created_at').eq('kind','sms_out').eq('party','buyer').in('sent_by_user',_ids).gte('created_at','2026-03-01').order('id').range(_o,_o+999);var _rows=_t.data||[];D.dtexts=D.dtexts.concat(_rows);if(_rows.length<1000)break}}
     }catch(e){D.dreps=D.dreps||[];D.dkpi=D.dkpi||[];D.dsent2=D.dsent2||[];D.ddb=D.ddb||[];D.dd2=D.dd2||[];}
     var df=await allRows('auto_feed','event,detail,count');
     D.dfeed=df.data||[];
@@ -1722,7 +1729,8 @@ function render(){
       // DISPO numbers from the dispo app (Devon = dispo role reps)
       var dRep={};(D.dreps||[]).forEach(function(r){if(r.role==='dispo')dRep[r.id]=1});
       var dk={dials:0,convos:0,talk:0};(D.dkpi||[]).forEach(function(k){if(dRep[k.rep_id]&&inRange(String(k.day).slice(0,10),FR.from,FR.to)){dk.dials+=k.dials||0;dk.convos+=k.convos||0;dk.talk+=k.talk_seconds||0}});
-      var dTexts=(D.dsent2||[]).filter(function(x){return inR(x.at)}).length;
+      var dSends=(D.dsent2||[]).filter(function(x){return inR(x.at)}).length; // deal links sent (1 per buyer per deal)
+      var dTexts=(D.dtexts||[]).filter(function(x){return inR(x.created_at)}).length; // texts Devon sent to buyers himself
       var dOff=(D.ddb||[]).filter(function(x){return inR(x.offer_at)}).length;
       var dWalk=(D.ddb||[]).filter(function(x){return inR(x.walked_at)}).length; // stamped when Devon moves a buyer to Walked
       // assigned = first of assignment signed / EMD in, per deal (dispo app); before Aug use the old tracker's EMD In
@@ -1752,7 +1760,8 @@ function render(){
          {v:stlFmt(FL.talk),l:'talk time',f:'#7a6019'},
          {v:FL.offers,l:'offers',s:(FL.convos?pc(FL.offers,FL.convos)+' of convos':''),f:'#7a6019'},
          {v:FL.contracts,l:'contracts',s:(FL.offers?pc(FL.contracts,FL.offers)+' of offers':''),f:'#7a6019'},
-         {v:dTexts.toLocaleString(),l:'texts',s:'deal sends',f:'#4a3b10'},
+         {v:dTexts.toLocaleString(),l:'texts',f:'#4a3b10'},
+         {v:dSends.toLocaleString(),l:'deal sends',f:'#4a3b10'},
          {v:dk.dials.toLocaleString(),l:'dials',f:'#4a3b10'},
          {v:dk.convos,l:'convos',s:(dk.dials?pc(dk.convos,dk.dials)+' of dials':''),f:'#4a3b10'},
          {v:dOff,l:'offers received',f:'#4a3b10'},
