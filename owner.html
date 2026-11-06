@@ -835,7 +835,8 @@ async function loadAll(){
       var _k=await allRows('dispo_kpi_daily','id,rep_id,day,dials,convos,talk_seconds');D.dkpi=_k.data||[];
       var _s=await allRows('dispo_sent','deal_id,buyer_id,at','at');D.dsent2=_s.data||[];
       var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at,walked_at');D.ddb=_b.data||[];
-      var _d=await allRows('dispo_deals','id,assignment_signed_on,closed_at,closed_fee');D.dd2=_d.data||[];
+      var _d=await allRows('dispo_deals','id,assignment_signed_on,emd_in_at,closed_at,closed_fee,ghl_opportunity_id');D.dd2=_d.data||[];
+      var _l=await allRows('closings_ledger','*');D.ledger=_l.data||[];
     }catch(e){D.dreps=D.dreps||[];D.dkpi=D.dkpi||[];D.dsent2=D.dsent2||[];D.ddb=D.ddb||[];D.dd2=D.dd2||[];}
     var df=await allRows('auto_feed','event,detail,count');
     D.dfeed=df.data||[];
@@ -1688,6 +1689,8 @@ function render(){
       function frow(lbl,val,sub,conv){return '<div style="padding:9px 0;border-bottom:1px solid var(--line)"><div class="row"><span style="font-weight:800">'+lbl+'</span><span style="font-weight:800">'+val+'</span></div>'+(sub?'<div class="sm mut">'+sub+'</div>':'')+(conv?'<div class="sm" style="color:var(--gold)">\u2193 '+conv+'</div>':'')+'</div>'}
       // Nov 5 (Nic): date filter on the whole-business funnel
       var FR=rngBounds();h+=rngPicker();
+      // Nov 6 (Nic: "the funnel must be accurate"): tracking starts Mar 2026 - nothing before it can line up with spend/leads
+      var TRACK0='2026-03-01';if(FR.from<TRACK0){FR={from:TRACK0,to:FR.to,label:(RNG.k==='all'?'All (since Mar 2026)':FR.label+' (since Mar 2026)'),days:FR.days}}
       var inR=function(x){return !!x&&inRange(chiDay(x),FR.from,FR.to)};
       var FL=(function(){
         var f2=FR.from>'2026-08-01'?FR.from:'2026-08-01';
@@ -1711,7 +1714,10 @@ function render(){
         FS+=(Number(r.spend)||0)*dd(lo,hi)/span;
       });
       FS=Math.round(FS);
-      var claimed=0,qual=0;(D.leads||[]).forEach(function(l){if(inR(l.claimed_on))claimed++;if(l.qualified===true&&inR(l.created_at))qual++});
+      var _mStart=FR.from.slice(8,10)==='01', _mEnd=!FR.to||FR.to.slice(8,10)==='01';
+      var spendExact=_mStart&&_mEnd; // Meta spend is only stored per month
+      var adLeads=(function(){var f2=FR.from>'2026-08-01'?FR.from:'2026-08-01';var n=(!FR.to||FR.to>f2)?ownAgg(f2,true,FR.to).leads:0;(D.master||[]).forEach(function(r){if(r.source==='meta'&&r.month&&r.month<'2026-08'){var m0r=r.month+'-01';if(m0r>=FR.from&&(!FR.to||m0r<FR.to))n+=Number(r.leads)||0}});return n})();
+      var claimed=0;(D.leads||[]).forEach(function(l){if(l.claimed_on&&inR(l.created_at))claimed++}); // of the leads that came in this range, how many got claimed
       var pc=function(a,b){return b?Math.round(a*100/b)+'%':''};
       // DISPO numbers from the dispo app (Devon = dispo role reps)
       var dRep={};(D.dreps||[]).forEach(function(r){if(r.role==='dispo')dRep[r.id]=1});
@@ -1719,17 +1725,23 @@ function render(){
       var dTexts=(D.dsent2||[]).filter(function(x){return inR(x.at)}).length;
       var dOff=(D.ddb||[]).filter(function(x){return inR(x.offer_at)}).length;
       var dWalk=(D.ddb||[]).filter(function(x){return inR(x.walked_at)}).length; // stamped when Devon moves a buyer to Walked
-      var dAsn=(D.dd2||[]).filter(function(x){return inR(x.assignment_signed_on)}).length;
-      var dCl=(D.dd2||[]).filter(function(x){return inR(x.closed_at)});
-      var dRv=dCl.reduce(function(a,x){return a+(Number(x.closed_fee)||0)},0);
+      // assigned = first of assignment signed / EMD in, per deal (dispo app); before Aug use the old tracker's EMD In
+      var dAsn=(D.dd2||[]).filter(function(x){var a=[x.assignment_signed_on,x.emd_in_at].filter(Boolean).map(chiDay).sort()[0];return !!a&&inRange(a,FR.from,FR.to)}).length;
+      var _seenE={};(D.dhist||[]).forEach(function(hh){if(hh.stage==='EMD In'&&hh.entered_on<'2026-08-01'&&!_seenE[hh.deal_id]&&inRange(hh.entered_on,FR.from,FR.to)){_seenE[hh.deal_id]=1;dAsn++}});
+      // closed + revenue = closings ledger (GHL value is the truth) + any newer dispo-app closing not in it yet
+      var _lid={};(D.ledger||[]).forEach(function(x){if(x.ghl_opp_id)_lid[x.ghl_opp_id]=1});
+      var dCl=(D.ledger||[]).filter(function(x){return x.closed_on&&inRange(x.closed_on,FR.from,FR.to)}).map(function(x){return Number(x.fee)||0});
+      (D.dd2||[]).forEach(function(x){if(x.closed_at&&inR(x.closed_at)&&!(x.ghl_opportunity_id&&_lid[x.ghl_opportunity_id]))dCl.push(Number(x.closed_fee)||0)});
+      var dRv=dCl.reduce(function(a,v){return a+v},0);
+      var lifeN=(D.ledger||[]).length,lifeRv=(D.ledger||[]).reduce(function(a,x){return a+(Number(x.fee)||0)},0);
+      (D.dd2||[]).forEach(function(x){if(x.closed_at&&!(x.ghl_opportunity_id&&_lid[x.ghl_opportunity_id])){lifeN++;lifeRv+=Number(x.closed_fee)||0}});
       var hdr=function(t){return '<div style="font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--gold);margin:14px 0 6px;text-align:center">'+t+'</div>'};
       h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+FR.label+'</h2>'
        +'<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;font-weight:800;letter-spacing:.1em;margin:0 0 10px">'+[['#a8892c','MARKETING'],['#8a6f1f','SALES'],['#6b561a','DISPO']].map(function(x){return '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+x[0]+';margin-right:5px"></span>'+x[1]+'</span>'}).join('')+'</div>'
        +fnlSvg([
-         {v:fmt$(FS),l:'spend',f:'#a8892c'},
-         {v:FL.leads,l:'leads',s:(FL.leads&&FS?fmt$(Math.round(FS/FL.leads))+' each':''),f:'#a8892c'},
+         {v:(spendExact?fmt$(FS):'—'),l:'ad spend',s:(spendExact?'':'monthly only'),f:'#a8892c'},
+         {v:FL.leads,l:'leads',s:(spendExact&&adLeads&&FS?fmt$(Math.round(FS/adLeads))+' per ad lead':''),f:'#a8892c'},
          {v:claimed,l:'claimed',s:(FL.leads?pc(claimed,FL.leads)+' of leads':''),f:'#a8892c'},
-         {v:qual,l:'qualified',s:(qual&&FS?fmt$(Math.round(FS/qual))+' each':''),f:'#a8892c'},
          {v:FL.dials.toLocaleString(),l:'dials',f:'#8a6f1f'},
          {v:FL.convos,l:'convos',s:(FL.dials?pc(FL.convos,FL.dials)+' of dials':''),f:'#8a6f1f'},
          {v:stlFmt(FL.talk),l:'talk time',f:'#8a6f1f'},
@@ -1742,8 +1754,9 @@ function render(){
          {v:dWalk,l:'walkthroughs',f:'#6b561a'},
          {v:dAsn,l:'assigned',f:'#6b561a'},
          {v:dCl.length,l:'closed',f:'#6b561a'},
-         {v:fmt$(Math.round(dRv)),l:'',s:(FS?'ROAS '+(Math.round(dRv/FS*10)/10)+'x':''),f:'#6b561a'}
+         {v:fmt$(Math.round(dRv)),l:'',s:(spendExact&&FS?'ROAS '+(Math.round(dRv/FS*10)/10)+'x':''),f:'#6b561a'}
        ])
+       +'<div class="sm mut" style="margin-top:8px;text-align:center">Lifetime (all of GHL, incl. before Mar 2026): <b style="color:var(--text)">'+lifeN+' closed \u00b7 '+fmt$(Math.round(lifeRv))+'</b></div>'
        +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(FL.pipeRev)+' projected in pipe</div>'
        +'</div>';
     }
