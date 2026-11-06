@@ -834,7 +834,7 @@ async function loadAll(){
       var _r=await allRows('dispo_reps','id,role');D.dreps=_r.data||[];
       var _k=await allRows('dispo_kpi_daily','id,rep_id,day,dials,convos,talk_seconds');D.dkpi=_k.data||[];
       var _s=await allRows('dispo_sent','deal_id,buyer_id,at','at');D.dsent2=_s.data||[];
-      var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at');D.ddb=_b.data||[];
+      var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at,walked_at');D.ddb=_b.data||[];
       var _d=await allRows('dispo_deals','id,assignment_signed_on,closed_at,closed_fee');D.dd2=_d.data||[];
     }catch(e){D.dreps=D.dreps||[];D.dkpi=D.dkpi||[];D.dsent2=D.dsent2||[];D.ddb=D.ddb||[];D.dd2=D.dd2||[];}
     var df=await allRows('auto_feed','event,detail,count');
@@ -1694,7 +1694,7 @@ function render(){
       var dk={dials:0,convos:0,talk:0};(D.dkpi||[]).forEach(function(k){if(dRep[k.rep_id]&&String(k.day).slice(0,7)===curM){dk.dials+=k.dials||0;dk.convos+=k.convos||0;dk.talk+=k.talk_seconds||0}});
       var dTexts=(D.dsent2||[]).filter(function(x){return inM(x.at)}).length;
       var dOff=(D.ddb||[]).filter(function(x){return inM(x.offer_at)}).length;
-      var dWalk=(D.ddb||[]).filter(function(x){return ['walked','offered','assigned','backup'].indexOf(x.stage)>=0&&inM(x.touched_at)}).length;
+      var dWalk=(D.ddb||[]).filter(function(x){return inM(x.walked_at)}).length; // stamped when Devon moves a buyer to Walked
       var dAsn=(D.dd2||[]).filter(function(x){return x.assignment_signed_on&&String(x.assignment_signed_on).slice(0,7)===curM}).length;
       var dCl=(D.dd2||[]).filter(function(x){return inM(x.closed_at)});
       var dRv=dCl.reduce(function(a,x){return a+(Number(x.closed_fee)||0)},0);
