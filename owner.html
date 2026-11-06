@@ -1730,9 +1730,12 @@ function render(){
       var _seenE={};(D.dhist||[]).forEach(function(hh){if(hh.stage==='EMD In'&&hh.entered_on<'2026-08-01'&&!_seenE[hh.deal_id]&&inRange(hh.entered_on,FR.from,FR.to)){_seenE[hh.deal_id]=1;dAsn++}});
       // closed + revenue = closings ledger (GHL value is the truth) + any newer dispo-app closing not in it yet
       var _lid={};(D.ledger||[]).forEach(function(x){if(x.ghl_opp_id)_lid[x.ghl_opp_id]=1});
-      var dCl=(D.ledger||[]).filter(function(x){return x.closed_on&&inRange(x.closed_on,FR.from,FR.to)}).map(function(x){return Number(x.fee)||0});
-      (D.dd2||[]).forEach(function(x){if(x.closed_at&&inR(x.closed_at)&&!(x.ghl_opportunity_id&&_lid[x.ghl_opportunity_id]))dCl.push(Number(x.closed_fee)||0)});
-      var dRv=dCl.reduce(function(a,v){return a+v},0);
+      var isMetaSrc=function(t){return /paid social|meta|facebook/i.test(t||'')};
+      var _acqMeta={};(D.leads||[]).forEach(function(l){if(l.ghl_opp_id&&l.source==='Meta')_acqMeta[l.ghl_opp_id]=1});
+      var dCl=[],metaRv=0;
+      (D.ledger||[]).forEach(function(x){if(x.closed_on&&inRange(x.closed_on,FR.from,FR.to)){var f=Number(x.fee)||0;dCl.push(f);if(isMetaSrc(x.lead_source))metaRv+=f}});
+      (D.dd2||[]).forEach(function(x){if(x.closed_at&&inR(x.closed_at)&&!(x.ghl_opportunity_id&&_lid[x.ghl_opportunity_id])){var f=Number(x.closed_fee)||0;dCl.push(f);if(_acqMeta[x.ghl_opportunity_id])metaRv+=f}});
+      var dRv=dCl.reduce(function(a,v){return a+v},0); // all closings; ROAS uses Meta closings only
       var lifeN=(D.ledger||[]).length,lifeRv=(D.ledger||[]).reduce(function(a,x){return a+(Number(x.fee)||0)},0);
       (D.dd2||[]).forEach(function(x){if(x.closed_at&&!(x.ghl_opportunity_id&&_lid[x.ghl_opportunity_id])){lifeN++;lifeRv+=Number(x.closed_fee)||0}});
       var hdr=function(t){return '<div style="font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--gold);margin:14px 0 6px;text-align:center">'+t+'</div>'};
@@ -1754,7 +1757,7 @@ function render(){
          {v:dWalk,l:'walkthroughs',f:'#6b561a'},
          {v:dAsn,l:'assigned',f:'#6b561a'},
          {v:dCl.length,l:'closed',f:'#6b561a'},
-         {v:fmt$(Math.round(dRv)),l:'',s:(spendExact&&FS?'ROAS '+(Math.round(dRv/FS*10)/10)+'x':''),f:'#6b561a'}
+         {v:fmt$(Math.round(dRv)),l:'',s:(spendExact&&FS?'Meta ROAS '+(Math.round(metaRv/FS*10)/10)+'x':''),f:'#6b561a'}
        ])
        +'<div class="sm mut" style="margin-top:8px;text-align:center">Lifetime (all of GHL, incl. before Mar 2026): <b style="color:var(--text)">'+lifeN+' closed \u00b7 '+fmt$(Math.round(lifeRv))+'</b></div>'
        +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(FL.pipeRev)+' projected in pipe</div>'
