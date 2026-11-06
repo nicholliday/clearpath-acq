@@ -535,9 +535,9 @@ function plRender(){
   if(D2){[D2.items].concat(D2.weeks.map(function(w){return w.items})).forEach(function(a){a.forEach(function(it){tot++;if(it.target?plProg(it)>=it.target:D2.done.indexOf(it.id)>=0)dn++})});}
   // Nov 5 (Nic): month name as a big header across the bar
   h+='<div class="card"><div style="display:flex;gap:8px;align-items:center">'
-   +'<button class="btn mut" aria-label="Previous month" style="font-size:22px;padding:14px 16px;margin:0" onclick="plShift(-1)">◀</button>'
-   +'<div style="flex:1;text-align:center;font-weight:900;font-size:clamp(40px,8vw,96px);letter-spacing:.04em;line-height:1;padding:10px 0;text-transform:uppercase">'+mName+' <span style="color:var(--gold);font-weight:800">'+y+'</span></div>'
-   +'<button class="btn mut" aria-label="Next month" style="font-size:22px;padding:14px 16px;margin:0" onclick="plShift(1)">▶</button>'
+   +'<button class="btn mut" aria-label="Previous month" style="font-size:18px;padding:10px 14px;margin:0" onclick="plShift(-1)">◀</button>'
+   +'<div style="flex:1;text-align:center;font-weight:900;font-size:clamp(30px,4.5vw,54px);letter-spacing:.04em;line-height:1;padding:6px 0;text-transform:uppercase">'+mName+' <span style="color:var(--gold);font-weight:800">'+y+'</span></div>'
+   +'<button class="btn mut" aria-label="Next month" style="font-size:18px;padding:10px 14px;margin:0" onclick="plShift(1)">▶</button>'
    +'</div>'
    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">'
    +(PL.m!==today().slice(0,7)?'<button class="btn g" style="padding:4px 10px;margin:0;font-size:12px" onclick="PL.m=today().slice(0,7);PL.loaded=\'\';render()">This month</button>':'<span></span>')
@@ -1182,11 +1182,15 @@ function render(){
           +CK.tpl.weekly.filter(function(it){return wDone.indexOf(it.id)>=0}).length
           +CK.tpl.monthly.filter(function(it){return (!it.lastday||ckLastDay())&&mDone.indexOf(it.id)>=0}).length;
         var tot=dayItems.length+CK.tpl.weekly.length+CK.tpl.monthly.filter(function(it){return !it.lastday||ckLastDay()}).length;
-        h+='<div class="card"><div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap">'
-         +'<button class="btn mut" onclick="ckShift(-1)">\u25c0</button>'
-         +'<span onclick="var i=document.getElementById(\'ck_dt\');i.showPicker?i.showPicker():i.click()" style="font-weight:800;font-size:15px;cursor:pointer;padding:6px 12px;border:1px solid var(--line);border-radius:10px">'+ckDateLbl(CK.date)+'</span>'
+        // Nov 5 (Nic): big date header like the Plan tab
+        var _cd=new Date(CK.date+'T12:00:00');
+        h+='<div class="card"><div style="display:flex;gap:8px;align-items:center">'
+         +'<button class="btn mut" aria-label="Previous day" style="font-size:18px;padding:10px 14px;margin:0" onclick="ckShift(-1)">\u25c0</button>'
+         +'<div onclick="var i=document.getElementById(\'ck_dt\');i.showPicker?i.showPicker():i.click()" style="flex:1;text-align:center;cursor:pointer;font-weight:900;font-size:clamp(30px,4.5vw,54px);letter-spacing:.04em;line-height:1;padding:6px 0;text-transform:uppercase">'
+         +_cd.toLocaleDateString('en-US',{weekday:'long'})+' <span style="color:var(--gold);font-weight:800">'+_cd.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span></div>'
          +'<input id="ck_dt" type="date" value="'+CK.date+'" onchange="ckSetDate(this.value)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
-         +'<button class="btn mut" onclick="ckShift(1)">\u25b6</button>'
+         +'<button class="btn mut" aria-label="Next day" style="font-size:18px;padding:10px 14px;margin:0" onclick="ckShift(1)">\u25b6</button>'
+         +'</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">'
          +(!isToday?'<button class="btn g" onclick="ckSetDate(\''+today()+'\')">Today</button>':'')
          +'<button class="btn mut" style="margin-left:auto" onclick="CK.showCal=!CK.showCal;render()">\ud83d\udcc5</button>'
          +'<button class="btn mut" onclick="CK.showStats=!CK.showStats;render()">\ud83d\udcca Checklist data</button>'
