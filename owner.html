@@ -1686,32 +1686,56 @@ function render(){
 
     if(NICTAB==='funnel'){
       function frow(lbl,val,sub,conv){return '<div style="padding:9px 0;border-bottom:1px solid var(--line)"><div class="row"><span style="font-weight:800">'+lbl+'</span><span style="font-weight:800">'+val+'</span></div>'+(sub?'<div class="sm mut">'+sub+'</div>':'')+(conv?'<div class="sm" style="color:var(--gold)">\u2193 '+conv+'</div>':'')+'</div>'}
-      var claimed=0;(D.leads||[]).forEach(function(l){if(l.claimed_on&&l.claimed_on>=m0)claimed++});
+      // Nov 5 (Nic): date filter on the whole-business funnel
+      var FR=rngBounds();h+=rngPicker();
+      var inR=function(x){return !!x&&inRange(chiDay(x),FR.from,FR.to)};
+      var FL=(function(){
+        var f2=FR.from>'2026-08-01'?FR.from:'2026-08-01';
+        var o=(!FR.to||FR.to>f2)?ownAgg(f2,false,FR.to):ownAgg('2100-01-01',false,null);
+        (D.master||[]).forEach(function(r){
+          if(r.source!=='meta'||!r.month||r.month>='2026-08')return;
+          var m0r=r.month+'-01';
+          if(m0r>=FR.from&&(!FR.to||m0r<FR.to)){o.leads+=Number(r.leads)||0;o.dials+=Number(r.dials)||0;o.convos+=Number(r.convos)||0;o.offers+=Number(r.offers)||0;o.contracts+=Number(r.contracts)||0;o.talk+=Number(r.talk_min)||0;}
+        });
+        return o;
+      })();
+      // spend: monthly totals, split by days when the range covers part of a month
+      var FS=0,tdy=today();
+      (D.master||[]).forEach(function(r){
+        if(r.source!=='meta'||!r.month)return;
+        var ms=r.month+'-01',me=ymNext(r.month)+'-01',cur=(r.month===tdy.slice(0,7));
+        var end=cur?dshift(tdy,1):me;
+        var lo=FR.from>ms?FR.from:ms, hiR=FR.to||dshift(tdy,1), hi=hiR<end?hiR:end;
+        var dd=function(x,y){return Math.round((Date.UTC(+y.slice(0,4),+y.slice(5,7)-1,+y.slice(8,10))-Date.UTC(+x.slice(0,4),+x.slice(5,7)-1,+x.slice(8,10)))/86400000)};
+        var span=dd(ms,end);if(span<=0||hi<=lo)return;
+        FS+=(Number(r.spend)||0)*dd(lo,hi)/span;
+      });
+      FS=Math.round(FS);
+      var claimed=0;(D.leads||[]).forEach(function(l){if(inR(l.claimed_on))claimed++});
       var pc=function(a,b){return b?Math.round(a*100/b)+'%':''};
       // DISPO numbers from the dispo app (Devon = dispo role reps)
-      var inM=function(x){return x&&chiDay(x).slice(0,7)===curM};
       var dRep={};(D.dreps||[]).forEach(function(r){if(r.role==='dispo')dRep[r.id]=1});
-      var dk={dials:0,convos:0,talk:0};(D.dkpi||[]).forEach(function(k){if(dRep[k.rep_id]&&String(k.day).slice(0,7)===curM){dk.dials+=k.dials||0;dk.convos+=k.convos||0;dk.talk+=k.talk_seconds||0}});
-      var dTexts=(D.dsent2||[]).filter(function(x){return inM(x.at)}).length;
-      var dOff=(D.ddb||[]).filter(function(x){return inM(x.offer_at)}).length;
-      var dWalk=(D.ddb||[]).filter(function(x){return inM(x.walked_at)}).length; // stamped when Devon moves a buyer to Walked
-      var dAsn=(D.dd2||[]).filter(function(x){return x.assignment_signed_on&&String(x.assignment_signed_on).slice(0,7)===curM}).length;
-      var dCl=(D.dd2||[]).filter(function(x){return inM(x.closed_at)});
+      var dk={dials:0,convos:0,talk:0};(D.dkpi||[]).forEach(function(k){if(dRep[k.rep_id]&&inRange(String(k.day).slice(0,10),FR.from,FR.to)){dk.dials+=k.dials||0;dk.convos+=k.convos||0;dk.talk+=k.talk_seconds||0}});
+      var dTexts=(D.dsent2||[]).filter(function(x){return inR(x.at)}).length;
+      var dOff=(D.ddb||[]).filter(function(x){return inR(x.offer_at)}).length;
+      var dWalk=(D.ddb||[]).filter(function(x){return inR(x.walked_at)}).length; // stamped when Devon moves a buyer to Walked
+      var dAsn=(D.dd2||[]).filter(function(x){return inR(x.assignment_signed_on)}).length;
+      var dCl=(D.dd2||[]).filter(function(x){return inR(x.closed_at)});
       var dRv=dCl.reduce(function(a,x){return a+(Number(x.closed_fee)||0)},0);
       var hdr=function(t){return '<div style="font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--gold);margin:14px 0 6px;text-align:center">'+t+'</div>'};
-      h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+fmtMonth(curM)+'</h2>'
+      h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+FR.label+'</h2>'
        +hdr('MARKETING')
        +fnlSvg([
-         {v:fmt$(spend),l:'spend',s:(L.leads&&spend?fmt$(Math.round(spend/L.leads))+'/lead':'')},
-         {v:L.leads,l:'leads',s:(L.leads?pc(claimed,L.leads)+' claimed':'')}
+         {v:fmt$(FS),l:'spend',s:(FL.leads&&FS?fmt$(Math.round(FS/FL.leads))+'/lead':'')},
+         {v:FL.leads,l:'leads',s:(FL.leads?pc(claimed,FL.leads)+' claimed':'')}
        ],21)
        +hdr('SALES')
        +fnlSvg([
-         {v:L.dials.toLocaleString(),l:'dials'},
-         {v:L.convos,l:'convos',s:(L.dials?pc(L.convos,L.dials)+' of dials':'')},
-         {v:stlFmt(L.talk),l:'talk time'},
-         {v:L.offers,l:'offers',s:(L.convos?pc(L.offers,L.convos)+' of convos':'')},
-         {v:L.contracts,l:'contracts',s:(L.offers?pc(L.contracts,L.offers)+' of offers':'')}
+         {v:FL.dials.toLocaleString(),l:'dials'},
+         {v:FL.convos,l:'convos',s:(FL.dials?pc(FL.convos,FL.dials)+' of dials':'')},
+         {v:stlFmt(FL.talk),l:'talk time'},
+         {v:FL.offers,l:'offers',s:(FL.convos?pc(FL.offers,FL.convos)+' of convos':'')},
+         {v:FL.contracts,l:'contracts',s:(FL.offers?pc(FL.contracts,FL.offers)+' of offers':'')}
        ],21)
        +hdr('DISPO')
        +fnlSvg([
@@ -1722,9 +1746,9 @@ function render(){
          {v:dWalk,l:'walkthroughs'},
          {v:dAsn,l:'assigned'},
          {v:dCl.length,l:'closed'},
-         {v:fmt$(Math.round(dRv)),l:'revenue',s:(spend?'ROAS '+(Math.round(dRv/spend*10)/10)+'x':'')}
+         {v:fmt$(Math.round(dRv)),l:'revenue',s:(FS?'ROAS '+(Math.round(dRv/FS*10)/10)+'x':'')}
        ],21)
-       +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(L.pipeRev)+' projected in pipe</div>'
+       +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(FL.pipeRev)+' projected in pipe</div>'
        +'</div>';
     }
 
