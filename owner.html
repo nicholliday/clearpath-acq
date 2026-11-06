@@ -1746,8 +1746,8 @@ function render(){
        +fnlSvg([
          {v:(spendExact?fmt$(FS):'—'),l:'ad spend',s:(spendExact?'':'monthly only'),f:'#bf962a'},
          {v:FL.leads,l:'leads',s:(spendExact&&adLeads&&FS?fmt$(Math.round(FS/adLeads))+' per ad lead':''),f:'#bf962a'},
-         {v:claimed,l:'claimed',s:(FL.leads?pc(claimed,FL.leads)+' of leads':''),f:'#bf962a'},
          {v:FL.dials.toLocaleString(),l:'dials',f:'#8a6f1f'},
+         {v:claimed,l:'claimed',s:(FL.leads?pc(claimed,FL.leads)+' of leads':''),f:'#8a6f1f'},
          {v:FL.convos,l:'convos',s:(FL.dials?pc(FL.convos,FL.dials)+' of dials':''),f:'#8a6f1f'},
          {v:stlFmt(FL.talk),l:'talk time',f:'#8a6f1f'},
          {v:FL.offers,l:'offers',s:(FL.convos?pc(FL.offers,FL.convos)+' of convos':''),f:'#8a6f1f'},
