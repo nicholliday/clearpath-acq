@@ -1740,7 +1740,7 @@ function render(){
       // Nov 6 (Nic: "we didnt track walk throughs before"): only count from Nov 5 2026, when walked_at started being stamped
       var WALK0='2026-11-05';
       var dWalk=(D.ddb||[]).filter(function(x){return x.walked_at&&chiDay(x.walked_at)>=WALK0&&inR(x.walked_at)}).length;
-      var walkNote=FR.from<WALK0?'tracked since Nov 5':'';
+      var walkNone=!!(FR.to&&FR.to<=WALK0), walkNote=walkNone?'not tracked':(FR.from<WALK0?'since Nov 5':'');
       // assigned = first of assignment signed / EMD in, per deal (dispo app); before Aug use the old tracker's EMD In
       var dAsn=(D.dd2||[]).filter(function(x){var a=[x.assignment_signed_on,x.emd_in_at].filter(Boolean).map(chiDay).sort()[0];return !!a&&inRange(a,FR.from,FR.to)}).length;
       var _seenE={};(D.dhist||[]).forEach(function(hh){if(hh.stage==='EMD In'&&hh.entered_on<'2026-08-01'&&!_seenE[hh.deal_id]&&inRange(hh.entered_on,FR.from,FR.to)){_seenE[hh.deal_id]=1;dAsn++}});
@@ -1772,7 +1772,7 @@ function render(){
          {v:dk.dials.toLocaleString(),l:'dials',f:'#4a3b10'},
          {v:dk.convos,l:'convos',s:(dk.dials?pc(dk.convos,dk.dials)+' of dials':''),f:'#4a3b10'},
          {v:dOff,l:'offers received',f:'#4a3b10'},
-         {v:dWalk,l:'walkthroughs',s:walkNote,f:'#4a3b10'},
+         {v:(walkNone?'\u2014':dWalk),l:'walkthroughs',s:walkNote,f:'#4a3b10'},
          {v:dAsn,l:'assigned',f:'#4a3b10'},
          {v:dCl.length,l:'closed',f:'#4a3b10'},
          {v:fmt$(Math.round(dRv)),l:'',s:(spendExact&&FS?'Meta ROAS '+(Math.round(metaRv/FS*10)/10)+'x':''),f:'#4a3b10'}
