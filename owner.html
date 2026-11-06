@@ -1737,8 +1737,10 @@ function render(){
       var dSends=(D.dsent2||[]).filter(function(x){return inR(x.at)}).length; // deal links sent (1 per buyer per deal)
       var dTexts=(D.dtexts||[]).filter(function(x){return inR(x.created_at)}).length; // texts Devon sent to buyers himself
       var dOff=(D.ddb||[]).filter(function(x){return inR(x.offer_at)}).length;
-      var dWalk=(D.ddb||[]).filter(function(x){return inR(x.walked_at)}).length; // stamped when Devon moves a buyer to Walked
-      (D.dshow||[]).forEach(function(x){if(x.shown_on&&x.shown_on<'2026-09-15'&&inRange(x.shown_on,FR.from,FR.to))dWalk++}); // old tracker's logged showings (Jun 30 - Sep 14), before the dispo app took over
+      // Nov 6 (Nic: "we didnt track walk throughs before"): only count from Nov 5 2026, when walked_at started being stamped
+      var WALK0='2026-11-05';
+      var dWalk=(D.ddb||[]).filter(function(x){return x.walked_at&&chiDay(x.walked_at)>=WALK0&&inR(x.walked_at)}).length;
+      var walkNote=FR.from<WALK0?'tracked since Nov 5':'';
       // assigned = first of assignment signed / EMD in, per deal (dispo app); before Aug use the old tracker's EMD In
       var dAsn=(D.dd2||[]).filter(function(x){var a=[x.assignment_signed_on,x.emd_in_at].filter(Boolean).map(chiDay).sort()[0];return !!a&&inRange(a,FR.from,FR.to)}).length;
       var _seenE={};(D.dhist||[]).forEach(function(hh){if(hh.stage==='EMD In'&&hh.entered_on<'2026-08-01'&&!_seenE[hh.deal_id]&&inRange(hh.entered_on,FR.from,FR.to)){_seenE[hh.deal_id]=1;dAsn++}});
@@ -1770,7 +1772,7 @@ function render(){
          {v:dk.dials.toLocaleString(),l:'dials',f:'#4a3b10'},
          {v:dk.convos,l:'convos',s:(dk.dials?pc(dk.convos,dk.dials)+' of dials':''),f:'#4a3b10'},
          {v:dOff,l:'offers received',f:'#4a3b10'},
-         {v:dWalk,l:'walkthroughs',f:'#4a3b10'},
+         {v:dWalk,l:'walkthroughs',s:walkNote,f:'#4a3b10'},
          {v:dAsn,l:'assigned',f:'#4a3b10'},
          {v:dCl.length,l:'closed',f:'#4a3b10'},
          {v:fmt$(Math.round(dRv)),l:'',s:(spendExact&&FS?'Meta ROAS '+(Math.round(metaRv/FS*10)/10)+'x':''),f:'#4a3b10'}
