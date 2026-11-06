@@ -1724,30 +1724,24 @@ function render(){
       var dRv=dCl.reduce(function(a,x){return a+(Number(x.closed_fee)||0)},0);
       var hdr=function(t){return '<div style="font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--gold);margin:14px 0 6px;text-align:center">'+t+'</div>'};
       h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+FR.label+'</h2>'
-       +hdr('MARKETING')
+       +'<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;font-weight:800;letter-spacing:.1em;margin:0 0 10px">'+[['#a8892c','MARKETING'],['#8a6f1f','SALES'],['#6b561a','DISPO']].map(function(x){return '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+x[0]+';margin-right:5px"></span>'+x[1]+'</span>'}).join('')+'</div>'
        +fnlSvg([
-         {v:fmt$(FS),l:'spend',s:(FL.leads&&FS?fmt$(Math.round(FS/FL.leads))+'/lead':'')},
-         {v:FL.leads,l:'leads',s:(FL.leads?pc(claimed,FL.leads)+' claimed':'')}
-       ],21)
-       +hdr('SALES')
-       +fnlSvg([
-         {v:FL.dials.toLocaleString(),l:'dials'},
-         {v:FL.convos,l:'convos',s:(FL.dials?pc(FL.convos,FL.dials)+' of dials':'')},
-         {v:stlFmt(FL.talk),l:'talk time'},
-         {v:FL.offers,l:'offers',s:(FL.convos?pc(FL.offers,FL.convos)+' of convos':'')},
-         {v:FL.contracts,l:'contracts',s:(FL.offers?pc(FL.contracts,FL.offers)+' of offers':'')}
-       ],21)
-       +hdr('DISPO')
-       +fnlSvg([
-         {v:dTexts.toLocaleString(),l:'texts',s:'deal sends'},
-         {v:dk.dials.toLocaleString(),l:'dials'},
-         {v:dk.convos,l:'convos',s:(dk.dials?pc(dk.convos,dk.dials)+' of dials':'')},
-         {v:dOff,l:'offers received'},
-         {v:dWalk,l:'walkthroughs'},
-         {v:dAsn,l:'assigned'},
-         {v:dCl.length,l:'closed'},
-         {v:fmt$(Math.round(dRv)),l:'revenue',s:(FS?'ROAS '+(Math.round(dRv/FS*10)/10)+'x':'')}
-       ],21)
+         {v:fmt$(FS),l:'spend',s:(FL.leads&&FS?fmt$(Math.round(FS/FL.leads))+'/lead':''),f:'#a8892c'},
+         {v:FL.leads,l:'leads',s:(FL.leads?pc(claimed,FL.leads)+' claimed':''),f:'#a8892c'},
+         {v:FL.dials.toLocaleString(),l:'dials',f:'#8a6f1f'},
+         {v:FL.convos,l:'convos',s:(FL.dials?pc(FL.convos,FL.dials)+' of dials':''),f:'#8a6f1f'},
+         {v:stlFmt(FL.talk),l:'talk time',f:'#8a6f1f'},
+         {v:FL.offers,l:'offers',s:(FL.convos?pc(FL.offers,FL.convos)+' of convos':''),f:'#8a6f1f'},
+         {v:FL.contracts,l:'contracts',s:(FL.offers?pc(FL.contracts,FL.offers)+' of offers':''),f:'#8a6f1f'},
+         {v:dTexts.toLocaleString(),l:'texts',s:'deal sends',f:'#6b561a'},
+         {v:dk.dials.toLocaleString(),l:'dials',f:'#6b561a'},
+         {v:dk.convos,l:'convos',s:(dk.dials?pc(dk.convos,dk.dials)+' of dials':''),f:'#6b561a'},
+         {v:dOff,l:'offers received',f:'#6b561a'},
+         {v:dWalk,l:'walkthroughs',f:'#6b561a'},
+         {v:dAsn,l:'assigned',f:'#6b561a'},
+         {v:dCl.length,l:'closed',f:'#6b561a'},
+         {v:fmt$(Math.round(dRv)),l:'',s:(FS?'ROAS '+(Math.round(dRv/FS*10)/10)+'x':''),f:'#6b561a'}
+       ])
        +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(FL.pipeRev)+' projected in pipe</div>'
        +'</div>';
     }
