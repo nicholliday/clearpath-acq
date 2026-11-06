@@ -1738,6 +1738,7 @@ function render(){
       var dTexts=(D.dtexts||[]).filter(function(x){return inR(x.created_at)}).length; // texts Devon sent to buyers himself
       var dOff=(D.ddb||[]).filter(function(x){return inR(x.offer_at)}).length;
       var dWalk=(D.ddb||[]).filter(function(x){return inR(x.walked_at)}).length; // stamped when Devon moves a buyer to Walked
+      (D.dshow||[]).forEach(function(x){if(x.shown_on&&x.shown_on<'2026-09-15'&&inRange(x.shown_on,FR.from,FR.to))dWalk++}); // old tracker's logged showings (Jun 30 - Sep 14), before the dispo app took over
       // assigned = first of assignment signed / EMD in, per deal (dispo app); before Aug use the old tracker's EMD In
       var dAsn=(D.dd2||[]).filter(function(x){var a=[x.assignment_signed_on,x.emd_in_at].filter(Boolean).map(chiDay).sort()[0];return !!a&&inRange(a,FR.from,FR.to)}).length;
       var _seenE={};(D.dhist||[]).forEach(function(hh){if(hh.stage==='EMD In'&&hh.entered_on<'2026-08-01'&&!_seenE[hh.deal_id]&&inRange(hh.entered_on,FR.from,FR.to)){_seenE[hh.deal_id]=1;dAsn++}});
