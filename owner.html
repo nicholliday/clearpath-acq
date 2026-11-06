@@ -1758,7 +1758,7 @@ function render(){
        +'<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;font-weight:800;letter-spacing:.1em;margin:0 0 10px">'+[['#d6aa2e','MARKETING'],['#7a6019','SALES'],['#4a3b10','DISPO']].map(function(x){return '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+x[0]+';margin-right:5px"></span>'+x[1]+'</span>'}).join('')+'</div>'
        +fnlSvg([
          {v:(spendExact?fmt$(FS):'—'),l:'ad spend',s:(spendExact?'':'monthly only'),f:'#d6aa2e'},
-         {v:FL.leads,l:'leads',s:(spendExact&&adLeads&&FS?fmt$(Math.round(FS/adLeads))+' per ad lead':''),f:'#d6aa2e'},
+         {v:FL.leads,l:'leads',s:(spendExact&&adLeads&&FS?fmt$(Math.round(FS/adLeads))+' CPL':''),f:'#d6aa2e'},
          {v:aTexts.toLocaleString(),l:'acq texts',f:'#7a6019'},
          {v:FL.dials.toLocaleString(),l:'dials',f:'#7a6019'},
          {v:claimed,l:'claimed',s:(FL.leads?pc(claimed,FL.leads)+' of leads':''),f:'#7a6019'},
