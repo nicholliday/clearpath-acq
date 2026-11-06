@@ -1760,7 +1760,7 @@ function render(){
          {v:dAsn,l:'assigned',f:'#6b561a'},
          {v:dCl.length,l:'closed',f:'#6b561a'},
          {v:fmt$(Math.round(dRv)),l:'',s:(spendExact&&FS?'Meta ROAS '+(Math.round(metaRv/FS*10)/10)+'x':''),f:'#6b561a'}
-       ])
+       ],7) // gentle narrowing so the bottom row (revenue + Meta ROAS) fits
        +'<div class="sm mut" style="margin-top:8px;text-align:center">Lifetime (all of GHL, incl. before Mar 2026): <b style="color:var(--text)">'+lifeN+' closed \u00b7 '+fmt$(Math.round(lifeRv))+'</b></div>'
        +'<div class="sm mut" style="margin-top:8px;text-align:center">'+fmt$(FL.pipeRev)+' projected in pipe</div>'
        +'</div>';
