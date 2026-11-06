@@ -1711,7 +1711,7 @@ function render(){
         FS+=(Number(r.spend)||0)*dd(lo,hi)/span;
       });
       FS=Math.round(FS);
-      var claimed=0;(D.leads||[]).forEach(function(l){if(inR(l.claimed_on))claimed++});
+      var claimed=0,qual=0;(D.leads||[]).forEach(function(l){if(inR(l.claimed_on))claimed++;if(l.qualified===true&&inR(l.created_at))qual++});
       var pc=function(a,b){return b?Math.round(a*100/b)+'%':''};
       // DISPO numbers from the dispo app (Devon = dispo role reps)
       var dRep={};(D.dreps||[]).forEach(function(r){if(r.role==='dispo')dRep[r.id]=1});
@@ -1726,8 +1726,10 @@ function render(){
       h+='<div class="card"><h2>\ud83c\udf0a The whole business \u2014 '+FR.label+'</h2>'
        +'<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;font-weight:800;letter-spacing:.1em;margin:0 0 10px">'+[['#a8892c','MARKETING'],['#8a6f1f','SALES'],['#6b561a','DISPO']].map(function(x){return '<span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+x[0]+';margin-right:5px"></span>'+x[1]+'</span>'}).join('')+'</div>'
        +fnlSvg([
-         {v:fmt$(FS),l:'spend',s:(FL.leads&&FS?fmt$(Math.round(FS/FL.leads))+'/lead':''),f:'#a8892c'},
-         {v:FL.leads,l:'leads',s:(FL.leads?pc(claimed,FL.leads)+' claimed':''),f:'#a8892c'},
+         {v:fmt$(FS),l:'spend',f:'#a8892c'},
+         {v:FL.leads,l:'leads',s:(FL.leads&&FS?fmt$(Math.round(FS/FL.leads))+' each':''),f:'#a8892c'},
+         {v:claimed,l:'claimed',s:(FL.leads?pc(claimed,FL.leads)+' of leads':''),f:'#a8892c'},
+         {v:qual,l:'qualified',s:(qual&&FS?fmt$(Math.round(FS/qual))+' each':''),f:'#a8892c'},
          {v:FL.dials.toLocaleString(),l:'dials',f:'#8a6f1f'},
          {v:FL.convos,l:'convos',s:(FL.dials?pc(FL.convos,FL.dials)+' of dials':''),f:'#8a6f1f'},
          {v:stlFmt(FL.talk),l:'talk time',f:'#8a6f1f'},
