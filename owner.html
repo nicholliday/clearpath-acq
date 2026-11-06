@@ -1187,7 +1187,7 @@ function render(){
         h+='<div class="card"><div style="display:flex;gap:8px;align-items:center">'
          +'<button class="btn mut" aria-label="Previous day" style="font-size:18px;padding:10px 14px;margin:0" onclick="ckShift(-1)">\u25c0</button>'
          +'<div onclick="var i=document.getElementById(\'ck_dt\');i.showPicker?i.showPicker():i.click()" style="flex:1;text-align:center;cursor:pointer;font-weight:900;font-size:clamp(30px,4.5vw,54px);letter-spacing:.04em;line-height:1;padding:6px 0;text-transform:uppercase">'
-         +_cd.toLocaleDateString('en-US',{weekday:'long'})+' <span style="color:var(--gold);font-weight:800">'+_cd.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span></div>'
+         +'<span style="color:var(--gold);font-weight:800">'+_cd.toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span> '+_cd.toLocaleDateString('en-US',{weekday:'long'})+'</div>'
          +'<input id="ck_dt" type="date" value="'+CK.date+'" onchange="ckSetDate(this.value)" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none">'
          +'<button class="btn mut" aria-label="Next day" style="font-size:18px;padding:10px 14px;margin:0" onclick="ckShift(1)">\u25b6</button>'
          +'</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px">'
