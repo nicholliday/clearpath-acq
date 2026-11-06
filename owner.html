@@ -837,6 +837,7 @@ async function loadAll(){
       var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at,walked_at');D.ddb=_b.data||[];
       var _d=await allRows('dispo_deals','id,assignment_signed_on,emd_in_at,closed_at,closed_fee,ghl_opportunity_id');D.dd2=_d.data||[];
       var _l=await allRows('closings_ledger','*');D.ledger=_l.data||[];
+      var _ba=await db.from('dispo_buyers').select('id,added_to_list_at,not_a_buyer,merged_into').not('added_to_list_at','is',null).limit(10000);D.dbuyers=_ba.data||[];
       var _at=await db.from('acq_texts_daily').select('day,texts').limit(5000);D.acqtx=_at.data||[]; // all outbound seller texts (Tom bot + reps + automations), Devon excluded
       // Nov 6 (Nic): dispo "texts" = texts the dispo rep sent to buyers himself (not AI, not blasts) - separate from deal sends
       var _dr=(D.dreps||[]).filter(function(r){return r.role==='dispo'}).map(function(r){return r.id});
@@ -1731,6 +1732,8 @@ function render(){
       var dRep={};(D.dreps||[]).forEach(function(r){if(r.role==='dispo')dRep[r.id]=1});
       var dk={dials:0,convos:0,talk:0};(D.dkpi||[]).forEach(function(k){if(dRep[k.rep_id]&&inRange(String(k.day).slice(0,10),FR.from,FR.to)){dk.dials+=k.dials||0;dk.convos+=k.convos||0;dk.talk+=k.talk_seconds||0}});
       var aTexts=0;(D.acqtx||[]).forEach(function(x){if(inRange(String(x.day).slice(0,10),FR.from,FR.to))aTexts+=x.texts||0});
+      // buyers added = put on the BUYERS LIST in range; not "not a buyer", not merged; the Aug 31 2026 bulk import (342) is not real adds
+      var bAdded=(D.dbuyers||[]).filter(function(x){var d=chiDay(x.added_to_list_at);return !x.not_a_buyer&&!x.merged_into&&d!=='2026-08-31'&&inRange(d,FR.from,FR.to)}).length;
       var dSends=(D.dsent2||[]).filter(function(x){return inR(x.at)}).length; // deal links sent (1 per buyer per deal)
       var dTexts=(D.dtexts||[]).filter(function(x){return inR(x.created_at)}).length; // texts Devon sent to buyers himself
       var dOff=(D.ddb||[]).filter(function(x){return inR(x.offer_at)}).length;
@@ -1763,6 +1766,7 @@ function render(){
          {v:stlFmt(FL.talk),l:'talk time',f:'#7a6019'},
          {v:FL.offers,l:'offers',s:(FL.convos?pc(FL.offers,FL.convos)+' of convos':''),f:'#7a6019'},
          {v:FL.contracts,l:'contracts',s:(FL.offers?pc(FL.contracts,FL.offers)+' of offers':''),f:'#7a6019'},
+         {v:bAdded,l:'buyers added',f:'#4a3b10'},
          {v:dTexts.toLocaleString(),l:'dispo texts',f:'#4a3b10'},
          {v:dSends.toLocaleString(),l:'deal sends',f:'#4a3b10'},
          {v:dk.dials.toLocaleString(),l:'dials',f:'#4a3b10'},
