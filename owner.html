@@ -837,6 +837,7 @@ async function loadAll(){
       var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at,walked_at');D.ddb=_b.data||[];
       var _d=await allRows('dispo_deals','id,assignment_signed_on,emd_in_at,closed_at,closed_fee,ghl_opportunity_id');D.dd2=_d.data||[];
       var _l=await allRows('closings_ledger','*');D.ledger=_l.data||[];
+      var _ms=await db.from('meta_spend_daily').select('day,spend').limit(5000);D.mday=_ms.data||[]; // Meta spend per day (meta-sync, hourly)
       var _ba=await db.from('dispo_buyers').select('id,added_to_list_at,not_a_buyer,merged_into').not('added_to_list_at','is',null).limit(10000);D.dbuyers=_ba.data||[];
       var _at=await db.from('acq_texts_daily').select('day,texts').limit(5000);D.acqtx=_at.data||[]; // all outbound seller texts (Tom bot + reps + automations), Devon excluded
       // Nov 6 (Nic): dispo "texts" = texts the dispo rep sent to buyers himself (not AI, not blasts) - separate from deal sends
@@ -1723,8 +1724,10 @@ function render(){
         FS+=(Number(r.spend)||0)*dd(lo,hi)/span;
       });
       FS=Math.round(FS);
-      var _mStart=FR.from.slice(8,10)==='01', _mEnd=!FR.to||FR.to.slice(8,10)==='01';
-      var spendExact=_mStart&&_mEnd; // Meta spend is only stored per month
+      // Nov 7 (Nic: weekly ad spend): exact spend for ANY range from Meta's per-day spend
+      var spendExact=true;
+      if((D.mday||[]).length){FS=0;(D.mday||[]).forEach(function(x){if(inRange(String(x.day).slice(0,10),FR.from,FR.to))FS+=Number(x.spend)||0});FS=Math.round(FS);}
+      else{spendExact=FR.from.slice(8,10)==='01'&&(!FR.to||FR.to.slice(8,10)==='01');}
       var adLeads=(function(){var f2=FR.from>'2026-08-01'?FR.from:'2026-08-01';var n=(!FR.to||FR.to>f2)?ownAgg(f2,true,FR.to).leads:0;(D.master||[]).forEach(function(r){if(r.source==='meta'&&r.month&&r.month<'2026-08'){var m0r=r.month+'-01';if(m0r>=FR.from&&(!FR.to||m0r<FR.to))n+=Number(r.leads)||0}});return n})();
       var claimed=0;(D.leads||[]).forEach(function(l){if(l.claimed_on&&inR(l.created_at))claimed++}); // of the leads that came in this range, how many got claimed
       var pc=function(a,b){return b?Math.round(a*100/b)+'%':''};
