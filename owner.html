@@ -77,6 +77,9 @@ var db=supabase.createClient('https://voitbqpvynbvlibuzxbz.supabase.co','sb_publ
 var D={};
 var OWN_VIEW=localStorage.getItem('cp_own_view')||'nic';
 var NICTAB=localStorage.getItem('cp_nic_tab')||'funnel';if(NICTAB==='home')NICTAB='funnel';
+var VS={loaded:false,txt:''},VS_T=null;
+async function loadVS(){var v=await kvGet('vision');VS.txt=(v&&v.txt)||'';VS.loaded=true;render()}
+function vsSave(t){VS.txt=t;var st=document.getElementById('vs_st');if(st)st.textContent='Saving\u2026';clearTimeout(VS_T);VS_T=setTimeout(async function(){await kvSet('vision',{txt:VS.txt,at:new Date().toISOString()});var st2=document.getElementById('vs_st');if(st2)st2.textContent='Saved'},700)}
 function setNicTab(t){NICTAB=t;if(t==='plan'&&typeof PL!=='undefined')PL.loaded='';localStorage.setItem('cp_nic_tab',t);render()}
 // Nic's personal plan (August sheet): daily 160 dials / 43 convos / 262m talk / 6 offers ; month 20 contracts / $400K
 var NETGOAL=Number(localStorage.getItem('cp_net_goal'))||50000;
@@ -975,7 +978,7 @@ function render(){
    +'</div>';
 
   if(OWN_VIEW==='nic'){
-    var tabs=[['plan','\ud83d\ude82 Plan'],['check','\u2705 Founder Checklist'],['me','\ud83c\udfaf ACQ REP NIC'],['mkt','\ud83d\udce3 Marketing'],['acq','\ud83d\udcde Acq'],['dispo','\ud83c\udff7 Dispo'],['funnel','\ud83c\udf0a Funnel'],['calc','\ud83e\uddee Calculator'],['money','\ud83d\udcb0 Money']];
+    var tabs=[['vision','\ud83d\udd2d Vision'],['plan','\ud83d\ude82 Plan'],['check','\u2705 Founder Checklist'],['me','\ud83c\udfaf ACQ REP NIC'],['mkt','\ud83d\udce3 Marketing'],['acq','\ud83d\udcde Acq'],['dispo','\ud83c\udff7 Dispo'],['funnel','\ud83c\udf0a Funnel'],['calc','\ud83e\uddee Calculator'],['money','\ud83d\udcb0 Money']];
     h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+tabs.map(function(t){return '<button class="btn '+(NICTAB===t[0]?'g':'mut')+'" style="flex:1;min-width:96px;padding:8px 4px;font-size:13px" onclick="setNicTab(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')+'</div>';
 
     if(NICTAB==='mkt'){
@@ -1187,6 +1190,12 @@ function render(){
        +'</div>';
     }
 
+    if(NICTAB==='vision'){
+      if(!VS.loaded){loadVS();h+='<div class="card sm mut">Loading vision\u2026</div>';}
+      else h+='<div style="font-family:\'Space Grotesk\',Inter,sans-serif;font-weight:800;color:var(--gold);font-size:clamp(30px,4.5vw,54px);letter-spacing:.04em;line-height:1;margin:6px 0 14px">VISION</div>'
+        +'<div class="card" style="border:1px solid var(--gold)"><textarea id="vs_txt" placeholder="Where is Clear Path going? Write the vision here." style="width:100%;box-sizing:border-box;min-height:60vh;font-family:inherit;font-size:16px;line-height:1.6;background:transparent;border:0;color:inherit;resize:vertical;outline:none" oninput="vsSave(this.value)">'+esc(VS.txt)+'</textarea>'
+        +'<div id="vs_st" class="sm mut" style="text-align:right">Saved</div></div>';
+    }
     if(NICTAB==='plan'){
       if(PL.loaded!==PL.m){loadPL();h+='<div class="card sm mut">Loading plan\u2026</div>';}
       else h+=plRender();
