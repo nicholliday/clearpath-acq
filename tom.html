@@ -77,6 +77,11 @@ var D={drafts:[],sent:[],books:[],set:null,kpi:{}};
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(t._x);t._x=setTimeout(function(){t.style.display='none'},2600)}
 function ago(ts){if(!ts)return'';var m=Math.round((Date.now()-new Date(ts))/60000);if(m<60)return m+'m ago';var h=Math.round(m/60);if(h<48)return h+'h ago';return Math.round(h/24)+'d ago'}
+function mine(ts){ // Nic, Nov 9: show the viewer's own clock when it differs from Central
+  if(!ts)return''; var d=new Date(ts), o={hour:'numeric',minute:'2-digit'};
+  var a=d.toLocaleTimeString('en-US',o), c=d.toLocaleTimeString('en-US',Object.assign({timeZone:'America/Chicago'},o));
+  return a===c?'':' <span style="font-weight:400;color:var(--gold)">= '+a.toLowerCase().replace(' ','')+' your time</span>';
+}
 function ct(ts,opt){return ts?new Date(ts).toLocaleString('en-US',Object.assign({timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'},opt||{})):''}
 function setTab(t){TAB=t;localStorage.setItem('tom_tab',t);render()}
 
@@ -190,7 +195,7 @@ function renderCalls(){
   if(!D.books.length)return'<div class="empty">No calls booked yet. When a seller gives Tom a time, it shows here and you get a text 5 minutes before.</div>';
   return D.books.map(function(b){
     var open=b.status==='open';
-    return'<div class="card"><span class="pill '+(open?'p-book':'p-email')+'">'+(open?'UPCOMING':b.status.toUpperCase())+'</span><span class="pill p-'+(b.rep==='bt'?'tom':'nic')+'">'+(b.rep==='bt'?'BT':'Nic')+'</span><div style="font-weight:700;font-size:16px;margin-top:4px">'+esc(ct(b.call_at,{weekday:'short'}))+' CT</div><div>'+esc(b.name||'?')+' · '+esc(b.address||'')+'</div><div class="sm mut">'+(b.phone?'<a href="tel:'+esc(b.phone)+'" style="color:var(--gold)">'+esc(b.phone)+'</a> · ':'')+(b.alert_5min_at?'5-min ping sent':'ping 5 min before')+'</div></div>';
+    return'<div class="card"><span class="pill '+(open?'p-book':'p-email')+'">'+(open?'UPCOMING':b.status.toUpperCase())+'</span><span class="pill p-'+(b.rep==='bt'?'tom':'nic')+'">'+(b.rep==='bt'?'BT':'Nic')+'</span><div style="font-weight:700;font-size:16px;margin-top:4px">'+esc(ct(b.call_at,{weekday:'short'}))+' CT'+mine(b.call_at)+'</div><div>'+esc(b.name||'?')+' · '+esc(b.address||'')+'</div><div class="sm mut">'+(b.phone?'<a href="tel:'+esc(b.phone)+'" style="color:var(--gold)">'+esc(b.phone)+'</a> · ':'')+(b.alert_5min_at?'5-min ping sent':'ping 5 min before')+'</div></div>';
   }).join('');
 }
 function renderSet(){

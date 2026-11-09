@@ -193,6 +193,8 @@ function callBarRender(){
     } else {
       var d=new Date(t), sameDay=d.toDateString()===new Date().toDateString();
       var when=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}).toLowerCase();
+      var wc=d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/Chicago'}).toLowerCase();
+      if(wc.replace(' ','')!==when.replace(' ',''))when+=' ('+wc.replace(' ','')+' CT)'; // Nic, Nov 9: seller times are Central
       h+='<div class="cb-later"><span class="dot"></span><span class="cb-when">'+when+'</span><span>'+who+'</span><span class="cb-ph">'+pretty+'</span><button class="cb-done sm" onclick="callBarDone('+b.id+')" title="Called - clear">\u2713</button></div>';
     }
   });
