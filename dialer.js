@@ -122,14 +122,15 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     var ringing = status === 'ready' && ls.some(function (l) { return l.state === 'dialing'; }) && !ls.some(function (l) { return l.state === 'checking'; });
     ringback(ringing);
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused', 'redial'].indexOf(status) >= 0;
-    el('dlr_start').style.display = (on || !dlrLive()) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
+    var dropped = status === 'paused' && !!(s && s.stats && s.stats.why === 'rep dropped, paused'); // headset leg dropped: Next does nothing, only Start reconnects
+    el('dlr_start').style.display = ((on && !dropped) || !dlrLive()) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on && status !== 'connected' ? '' : 'none'; // one red button at a time
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
-    el('dlr_next').style.display = (status === 'wrapup' || status === 'paused') ? '' : 'none';
+    el('dlr_next').style.display = (status === 'wrapup' || (status === 'paused' && !dropped)) ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
     el('dlr_vmbtn').style.display = status === 'connected' ? '' : 'none';
     el('dlr_scrbtn').style.display = status === 'connected' ? '' : 'none';
-    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Calling…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
+    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Calling…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: dropped ? '⏸ Headset dropped — tap Start dialing to reconnect (your place is saved)' : '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
     if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; var onCall = status === 'connected'; live.style.borderColor = onCall ? '#16A34A' : '#9CA3AF'; el('dlr_ltag').style.color = onCall ? '#16A34A' : '#6B7280'; el('dlr_ltag').textContent = onCall ? '🟢 YOU\'RE ON THE PHONE WITH' : '☎️ CALL ENDED — LAST CALL WAS'; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
