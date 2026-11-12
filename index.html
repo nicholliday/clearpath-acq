@@ -401,7 +401,8 @@ function countLeadsIn(from){return D.leads.filter(function(l){return (l.created_
 function closedStats(from){
   var o={assigned:0,closed:0,revenue:0};
   D.leads.forEach(function(l){
-    if(!l.deal_id||!leadRepOk(l))return;
+    if(!leadRepOk(l))return;
+    if(!l.deal_id){if(l.closed_on&&l.closed_on>=from){o.closed++;o.revenue+=Number(l.revenue_closed)||0}return}
     var em=stageMoveOn(l.deal_id,'EMD In'),cl=stageMoveOn(l.deal_id,'Closed');
     if(em&&em>=from)o.assigned++;
     if(cl&&cl>=from){o.closed++;var d=linkedDeal(l);o.revenue+=(d&&d.revenue_closed)||0}
