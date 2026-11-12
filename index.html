@@ -873,6 +873,7 @@ function repMonth(rep){
     if(repOf(l)!==rep)return;
     if(l.contracted_on&&l.contracted_on>=m)o.contracts++;
     if(l.deal_id){var cl=stageMoveOn(l.deal_id,'Closed');if(cl&&cl>=m){var d=linkedDeal(l);o.rev+=(d&&d.revenue_closed)||0}}
+    else if(l.closed_on&&l.closed_on>=m){o.rev+=Number(l.revenue_closed)||0} // closed in GHL with no dispo deal linked (e.g. Hamlin) still counts
   });
   return o;
 }
@@ -1902,6 +1903,7 @@ function lockedMonthRev(rep){
     o.n++;
     var d=l.deal_id?linkedDeal(l):null;
     if(d&&d.revenue_closed){o.act+=d.revenue_closed}
+    else if(!d&&l.closed_on&&Number(l.revenue_closed)>0){o.act+=Number(l.revenue_closed)}
     else{o.proj+=(Number(l.projected_profit)||projFeeStd())}
   });
   o.total=o.proj+o.act;
@@ -1909,7 +1911,9 @@ function lockedMonthRev(rep){
 }
 function metMonthRev(rep){
   var ms=monthStart(),rev=0;
-  D.leads.forEach(function(l){if(!l.deal_id)return;if(rep&&repOf(l)!==rep)return;var cl=stageMoveOn(l.deal_id,'Closed');
+  D.leads.forEach(function(l){if(rep&&repOf(l)!==rep)return;
+    if(!l.deal_id){if(l.closed_on&&l.closed_on>=ms)rev+=Number(l.revenue_closed)||0;return}
+    var cl=stageMoveOn(l.deal_id,'Closed');
     if(cl&&cl>=ms){var d=linkedDeal(l);rev+=(d&&d.revenue_closed)||0}});
   return rev;
 }
