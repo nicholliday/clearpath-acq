@@ -122,6 +122,9 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     // Nov 12: also open the sound the moment a line is being connected (the first "Hello?" could be cut off waiting for the screen)
     var lsA = (s && s.lines) || [];
     var au = el('dlr_audio'); if (au) au.muted = !(status === 'connected' || lsA.some(function (l) { return l.state === 'bridged' || l.state === 'connecting'; }));
+    // Nov 12 ("on the phone but it's just silence"): Stop never hung up the headset line, so after a few Stop/Starts the browser
+    // held several lines and the speaker could be left on an old, empty one. Keep the speaker on the CURRENT headset line.
+    try { if (au && agentCall && agentCall.remoteStream && au.srcObject !== agentCall.remoteStream) { au.srcObject = agentCall.remoteStream; var pp = au.play(); if (pp && pp.catch) pp.catch(function () { }); } } catch (x) { }
     // Oct 23: Nic wanted to hear that it's calling -> soft US ringback (2s on / 4s off) while lines ring, off the moment someone picks up
     // soft ringing only while lines ring and nobody has picked up (stops the instant someone answers)
     var ls = (s && s.lines) || [];
