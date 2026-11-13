@@ -132,11 +132,11 @@ function lqCalc(r){
 var LQM=[
   {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.cplLeads+' leads'+(c.old?' (Meta’s own count)':'')}},
   {k:'cplc',t:'Cost per local contract',low:true,rel:5,cnt:true,f:function(v){return '$'+Math.round(v).toLocaleString()},ft:function(v){return '$'+(v/1000).toFixed(1)+'k'},d:function(c){return fmt$(c.spend)+' spent \u00f7 '+c.loc+' local contract'+(c.loc===1?'':'s')}},
-  {k:'out',t:'Outside our market',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.out+' of '+c.known+' leads with a known area are outside DFW, Houston, San Antonio and Memphis'}},
+  {k:'out',t:'Outside our market',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.out+' of '+c.known+' leads with a known area are more than about 50 minutes from Dallas, Fort Worth, Houston, San Antonio or Memphis'}},
   {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
   {k:'gap',t:'Price gap: asking vs our offer',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return 'Our max offer is '+Math.round(c.gap)+'% below the middle seller\u2019s asking price \u00b7 '+c.pairs+' leads have both numbers'+(c.pairs<20?' (small sample)':'')}},
   {k:'mot',t:'Motivated leads',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.mot+' of '+c.leads+' leads (Contract This Month, O.R. Distressed, or signed)'}},
-  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are in our market'+(c.ctrUnk?' \u00b7 '+c.ctrUnk+' with no location on file':'')}}
+  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are local (within about 50 minutes of one of our metros)'+(c.ctrUnk?' \u00b7 '+c.ctrUnk+' with no location on file':'')}}
 ];
 function lqVerdict(M,cur,prev){
   var a=cur?cur[M.k]:null,b=prev?prev[M.k]:null;
@@ -195,7 +195,7 @@ function lqRender(){
     h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
       +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px 6px 16px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?(M.ft||M.f)(v):'—')+'</td>'}).join('')+'</tr>';
   });
-  h+='</table></div><div class="sm mut" style="margin-top:8px">Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">LOCAL = in Texas or Tennessee and within about a 50 minute drive (40 miles) of downtown Dallas, Fort Worth, Houston, San Antonio or Memphis. Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
   return h;
 }
 

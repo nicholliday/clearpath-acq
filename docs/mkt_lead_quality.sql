@@ -21,3 +21,9 @@
 --   * "Local contracts" = signed contracts (acq_leads.contracted_on) whose property is in a metro,
 --     by the month the lead is dated; location = lq_area_override (hand-checked) or lq_area()
 --   * lq_area: 754xx no longer counts as DFW; far towns (Huntsville, Livingston, Freeport, ...) are rural
+
+-- "Local" defined by Nic (Nov 13 2026): within a 50 minute drive of one of our metros.
+-- Migration lq_local_is_50_min_drive: tables lq_zip_local (906 TX/TN zips within 40 straight-line miles of
+-- downtown Dallas, Fort Worth, Houston, San Antonio, Memphis) and lq_city_local (town names for addresses
+-- with no zip). lq_area() now returns 'metro' only for those; other TX/TN = 'rural'; everything else = 'other'.
+-- 40 miles is a stand-in for 50 minutes; true drive times would need a routing service.
