@@ -188,12 +188,12 @@ function lqRender(){
   if(notes.length)h+='<div class="sm" style="color:var(--amber);border-top:1px solid var(--line);padding-top:8px">'+notes.join(' ')+'</div>';
   h+='</div>';
   // all months side by side
-  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;min-width:600px;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:15%">Month</td><td style="text-align:right;width:8%">Leads</td>'
-    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost per lead',out:'Outside market',nnw:'Numbers not workable',gap:'Price gap',mot:'Motivated',loc:'Local contracts',cplc:'Cost per local contract'})[M.k]+'</td>'}).join('')+'</tr>';
+  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;min-width:690px;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:12%;font-size:11px">Month</td><td style="text-align:right;width:7%;font-size:11px">Leads</td>'
+    +LQM.map(function(M){return '<td style="text-align:right;font-size:11px;line-height:1.25;padding:5px 2px 5px 16px">'+({cpl:'Cost per lead',out:'Outside market',nnw:'Numbers not workable',gap:'Price gap',mot:'Motivated',loc:'Local contracts',cplc:'Cost per local contract'})[M.k]+'</td>'}).join('')+'</tr>';
   LQ.rows.forEach(function(r,i){
     var c=lqCalc(r),p=i>0?lqCalc(LQ.rows[i-1]):null;
     h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
-      +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?(M.ft||M.f)(v):'—')+'</td>'}).join('')+'</tr>';
+      +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px 6px 16px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?(M.ft||M.f)(v):'—')+'</td>'}).join('')+'</tr>';
   });
   h+='</table></div><div class="sm mut" style="margin-top:8px">Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
   return h;
