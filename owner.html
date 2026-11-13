@@ -123,16 +123,15 @@ function lqCalc(r){
   var pc=function(a,b){return b>0?a/b*100:null};
   return {m:r.m,leads:r.leads||0,spend:r.spend,known:known,unknown:r.unknown||0,
     cplLeads:(r.cpl_leads||r.leads||0),cpl:((r.cpl_leads||r.leads)>0&&r.spend!=null)?r.spend/(r.cpl_leads||r.leads):null,rough:!!r.rough,old:r.m<'2026-08',first_day:r.first_day,
-    rural:pc(r.rural||0,known),other:pc(r.other_state||0,known),metro:pc(r.metro||0,known),
+    out:pc((r.rural||0)+(r.other_state||0),known),rural:pc(r.rural||0,known),other:pc(r.other_state||0,known),metro:pc(r.metro||0,known),
     nnw:pc(r.nnw||0,r.leads),mot:pc(r.motivated||0,r.leads),
     ask:(r.pairs>0?r.ask_pct_mao:null),pairs:r.pairs||0,
     open:pc(r.still_open||0,r.leads),
-    n:{rural:r.rural||0,other:r.other_state||0,metro:r.metro||0,nnw:r.nnw||0,mot:r.motivated||0,contracts:r.contracts||0},last_day:r.last_day};
+    n:{out:(r.rural||0)+(r.other_state||0),rural:r.rural||0,other:r.other_state||0,metro:r.metro||0,nnw:r.nnw||0,mot:r.motivated||0,contracts:r.contracts||0},last_day:r.last_day};
 }
 var LQM=[
   {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.cplLeads+' leads'+(c.old?' (Meta’s own count)':'')}},
-  {k:'rural',t:'Rural leads',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.rural+' of '+c.known+' leads with a known area (TX/TN, outside your 4 metros)'}},
-  {k:'other',t:'Another state',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.other+' of '+c.known+' leads with a known area'}},
+  {k:'out',t:'Outside our market',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.out+' of '+c.known+' leads with a known area are outside DFW, Houston, San Antonio and Memphis'}},
   {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
   {k:'ask',t:'Asking price vs our max offer',low:true,pts:5,f:function(v){return Math.round(v)+'%'},d:function(c){return 'Middle lead asks '+Math.round(c.ask)+'% of our max offer · '+c.pairs+' leads have both numbers'+(c.pairs<20?' (small sample)':'')}},
   {k:'mot',t:'Motivated leads',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.mot+' of '+c.leads+' leads (Contract This Month, O.R. Distressed, or signed)'}}
@@ -187,7 +186,7 @@ function lqRender(){
   h+='</div>';
   // all months side by side
   h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:17%">Month</td><td style="text-align:right;width:11%">Leads</td>'
-    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost/ lead',rural:'Rural',other:'Other state',nnw:'Not work- able',ask:'Ask vs offer',mot:'Moti- vated'})[M.k]+'</td>'}).join('')+'</tr>';
+    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost/ lead',out:'Outside market',nnw:'Not workable',ask:'Ask vs offer',mot:'Moti- vated'})[M.k]+'</td>'}).join('')+'</tr>';
   LQ.rows.forEach(function(r,i){
     var c=lqCalc(r),p=i>0?lqCalc(LQ.rows[i-1]):null;
     h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
