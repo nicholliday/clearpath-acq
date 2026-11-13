@@ -188,8 +188,8 @@ function lqRender(){
   if(notes.length)h+='<div class="sm" style="color:var(--amber);border-top:1px solid var(--line);padding-top:8px">'+notes.join(' ')+'</div>';
   h+='</div>';
   // all months side by side
-  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:19%">Month</td><td style="text-align:right;width:9%">Leads</td>'
-    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost/ lead',out:'Out of market',nnw:'Not work- able',gap:'Price gap',mot:'Moti- vated',loc:'Local con- tracts',cplc:'Cost/ local con- tract'})[M.k]+'</td>'}).join('')+'</tr>';
+  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;min-width:600px;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:15%">Month</td><td style="text-align:right;width:8%">Leads</td>'
+    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost per lead',out:'Outside market',nnw:'Not workable',gap:'Price gap',mot:'Motivated',loc:'Local contracts',cplc:'Cost per local contract'})[M.k]+'</td>'}).join('')+'</tr>';
   LQ.rows.forEach(function(r,i){
     var c=lqCalc(r),p=i>0?lqCalc(LQ.rows[i-1]):null;
     h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
