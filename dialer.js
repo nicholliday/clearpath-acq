@@ -132,7 +132,9 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     ringback(ringing);
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused', 'redial'].indexOf(status) >= 0;
     var why = (s && (s.why || (s.stats && s.stats.why))) || '';
-    var dropped = status === 'paused' && why === 'rep dropped, paused'; // headset leg dropped: only Start reconnects
+    // headset line dropped: only Start can reconnect it. Also true when it's paused and this browser holds no headset line at all
+    // (page was reloaded / tab was closed) - Next Dial can't do anything there.
+    var dropped = status === 'paused' && (why === 'rep dropped, paused' || (!why && !agentCall));
     // Nov 12: "Calling…" with nothing ringing for 6s+ -> show Next Dial so there is always a button that moves it on
     var anyActive = ls.some(function (l) { return l.state !== 'done' && l.state !== 'dropped'; });
     if (status === 'ready' && !anyActive) { idleSince = idleSince || Date.now(); } else idleSince = 0;
