@@ -131,12 +131,12 @@ function lqCalc(r){
 }
 var LQM=[
   {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.cplLeads+' leads'+(c.old?' (Meta’s own count)':'')}},
+  {k:'cplc',t:'Cost per local contract',low:true,rel:5,cnt:true,f:function(v){return '$'+Math.round(v).toLocaleString()},ft:function(v){return '$'+(v/1000).toFixed(1)+'k'},d:function(c){return fmt$(c.spend)+' spent \u00f7 '+c.loc+' local contract'+(c.loc===1?'':'s')}},
   {k:'out',t:'Outside our market',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.out+' of '+c.known+' leads with a known area are outside DFW, Houston, San Antonio and Memphis'}},
   {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
   {k:'gap',t:'Price gap: asking vs our offer',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return 'Our max offer is '+Math.round(c.gap)+'% below the middle seller\u2019s asking price \u00b7 '+c.pairs+' leads have both numbers'+(c.pairs<20?' (small sample)':'')}},
   {k:'mot',t:'Motivated leads',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.mot+' of '+c.leads+' leads (Contract This Month, O.R. Distressed, or signed)'}},
-  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are in our market'+(c.ctrUnk?' \u00b7 '+c.ctrUnk+' with no location on file':'')}},
-  {k:'cplc',t:'Cost per local contract',low:true,rel:5,cnt:true,f:function(v){return '$'+Math.round(v).toLocaleString()},ft:function(v){return '$'+(v/1000).toFixed(1)+'k'},d:function(c){return fmt$(c.spend)+' spent \u00f7 '+c.loc+' local contract'+(c.loc===1?'':'s')}}
+  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are in our market'+(c.ctrUnk?' \u00b7 '+c.ctrUnk+' with no location on file':'')}}
 ];
 function lqVerdict(M,cur,prev){
   var a=cur?cur[M.k]:null,b=prev?prev[M.k]:null;
