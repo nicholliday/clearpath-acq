@@ -122,7 +122,7 @@ function lqCalc(r){
   var known=(r.metro||0)+(r.rural||0)+(r.other_state||0);
   var pc=function(a,b){return b>0?a/b*100:null};
   return {m:r.m,leads:r.leads||0,spend:r.spend,known:known,unknown:r.unknown||0,
-    cpl:(r.leads>0&&r.spend!=null)?r.spend/r.leads:null,
+    cplLeads:(r.cpl_leads||r.leads||0),cpl:((r.cpl_leads||r.leads)>0&&r.spend!=null)?r.spend/(r.cpl_leads||r.leads):null,rough:!!r.rough,old:r.m<'2026-08',first_day:r.first_day,
     rural:pc(r.rural||0,known),other:pc(r.other_state||0,known),metro:pc(r.metro||0,known),
     nnw:pc(r.nnw||0,r.leads),mot:pc(r.motivated||0,r.leads),
     ask:(r.pairs>0?r.ask_pct_mao:null),pairs:r.pairs||0,
@@ -130,7 +130,7 @@ function lqCalc(r){
     n:{rural:r.rural||0,other:r.other_state||0,metro:r.metro||0,nnw:r.nnw||0,mot:r.motivated||0,contracts:r.contracts||0},last_day:r.last_day};
 }
 var LQM=[
-  {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.leads+' leads'}},
+  {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.cplLeads+' leads'+(c.old?' (Meta’s own count)':'')}},
   {k:'rural',t:'Rural leads',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.rural+' of '+c.known+' leads with a known area (TX/TN, outside your 4 metros)'}},
   {k:'other',t:'Another state',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.other+' of '+c.known+' leads with a known area'}},
   {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
@@ -159,7 +159,7 @@ function lqRender(){
   var h='<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(LQ.i<=0?' disabled':'')+' onclick="lqGo(-1)">◀</button>'
     +'<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:800">'+fmtMonth(cur.m)+(live?' ⚡':'')+'</div>'
-    +'<div class="sm mut">'+cur.leads+' Meta leads'+(prev?' · compared with '+fmtMonth(prev.m):' · first month on record')+'</div></div>'
+    +'<div class="sm mut">'+cur.leads+(cur.old?' leads on file':' Meta leads')+(prev?' · compared with '+fmtMonth(prev.m):' · first month on record')+'</div></div>'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(LQ.i>=LQ.rows.length-1?' disabled':'')+' onclick="lqGo(1)">▶</button></div>';
   if(prev){
     var up=0,dn=0,sm=0;LQM.forEach(function(M){var v=lqVerdict(M,cur,prev);if(v>0)up++;else if(v<0)dn++;else if(v===0)sm++});
@@ -179,6 +179,9 @@ function lqRender(){
   var notes=[];
   if(live)notes.push('This month is still running'+(cur.last_day?' (spend through '+cur.last_day+')':'')+'.');
   if(cur.open!=null&&cur.open>=25)notes.push(Math.round(cur.open)+'% of these leads are still being worked, so Motivated and Numbers Not Workable will keep moving.');
+  if(cur.rough)notes.push('ROUGH MONTH: this list also holds some leads that did not come from Meta, so read it as a rough guide.');
+  if(cur.old)notes.push('Before August, most signed contracts are not tied to these leads, so Motivated reads low.');
+  if(cur.first_day&&cur.first_day.slice(8)!=='01')notes.push('Spend tracking starts '+cur.first_day+'.');
   if(cur.unknown>0)notes.push(cur.unknown+' leads gave no city or zip, so they are left out of the area numbers.');
   if(notes.length)h+='<div class="sm" style="color:var(--amber);border-top:1px solid var(--line);padding-top:8px">'+notes.join(' ')+'</div>';
   h+='</div>';
@@ -187,10 +190,10 @@ function lqRender(){
     +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost/ lead',rural:'Rural',other:'Other state',nnw:'Not work- able',ask:'Ask vs offer',mot:'Moti- vated'})[M.k]+'</td>'}).join('')+'</tr>';
   LQ.rows.forEach(function(r,i){
     var c=lqCalc(r),p=i>0?lqCalc(LQ.rows[i-1]):null;
-    h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+'</td><td style="text-align:right">'+c.leads+'</td>'
+    h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
       +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?M.f(v):'—')+'</td>'}).join('')+'</tr>';
   });
-  h+='</table></div><div class="sm mut" style="margin-top:8px">Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. Starts Aug 2026, when leads began syncing into the app.</div></div>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
   return h;
 }
 
