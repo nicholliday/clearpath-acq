@@ -99,6 +99,102 @@ async function kvGet(k){try{var r=await db.from('owner_kv').select('value').eq('
 async function kvSet(k,v){var r=await db.from('owner_kv').upsert([{key:k,value:JSON.stringify(v)}],{onConflict:'key'});if(r&&r.error){ckSaveWarn(r.error)}}
 function ckSaveWarn(e){var el=document.getElementById('ck_savewarn');if(!el){el=document.createElement('div');el.id='ck_savewarn';el.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#B91C1C;color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;font-size:13px;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.4)';document.body.appendChild(el);}el.innerHTML='\u26a0 Not saved \u2014 your login expired. <a href="#" onclick="logOut();return false" style="color:#fff;text-decoration:underline">Log out</a> and log back in.';}
 var MK={loaded:'',cspend:{}};
+// ---- Lead Quality (Nov 13 2026): month-by-month lead quality inside the Marketing tab. Data = rpc mkt_lead_quality() ----
+var MKVIEW='camp';try{MKVIEW=localStorage.getItem('cp_mk_view')||'camp'}catch(e){}
+var LQ={state:'',rows:[],i:-1,err:''};
+function setMkView(v){MKVIEW=v;try{localStorage.setItem('cp_mk_view',v)}catch(e){}render()}
+async function loadLQ(){
+  LQ.state='loading';
+  try{
+    var r=await db.rpc('mkt_lead_quality');
+    if(r.error)throw r.error;
+    LQ.rows=r.data||[];LQ.i=LQ.rows.length-1;LQ.err='';LQ.state='ok';
+  }catch(e){LQ.err=(e&&e.message)||'Could not load';LQ.state='err'}
+  render();
+}
+function lqGo(d){var n=LQ.i+d;if(n<0||n>=LQ.rows.length)return;LQ.i=n;render()}
+function lqTabs(){
+  return '<div style="display:flex;gap:6px;margin-bottom:12px">'
+    +'<button class="btn '+(MKVIEW!=='lq'?'g':'mut')+'" style="flex:1" onclick="setMkView(\'camp\')">📣 Campaigns</button>'
+    +'<button class="btn '+(MKVIEW==='lq'?'g':'mut')+'" style="flex:1" onclick="setMkView(\'lq\')">🎯 Lead Quality</button></div>';
+}
+function lqCalc(r){
+  if(!r)return null;
+  var known=(r.metro||0)+(r.rural||0)+(r.other_state||0);
+  var pc=function(a,b){return b>0?a/b*100:null};
+  return {m:r.m,leads:r.leads||0,spend:r.spend,known:known,unknown:r.unknown||0,
+    cpl:(r.leads>0&&r.spend!=null)?r.spend/r.leads:null,
+    rural:pc(r.rural||0,known),other:pc(r.other_state||0,known),metro:pc(r.metro||0,known),
+    nnw:pc(r.nnw||0,r.leads),mot:pc(r.motivated||0,r.leads),
+    ask:(r.pairs>0?r.ask_pct_mao:null),pairs:r.pairs||0,
+    open:pc(r.still_open||0,r.leads),
+    n:{rural:r.rural||0,other:r.other_state||0,metro:r.metro||0,nnw:r.nnw||0,mot:r.motivated||0,contracts:r.contracts||0},last_day:r.last_day};
+}
+var LQM=[
+  {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.leads+' leads'}},
+  {k:'rural',t:'Rural leads',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.rural+' of '+c.known+' leads with a known area (TX/TN, outside your 4 metros)'}},
+  {k:'other',t:'Another state',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.other+' of '+c.known+' leads with a known area'}},
+  {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
+  {k:'ask',t:'Asking price vs our max offer',low:true,pts:5,f:function(v){return Math.round(v)+'%'},d:function(c){return 'Middle lead asks '+Math.round(c.ask)+'% of our max offer · '+c.pairs+' leads have both numbers'+(c.pairs<20?' (small sample)':'')}},
+  {k:'mot',t:'Motivated leads',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.mot+' of '+c.leads+' leads (Contract This Month, O.R. Distressed, or signed)'}}
+];
+function lqVerdict(M,cur,prev){
+  var a=cur?cur[M.k]:null,b=prev?prev[M.k]:null;
+  if(a==null||b==null)return 0/0;
+  var diff=a-b,same=M.rel?(b!==0?Math.abs(diff/b*100)<M.rel:diff===0):Math.abs(diff)<M.pts;
+  if(same)return 0;
+  return ((diff<0)===M.low)?1:-1;
+}
+function lqChip(v){
+  if(v!==v)return '<span class="sm mut">—</span>';
+  var c=v>0?'var(--green)':v<0?'var(--red)':'var(--mut)',t=v>0?'▲ Better':v<0?'▼ Worse':'● Same';
+  return '<span style="display:inline-block;min-width:74px;text-align:center;font-size:12px;font-weight:800;color:'+c+';border:1px solid '+c+';border-radius:999px;padding:3px 8px">'+t+'</span>';
+}
+function lqRender(){
+  if(LQ.state===''){loadLQ();return '<div class="card sm mut">Loading lead quality…</div>'}
+  if(LQ.state==='loading')return '<div class="card sm mut">Loading lead quality…</div>';
+  if(LQ.state==='err')return '<div class="card"><div class="warn">Lead quality did not load: '+esc(LQ.err)+'</div><button class="btn" style="margin-top:8px" onclick="LQ.state=\'\';render()">Try again</button></div>';
+  if(!LQ.rows.length)return '<div class="card sm mut">No Meta leads yet.</div>';
+  var cur=lqCalc(LQ.rows[LQ.i]),prev=LQ.i>0?lqCalc(LQ.rows[LQ.i-1]):null;
+  var live=LQ.i===LQ.rows.length-1&&cur.m===new Date().toISOString().slice(0,7);
+  var h='<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(LQ.i<=0?' disabled':'')+' onclick="lqGo(-1)">◀</button>'
+    +'<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:800">'+fmtMonth(cur.m)+(live?' ⚡':'')+'</div>'
+    +'<div class="sm mut">'+cur.leads+' Meta leads'+(prev?' · compared with '+fmtMonth(prev.m):' · first month on record')+'</div></div>'
+    +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(LQ.i>=LQ.rows.length-1?' disabled':'')+' onclick="lqGo(1)">▶</button></div>';
+  if(prev){
+    var up=0,dn=0,sm=0;LQM.forEach(function(M){var v=lqVerdict(M,cur,prev);if(v>0)up++;else if(v<0)dn++;else if(v===0)sm++});
+    var word=up>dn?'Lead quality got BETTER':dn>up?'Lead quality got WORSE':'Lead quality stayed about the SAME';
+    var col=up>dn?'var(--green)':dn>up?'var(--red)':'var(--mut)';
+    h+='<div style="text-align:center;font-size:15px;font-weight:800;color:'+col+';margin-bottom:4px">'+word+'</div>'
+      +'<div class="sm mut" style="text-align:center;margin-bottom:10px">Better on '+up+' · worse on '+dn+' · same on '+sm+' of '+LQM.length+'</div>';
+  }
+  LQM.forEach(function(M){
+    var a=cur[M.k],b=prev?prev[M.k]:null;
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)">'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+M.t+'</div><div class="sm mut">'+(a!=null?M.d(cur):'No data this month')+'</div></div>'
+      +'<div style="text-align:right;min-width:64px"><div style="font-size:20px;font-weight:800">'+(a!=null?M.f(a):'—')+'</div>'
+      +'<div class="sm mut">'+(b!=null?'was '+M.f(b):'')+'</div></div>'
+      +'<div>'+lqChip(lqVerdict(M,cur,prev))+'</div></div>';
+  });
+  var notes=[];
+  if(live)notes.push('This month is still running'+(cur.last_day?' (spend through '+cur.last_day+')':'')+'.');
+  if(cur.open!=null&&cur.open>=25)notes.push(Math.round(cur.open)+'% of these leads are still being worked, so Motivated and Numbers Not Workable will keep moving.');
+  if(cur.unknown>0)notes.push(cur.unknown+' leads gave no city or zip, so they are left out of the area numbers.');
+  if(notes.length)h+='<div class="sm" style="color:var(--amber);border-top:1px solid var(--line);padding-top:8px">'+notes.join(' ')+'</div>';
+  h+='</div>';
+  // all months side by side
+  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:17%">Month</td><td style="text-align:right;width:11%">Leads</td>'
+    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost/ lead',rural:'Rural',other:'Other state',nnw:'Not work- able',ask:'Ask vs offer',mot:'Moti- vated'})[M.k]+'</td>'}).join('')+'</tr>';
+  LQ.rows.forEach(function(r,i){
+    var c=lqCalc(r),p=i>0?lqCalc(LQ.rows[i-1]):null;
+    h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+'</td><td style="text-align:right">'+c.leads+'</td>'
+      +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?M.f(v):'—')+'</td>'}).join('')+'</tr>';
+  });
+  h+='</table></div><div class="sm mut" style="margin-top:8px">Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. Starts Aug 2026, when leads began syncing into the app.</div></div>';
+  return h;
+}
+
 async function loadMK(m){
   MK.cspend=(await kvGet('mkt_cspend_'+m))||{};
   MK.cspendAll={};
@@ -982,7 +1078,9 @@ function render(){
     h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+tabs.map(function(t){return '<button class="btn '+(NICTAB===t[0]?'g':'mut')+'" style="flex:1;min-width:96px;padding:8px 4px;font-size:13px" onclick="setNicTab(\''+t[0]+'\')">'+t[1]+'</button>'}).join('')+'</div>';
 
     if(NICTAB==='mkt'){
-      if(MK.loaded!==curM){loadMK(curM);h+='<div class="card sm mut">Loading marketing\u2026</div>';}
+      h+=lqTabs();
+      if(MKVIEW==='lq'){h+=lqRender();}
+      else if(MK.loaded!==curM){loadMK(curM);h+='<div class="card sm mut">Loading marketing\u2026</div>';}
       else{
       var R=rngBounds();
       h+=rngPicker();

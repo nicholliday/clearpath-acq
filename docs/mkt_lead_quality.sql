@@ -1,0 +1,14 @@
+-- Lead Quality page (owner.html -> Marketing -> Lead Quality). Applied to Supabase "Clear Path Dispo" on 2026-11-13
+-- as migration mkt_lead_quality_fn. The page calls rpc('mkt_lead_quality').
+--
+-- lq_area(address, state): metro / rural / other / unknown
+--   metro  = zip prefix in DFW (750-754, 760-762), Houston (770, 772-775), San Antonio (780 except 7804x, 781, 782),
+--            Memphis (380, 381); or, when no zip, a metro city name at the end of the address
+--   rural  = any other TX / TN zip, or an address that ends in TX / TN with no metro city
+--   other  = any other zip, or a state that is not TX / TN
+--   unknown = no zip, no city, no state hint (left out of the area percentages)
+-- mkt_lead_quality(): one row per month from Aug 2026 (acq_leads source = 'Meta', month by created_at in America/Chicago,
+--   joined to tom_leads for stage / address / facts.ask / facts.mao, spend from meta_spend_daily).
+--   motivated = contracted_on set, or stage "CONTRACT THIS MONTH" / "O.R. Distressed"
+--   nnw = stage "Numbers Not Workable"; ask_pct_mao = median ask / mao * 100 where both exist (ratio 0.3 to 10)
+-- Full definition lives in the database; see the migration for the exact SQL.
