@@ -12,3 +12,12 @@
 --   motivated = contracted_on set, or stage "CONTRACT THIS MONTH" / "O.R. Distressed"
 --   nnw = stage "Numbers Not Workable"; ask_pct_mao = median ask / mao * 100 where both exist (ratio 0.3 to 10)
 -- Full definition lives in the database; see the migration for the exact SQL.
+
+-- Later the same day (migrations mkt_lead_quality_fn_back_to_march, lq_area_ftw, lq_local_contracts,
+-- lq_area_override_uuid_and_rows):
+--   * months go back to Mar 2026 (Mar-Jul from tom_leads form leads; Mar-May flagged rough)
+--   * the page shows one "Outside our market" line = (rural + other) / leads with a known area
+--   * "Price gap" = 1 - 1 / (median ask / mao): how far our max offer sits below the asking price
+--   * "Local contracts" = signed contracts (acq_leads.contracted_on) whose property is in a metro,
+--     by the month the lead is dated; location = lq_area_override (hand-checked) or lq_area()
+--   * lq_area: 754xx no longer counts as DFW; far towns (Huntsville, Livingston, Freeport, ...) are rural
