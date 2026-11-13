@@ -125,7 +125,7 @@ function lqCalc(r){
     cplLeads:(r.cpl_leads||r.leads||0),cpl:((r.cpl_leads||r.leads)>0&&r.spend!=null)?r.spend/(r.cpl_leads||r.leads):null,rough:!!r.rough,old:r.m<'2026-08',first_day:r.first_day,
     out:pc((r.rural||0)+(r.other_state||0),known),rural:pc(r.rural||0,known),other:pc(r.other_state||0,known),metro:pc(r.metro||0,known),
     nnw:pc(r.nnw||0,r.leads),mot:pc(r.motivated||0,r.leads),
-    ask:(r.pairs>0?r.ask_pct_mao:null),gap:(r.pairs>0&&r.ask_pct_mao>0?(1-100/r.ask_pct_mao)*100:null),pairs:r.pairs||0,loc:(r.contracts_local||0),ctr:(r.contracts||0),ctrUnk:(r.contracts_unknown||0),
+    ask:(r.pairs>0?r.ask_pct_mao:null),gap:(r.pairs>0&&r.ask_pct_mao>0?(1-100/r.ask_pct_mao)*100:null),pairs:r.pairs||0,loc:(r.contracts_local||0),cplc:((r.contracts_local>0&&r.spend!=null)?r.spend/r.contracts_local:null),ctr:(r.contracts||0),ctrUnk:(r.contracts_unknown||0),
     open:pc(r.still_open||0,r.leads),
     n:{out:(r.rural||0)+(r.other_state||0),rural:r.rural||0,other:r.other_state||0,metro:r.metro||0,nnw:r.nnw||0,mot:r.motivated||0,contracts:r.contracts||0},last_day:r.last_day};
 }
@@ -135,7 +135,8 @@ var LQM=[
   {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
   {k:'gap',t:'Price gap: asking vs our offer',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return 'Our max offer is '+Math.round(c.gap)+'% below the middle seller\u2019s asking price \u00b7 '+c.pairs+' leads have both numbers'+(c.pairs<20?' (small sample)':'')}},
   {k:'mot',t:'Motivated leads',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.mot+' of '+c.leads+' leads (Contract This Month, O.R. Distressed, or signed)'}},
-  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are in our market'+(c.ctrUnk?' \u00b7 '+c.ctrUnk+' with no location on file':'')}}
+  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are in our market'+(c.ctrUnk?' \u00b7 '+c.ctrUnk+' with no location on file':'')}},
+  {k:'cplc',t:'Cost per local contract',low:true,rel:5,cnt:true,f:function(v){return '$'+Math.round(v).toLocaleString()},ft:function(v){return '$'+(v/1000).toFixed(1)+'k'},d:function(c){return fmt$(c.spend)+' spent \u00f7 '+c.loc+' local contract'+(c.loc===1?'':'s')}}
 ];
 function lqVerdict(M,cur,prev){
   var a=cur?cur[M.k]:null,b=prev?prev[M.k]:null;
@@ -172,7 +173,7 @@ function lqRender(){
   LQM.forEach(function(M){
     var a=cur[M.k],b=prev?prev[M.k]:null;
     h+='<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)">'
-      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+M.t+'</div><div class="sm mut">'+(a!=null?M.d(cur):'No data this month')+'</div></div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+M.t+'</div><div class="sm mut">'+(a!=null?M.d(cur):(M.k==='cplc'?'No local contract from this month\u2019s leads yet':'No data this month'))+'</div></div>'
       +'<div style="text-align:right;min-width:64px"><div style="font-size:20px;font-weight:800">'+(a!=null?M.f(a):'—')+'</div>'
       +'<div class="sm mut">'+(b!=null?'was '+M.f(b):'')+'</div></div>'
       +'<div>'+lqChip(lqVerdict(M,cur,prev))+'</div></div>';
@@ -187,12 +188,12 @@ function lqRender(){
   if(notes.length)h+='<div class="sm" style="color:var(--amber);border-top:1px solid var(--line);padding-top:8px">'+notes.join(' ')+'</div>';
   h+='</div>';
   // all months side by side
-  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:17%">Month</td><td style="text-align:right;width:11%">Leads</td>'
-    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost/ lead',out:'Out of market',nnw:'Not work- able',gap:'Price gap',mot:'Moti- vated',loc:'Local con- tracts'})[M.k]+'</td>'}).join('')+'</tr>';
+  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:19%">Month</td><td style="text-align:right;width:9%">Leads</td>'
+    +LQM.map(function(M){return '<td style="text-align:right;padding:5px 2px">'+({cpl:'Cost/ lead',out:'Out of market',nnw:'Not work- able',gap:'Price gap',mot:'Moti- vated',loc:'Local con- tracts',cplc:'Cost/ local'})[M.k]+'</td>'}).join('')+'</tr>';
   LQ.rows.forEach(function(r,i){
     var c=lqCalc(r),p=i>0?lqCalc(LQ.rows[i-1]):null;
     h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
-      +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?M.f(v):'—')+'</td>'}).join('')+'</tr>';
+      +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?(M.ft||M.f)(v):'—')+'</td>'}).join('')+'</tr>';
   });
   h+='</table></div><div class="sm mut" style="margin-top:8px">Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
   return h;
