@@ -6,7 +6,7 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
 // seller who picks up is bridged straight in. Voicemails/no-answers never reach the rep.
 (function () {
   var FN = 'https://voitbqpvynbvlibuzxbz.supabase.co/functions/v1/acq-dialer';
-  var client = null, agentCall = null, micStream = null, poll = null, lastLive = null, st = null, vmRec = null, vmSig = null;
+  var client = null, clientAt = 0, agentCall = null, micStream = null, poll = null, lastLive = null, st = null, vmRec = null, vmSig = null;
   var MIC_KEY = 'acq_dialer_mic';
 
   async function call(action, extra) {
@@ -31,7 +31,10 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     catch (err) { if (err && err.name === 'NotAllowedError') throw err; return navigator.mediaDevices.getUserMedia({ audio: base }); }
   }
 
-  async function phone() {
+  // Nov 12: Start sometimes rang a headset that wasn't really connected any more (tab open for hours) -> "headset dropped"
+  // right away. At Start, a connection older than 5 minutes (or one that says it's down) is rebuilt first.
+  async function phone(fresh) {
+    if (client && fresh && !agentCall && (Date.now() - clientAt > 5 * 60000 || client.connected === false)) { var old = client; client = null; try { old.disconnect(); } catch (x) { } }
     if (client) return client;
     var t = await call('token'); if (!t.token) throw new Error(t.error || 'No phone token');
     if (t.wait_ms) await new Promise(function (r) { setTimeout(r, t.wait_ms); });
@@ -47,10 +50,10 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
       }
       if (cl === agentCall && (cl.state === 'hangup' || cl.state === 'destroy')) { agentCall = null; }
     });
-    c.on('telnyx.socket.close', function () { client = null; });
-    c.on('telnyx.error', function () { client = null; });
+    c.on('telnyx.socket.close', function () { if (client === c) client = null; });
+    c.on('telnyx.error', function () { if (client === c) client = null; });
     await new Promise(function (res, rej) { var to = setTimeout(function () { rej(new Error('Phone took too long to connect')); }, 15000); c.on('telnyx.ready', function () { clearTimeout(to); res(); }); c.connect(); });
-    client = c; return c;
+    client = c; clientAt = Date.now(); return c;
   }
   function msg(t) { var m = el('dlr_msg'); if (m) m.textContent = t || ''; }
 
@@ -59,7 +62,7 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     if (starting) return; starting = true; setTimeout(function () { starting = false; }, 8000);
     msg('Connecting your headset…');
     try { micStream = await openMic(); fillMics(); } catch (x) { msg(x && x.name === 'NotAllowedError' ? 'Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.' : 'Could not open the microphone (' + ((x && x.name) || 'error') + '). Pick another mic below and try again.'); return; }
-    try { await phone(); } catch (x) { msg(x.message); return; }
+    try { await phone(true); } catch (x) { msg(x.message); return; }
     var r = await call('start', { lines: 3, test: !!test });
     if (r.error) { msg(r.error); return; }
     msg(r.leads + ' No Reply leads in today\'s list — calling 3 at a time.'); tick(); startPoll();
@@ -70,6 +73,7 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     var sb = a === 'screener' ? el('dlr_scrbtn') : null;
     if (sb) { if (sb.disabled) return; sb.disabled = true; sb.textContent = '⏳ Sending…'; }
     var r = await call(a); if (r.error) msg(r.error);
+    if (a === 'next' && r && r.need_start) { start(); return; } // Nov 12: headset line is gone -> Next Dial reconnects it (same as Start)
     if (sb) {
       sb.textContent = r.error ? '❌ Didn\'t play — tap to retry' : '✅ Playing your line… wait for them';
       sb.style.background = r.error ? '#fde2e2' : '#dcfce7';
@@ -80,7 +84,7 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
   }
   // Oct 22: keep checking every second the whole time (screen missed a hang-up before); never two checks at once
   function startPoll() { if (poll) return; poll = setInterval(function () { if (!busy) tick(); }, 1000); }
-  var busy = false, seq = 0;
+  var busy = false, seq = 0, idleSince = 0;
   document.addEventListener('visibilitychange', function () { if (!document.hidden && el('dlr_root')) tick(); });
   window.addEventListener('focus', function () { if (el('dlr_root')) tick(); });
   function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
@@ -115,22 +119,29 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     if (!el('dlr_root')) v.innerHTML = shell();
     var status = (s && s.status) || 'none';
     // only hear the line while you're actually on a call (no hiss between calls)
-    var au = el('dlr_audio'); if (au) au.muted = status !== 'connected';
+    // Nov 12: also open the sound the moment a line is being connected (the first "Hello?" could be cut off waiting for the screen)
+    var lsA = (s && s.lines) || [];
+    var au = el('dlr_audio'); if (au) au.muted = !(status === 'connected' || lsA.some(function (l) { return l.state === 'bridged' || l.state === 'connecting'; }));
     // Oct 23: Nic wanted to hear that it's calling -> soft US ringback (2s on / 4s off) while lines ring, off the moment someone picks up
     // soft ringing only while lines ring and nobody has picked up (stops the instant someone answers)
     var ls = (s && s.lines) || [];
     var ringing = status === 'ready' && ls.some(function (l) { return l.state === 'dialing'; }) && !ls.some(function (l) { return l.state === 'checking'; });
     ringback(ringing);
     var on = ['starting', 'ready', 'connected', 'wrapup', 'paused', 'redial'].indexOf(status) >= 0;
-    var dropped = status === 'paused' && !!(s && s.stats && s.stats.why === 'rep dropped, paused'); // headset leg dropped: Next does nothing, only Start reconnects
+    var why = (s && (s.why || (s.stats && s.stats.why))) || '';
+    var dropped = status === 'paused' && why === 'rep dropped, paused'; // headset leg dropped: only Start reconnects
+    // Nov 12: "Calling…" with nothing ringing for 6s+ -> show Next Dial so there is always a button that moves it on
+    var anyActive = ls.some(function (l) { return l.state !== 'done' && l.state !== 'dropped'; });
+    if (status === 'ready' && !anyActive) { idleSince = idleSince || Date.now(); } else idleSince = 0;
+    var idle = !!idleSince && Date.now() - idleSince > 6000;
     el('dlr_start').style.display = ((on && !dropped) || !dlrLive()) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on && status !== 'connected' ? '' : 'none'; // one red button at a time
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
-    el('dlr_next').style.display = (status === 'wrapup' || (status === 'paused' && !dropped)) ? '' : 'none';
+    el('dlr_next').style.display = (status === 'wrapup' || (status === 'paused' && !dropped) || idle) ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
     el('dlr_vmbtn').style.display = status === 'connected' ? '' : 'none';
     el('dlr_scrbtn').style.display = status === 'connected' ? '' : 'none';
-    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Calling…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: dropped ? '⏸ Headset dropped — tap Start dialing to reconnect (your place is saved)' : '⏸ Paused', stopped: 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
+    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Calling…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: dropped ? '⏸ Headset dropped — tap Start dialing to reconnect (your place is saved)' : ('⏸ Paused' + (why ? ' — ' + why : '')), stopped: why === 'old session closed' ? 'Ready when you are' : 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
     if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; var onCall = status === 'connected'; live.style.borderColor = onCall ? '#16A34A' : '#9CA3AF'; el('dlr_ltag').style.color = onCall ? '#16A34A' : '#6B7280'; el('dlr_ltag').textContent = onCall ? '🟢 YOU\'RE ON THE PHONE WITH' : '☎️ CALL ENDED — LAST CALL WAS'; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
