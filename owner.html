@@ -100,9 +100,9 @@ async function kvSet(k,v){var r=await db.from('owner_kv').upsert([{key:k,value:J
 function ckSaveWarn(e){var el=document.getElementById('ck_savewarn');if(!el){el=document.createElement('div');el.id='ck_savewarn';el.style.cssText='position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#B91C1C;color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;font-size:13px;z-index:9999;box-shadow:0 6px 24px rgba(0,0,0,.4)';document.body.appendChild(el);}el.innerHTML='\u26a0 Not saved \u2014 your login expired. <a href="#" onclick="logOut();return false" style="color:#fff;text-decoration:underline">Log out</a> and log back in.';}
 var MK={loaded:'',cspend:{}};
 // ---- Lead Quality (Nov 13 2026): month-by-month lead quality inside the Marketing tab. Data = rpc mkt_lead_quality() ----
-var MKVIEW='camp';try{MKVIEW=localStorage.getItem('cp_mk_view')||'camp'}catch(e){}
+var MKVIEW='camp'; // 'camp' = the normal Marketing page, 'lq' = Lead Quality page inside it (always opens on the normal page)
 var LQ={state:'',rows:[],i:-1,err:''};
-function setMkView(v){MKVIEW=v;try{localStorage.setItem('cp_mk_view',v)}catch(e){}render()}
+function setMkView(v){MKVIEW=v;render();try{window.scrollTo(0,0)}catch(e){}}
 async function loadLQ(){
   LQ.state='loading';
   try{
@@ -114,9 +114,8 @@ async function loadLQ(){
 }
 function lqGo(d){var n=LQ.i+d;if(n<0||n>=LQ.rows.length)return;LQ.i=n;render()}
 function lqTabs(){
-  return '<div style="display:flex;gap:6px;margin-bottom:12px">'
-    +'<button class="btn '+(MKVIEW!=='lq'?'g':'mut')+'" style="flex:1" onclick="setMkView(\'camp\')">📣 Campaigns</button>'
-    +'<button class="btn '+(MKVIEW==='lq'?'g':'mut')+'" style="flex:1" onclick="setMkView(\'lq\')">🎯 Lead Quality</button></div>';
+  if(MKVIEW==='lq')return '<button class="btn mut" style="width:100%;margin:0 0 12px;padding:10px" onclick="setMkView(\'camp\')">\u25c0 Back to Marketing</button>';
+  return '<button class="btn g" style="width:100%;margin:0 0 12px;padding:10px" onclick="setMkView(\'lq\')">\ud83c\udfaf Lead Quality \u2014 is it getting better or worse? \u25b6</button>';
 }
 function lqCalc(r){
   if(!r)return null;
