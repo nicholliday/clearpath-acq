@@ -110,6 +110,7 @@ async function loadLQ(){
     if(r.error)throw r.error;
     LQ.adSp={};try{var rs=await db.from('owner_kv').select('key,value').like('key','mkt_adspend_%');(rs.data||[]).forEach(function(row){var o={};try{o=JSON.parse(row.value)||{}}catch(e){}LQ.adSp[row.key.slice(12)]=o})}catch(e){}
     try{var rd=await db.rpc('mkt_lead_quality_ad_deals');LQ.deals=rd.error?[]:(rd.data||[])}catch(e){LQ.deals=[]}
+    LQ.dIdx={};(LQ.deals||[]).forEach(function(d){var k=d.m+'|'+d.ad;(LQ.dIdx[k]=LQ.dIdx[k]||[]).push(d)});
     try{var ra=await db.rpc('mkt_lead_quality_ads');LQ.ads=ra.error?null:lqAdBuild(ra.data||[])}catch(e){LQ.ads=null}
     if(!LQ.geo){try{var g=await fetch('lq_geo.json',{cache:'no-cache'});if(g.ok){LQ.geo=await g.json();var ts={};Object.keys(LQ.geo.t||{}).forEach(function(k){var o={};LQ.geo.t[k].forEach(function(c){o[c]=1});ts[k]=o});LQ.geoT=ts}}catch(e){LQ.geo=null}}
     LQ.rows=r.data||[];LQ.i=LQ.rows.length-1;LQ.err='';LQ.state='ok';
@@ -185,11 +186,12 @@ function lqView(v){LQ.view=v;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdGo(d){var n=(LQ.ai||0)+d;if(!LQ.ads||n<0||n>=LQ.ads.list.length)return;LQ.ai=n;render()}
 function lqAdOpen(i){LQ.ai=i;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdSum(rows){
-  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0,pairs:0,offer_pct_sum:0,cancelled:0,cSell:0,cNo:0};
+  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0,pairs:0,offer_pct_sum:0,cancelled:0,cSell:0,cNo:0,cancSell:0};
   rows.forEach(function(r){
     ['leads','metro','outside','unknown','nnw','motivated','contracts','contracts_local','funded','funded_fee','pairs','offer_pct_sum','cancelled'].forEach(function(k){t[k]+=Number(r[k])||0});
     var z=lqSplit(r.out_keys);t.sell+=z.sell;t.no+=z.no;t.unk+=z.unk;
     var cz=lqSplit(r.contract_out_keys);t.cSell+=cz.sell;t.cNo+=cz.no;
+    ((LQ.dIdx||{})[r.m+'|'+r.ad]||[]).forEach(function(d){if(lqDealKind(d,'deadsell'))t.cancSell++});
     var sp=((LQ.adSp||{})[r.m]||{})[r.ad];if(sp!=null){t.spend+=Number(sp)||0;t.hasSp=1;t.leadsSp+=Number(r.leads)||0}
   });
   t.roas=t.hasSp&&t.spend>0?t.funded_fee/t.spend:null;
@@ -221,12 +223,13 @@ var LQ_STAGE={waiting_photos:'Waiting on photos',listing_with_agent:'Listed with
 function lqDealKind(d,kind){
   if(kind==='funded')return d.stage==='closed'&&Number(d.fee)>0;
   if(kind==='dead')return d.stage==='dead';
+  if(kind==='deadsell')return d.stage==='dead'&&lqDealKind(d,'sell');
   if(kind==='sell')return d.area==='metro'||(d.okey&&lqSize(d.okey)==='sell');
   return true;
 }
 function lqDeals(ix,kind,m){
   var ad=ix>=0&&LQ.ads?LQ.ads.list[ix].ad:null;
-  LQ.pop={title:(ad||'All ads')+(m?' \u00b7 '+fmtMonth(m):'')+' \u2014 '+({funded:'deals funded',dead:'cancelled contracts',sell:'sellable contracts'})[kind],kind:kind,
+  LQ.pop={title:(ad||'All ads')+(m?' \u00b7 '+fmtMonth(m):'')+' \u2014 '+({funded:'deals funded',dead:'cancelled contracts',deadsell:'cancelled sellable contracts',sell:'sellable contracts'})[kind],kind:kind,
     rows:(LQ.deals||[]).filter(function(d){return (ad===null||d.ad===ad)&&(!m||d.m===m)&&lqDealKind(d,kind)})};
   render();
 }
@@ -302,10 +305,10 @@ function lqAdRender(){
   var td=function(x,col,left,extra){return '<td style="text-align:'+(left?'left':'right')+';padding:6px 3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(col?'color:'+col+';':'')+(extra||'')+'">'+x+'</td>'};
   var roasCol=function(c){return c.roas==null?'':c.roas>=10?'var(--green)':(c.spend>=1000&&c.roas<1)?'var(--red)':''};
   var tbl='<table style="width:100%;table-layout:fixed;border-collapse:collapse">';
-  var heads=function(first,w){return th(first,w,1)+th('ROAS')+th('Funded')+th('Deals funded')+th('Cost per lead')+th('Leads')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Our offer ÷ asking')+th('Motivated')+th('Sellable contracts')+th('Cancelled contracts')};
+  var heads=function(first,w){return th(first,w,1)+th('ROAS')+th('Funded')+th('Deals funded')+th('Cost per lead')+th('Leads')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Our offer ÷ asking')+th('Motivated')+th('Sellable contracts')+th('Cancelled sellable contracts')};
   var link=function(n,ix,kind,m,col){if(!n)return td(n||'\u2014',col);return '<td onclick="event.stopPropagation();lqDeals('+ix+',\''+kind+'\',\''+(m||'')+'\')" style="text-align:right;padding:6px 3px;font-size:12px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:3px;'+(col?'color:'+col+';':'')+'">'+n+'</td>'};
   var cells=function(c,ix,m){return td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')+td(c.funded?lqK(c.funded_fee):'\u2014')+link(c.funded,ix,'funded',m)+td(lqCpl(c.cpl))+td(c.leads)
-      +td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.offer))+td(lqPct(c.pMot))+link(c.sellC,ix,'sell',m)+link(c.cancelled,ix,'dead',m,'var(--red)')};
+      +td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.offer))+td(lqPct(c.pMot))+link(c.sellC,ix,'sell',m)+link(c.cancSell,ix,'deadsell',m,'var(--red)')};
   h+='<div class="card"><h2>📅 This ad, month by month</h2>'+tbl+'<tr>'+heads('Month','9%')+'</tr>';
   A.rows.forEach(function(r){var c=lqAdSum([r]);h+='<tr>'+td(fmtMonth(r.m),'',1)+cells(c,i,r.m)+'</tr>'});
   h+='</table></div>';
@@ -326,7 +329,7 @@ function lqAdRender(){
   h+=row('','<b>All ads</b>',all,false,'',-1);
   h+='</table>';
   if(quiet.length)h+='<div class="sm mut" style="padding:10px 0 0">Spent money but no leads on file yet: '+quiet.map(function(a){return esc(a.ad)+' ('+fmt$(Math.round(a.t.spend))+')'}).join(', ')+'</div>';
-  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by sellable contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. OUR OFFER \u00f7 ASKING = our sell-at price as a % of what the seller asked, averaged over leads with both numbers. SELLABLE CONTRACTS = signed contracts in our market or near a city of 100,000+. CANCELLED = contracts marked dead in the Dispo app. Tap an underlined number to see those deals, their stage, and why a cancelled one died.</div></div>';
+  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by sellable contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. OUR OFFER \u00f7 ASKING = our sell-at price as a % of what the seller asked, averaged over leads with both numbers. SELLABLE CONTRACTS = signed contracts in our market or near a city of 100,000+. CANCELLED SELLABLE = sellable contracts (our market or sellable elsewhere) marked dead in the Dispo app. Tap an underlined number to see those deals, their stage, and why a cancelled one died.</div></div>';
   return h;
 }
 function lqRender(){
