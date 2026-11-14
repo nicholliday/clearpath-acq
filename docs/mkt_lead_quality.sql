@@ -39,3 +39,6 @@
 -- Nov 14 2026: by-ad view goes back to Mar 2026. Edge function lq-ad-backfill (GET-only, GHL_READONLY_TOKEN) read the
 -- ad Spark saved on each contact into lq_lead_ad; lq_deal_contact maps Meta contracts (dispo_deals) to their Spark contact;
 -- lq_deal_fee holds bank figures for funded deals from pre-Aug leads. Re-run: POST {k:<ghl_ro_cache lq_backfill_key>} (and mode:"deals").
+
+-- Nov 14 2026: cost per lead by ad. meta-sync (v26) also saves Meta spend per ad name per month in owner_kv 'mkt_adspend_<YYYY-MM>'
+-- (Mar-Nov backfilled; ad total $60,211 = master_monthly total). The page divides it by leads on file with that ad name.
