@@ -184,13 +184,16 @@ function lqView(v){LQ.view=v;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdGo(d){var n=(LQ.ai||0)+d;if(!LQ.ads||n<0||n>=LQ.ads.list.length)return;LQ.ai=n;render()}
 function lqAdOpen(i){LQ.ai=i;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdSum(rows){
-  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0};
+  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0,pairs:0,offer_pct_sum:0,cancelled:0,cSell:0,cNo:0};
   rows.forEach(function(r){
-    ['leads','metro','outside','unknown','nnw','motivated','contracts','contracts_local','funded','funded_fee'].forEach(function(k){t[k]+=Number(r[k])||0});
+    ['leads','metro','outside','unknown','nnw','motivated','contracts','contracts_local','funded','funded_fee','pairs','offer_pct_sum','cancelled'].forEach(function(k){t[k]+=Number(r[k])||0});
     var z=lqSplit(r.out_keys);t.sell+=z.sell;t.no+=z.no;t.unk+=z.unk;
+    var cz=lqSplit(r.contract_out_keys);t.cSell+=cz.sell;t.cNo+=cz.no;
     var sp=((LQ.adSp||{})[r.m]||{})[r.ad];if(sp!=null){t.spend+=Number(sp)||0;t.hasSp=1;t.leadsSp+=Number(r.leads)||0}
   });
   t.roas=t.hasSp&&t.spend>0?t.funded_fee/t.spend:null;
+  t.offer=t.pairs>0?t.offer_pct_sum/t.pairs:null; // our offer as % of the seller's asking price, average
+  t.sellC=t.contracts_local+t.cSell; // contracts in our market or near a city of 100,000+
   t.cpl=t.hasSp&&t.leadsSp>0&&t.spend>0?t.spend/t.leadsSp:null; // only months where Meta shows spend under this ad name
   t.known=t.metro+t.outside;
   var pc=function(a,b){return b>0?a/b*100:null};
@@ -199,7 +202,7 @@ function lqAdSum(rows){
 }
 function lqAdBuild(rows){
   var seen={};rows.forEach(function(r){seen[r.m+'|'+r.ad]=1});
-  Object.keys(LQ.adSp||{}).forEach(function(m){var o=LQ.adSp[m];Object.keys(o).forEach(function(ad){if(!seen[m+'|'+ad]&&Number(o[ad])>0)rows.push({m:m,ad:ad,camp:'',leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,out_keys:{}})})});
+  Object.keys(LQ.adSp||{}).forEach(function(m){var o=LQ.adSp[m];Object.keys(o).forEach(function(ad){if(!seen[m+'|'+ad]&&Number(o[ad])>0)rows.push({m:m,ad:ad,camp:'',leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,pairs:0,offer_pct_sum:0,cancelled:0,out_keys:{},contract_out_keys:{}})})});
   var by={};rows.forEach(function(r){(by[r.ad]=by[r.ad]||[]).push(r)});
   var list=Object.keys(by).map(function(ad){
     var rs=by[ad].slice().sort(function(a,b){return a.m<b.m?-1:1});
@@ -227,7 +230,7 @@ function lqAdRender(){
       var x=a.t,y=b.t;
       if(a.g===2)return y.leads-x.leads;
       var r=(y.roas||0)-(x.roas||0);if(Math.abs(r)>0.001)return r;
-      var l=(y.contracts_local/y.spend)-(x.contracts_local/x.spend);if(Math.abs(l)>1e-9)return l;
+      var l=(y.sellC/y.spend)-(x.sellC/x.spend);if(Math.abs(l)>1e-9)return l;
       var c=(y.contracts/y.spend)-(x.contracts/x.spend);if(Math.abs(c)>1e-9)return c;
       return (x.cpl==null?1e9:x.cpl)-(y.cpl==null?1e9:y.cpl);
     });
@@ -264,31 +267,30 @@ function lqAdRender(){
   var td=function(x,col,left,extra){return '<td style="text-align:'+(left?'left':'right')+';padding:6px 3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(col?'color:'+col+';':'')+(extra||'')+'">'+x+'</td>'};
   var roasCol=function(c){return c.roas==null?'':c.roas>=10?'var(--green)':(c.spend>=1000&&c.roas<1)?'var(--red)':''};
   var tbl='<table style="width:100%;table-layout:fixed;border-collapse:collapse">';
-  h+='<div class="card"><h2>📅 This ad, month by month</h2>'+tbl+'<tr>'
-    +th('Month','14%',1)+th('Leads')+th('Cost per lead')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Numbers not workable')+th('Motivated')+th('Local contracts')+'</tr>';
-  A.rows.forEach(function(r){var c=lqAdSum([r]);
-    h+='<tr>'+td(fmtMonth(r.m),'',1)+td(c.leads)+td(lqCpl(c.cpl))+td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.pNnw))+td(lqPct(c.pMot))+td(c.contracts_local)+'</tr>';
-  });
+  var heads=function(first,w){return th(first,w,1)+th('ROAS')+th('Funded')+th('Deals funded')+th('Cost per lead')+th('Leads')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Our offer ÷ asking')+th('Motivated')+th('Sellable contracts')+th('Cancelled contracts')};
+  var cells=function(c){return td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')+td(c.funded?lqK(c.funded_fee):'—')+td(c.funded||'—')+td(lqCpl(c.cpl))+td(c.leads)
+      +td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.offer))+td(lqPct(c.pMot))+td(c.sellC)+td(c.cancelled,c.cancelled?'var(--red)':'')};
+  h+='<div class="card"><h2>📅 This ad, month by month</h2>'+tbl+'<tr>'+heads('Month','9%')+'</tr>';
+  A.rows.forEach(function(r){var c=lqAdSum([r]);h+='<tr>'+td(fmtMonth(r.m),'',1)+cells(c)+'</tr>'});
   h+='</table></div>';
   h+='<div class="card"><h2>📣 All ads</h2>'+tbl+'<tr>'
-    +th('#','22px',1)+th('Ad','22%',1)+th('Leads')+th('Cost per lead')+th('Funded')+th('ROAS')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Motivated')+th('Local contracts')+'</tr>';
+    +th('#','22px',1)+heads('Ad','15%')+'</tr>';
   var gname=['💰 Ranked: best ROAS first','⏳ Too new to judge (under $1,000 spent)','❓ No Meta spend found under this name'],lastG=-1,rk=0,quiet=[];
   var row=function(num,name,c,on,click){
     return '<tr'+(click?' onclick="'+click+'"':'')+' style="'+(click?'cursor:pointer;':'')+(on?'background:var(--card2);font-weight:800;':'')+'">'
       +td(num,'var(--mut)',1)+'<td style="text-align:left;padding:6px 3px;font-size:12px;line-height:1.2;white-space:normal;overflow-wrap:break-word">'+name+'</td>'
-      +td(c.leads)+td(lqCpl(c.cpl))+td(c.funded?lqK(c.funded_fee):'—')+td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')
-      +td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.pMot))+td(c.contracts_local)+'</tr>';
+      +cells(c)+'</tr>';
   };
   L.forEach(function(a,ix){var c=a.t,on=ix===i;
     if(a.g===0)rk++;
     if(!c.leads){quiet.push(a);return}
-    if(a.g!==lastG){lastG=a.g;h+='<tr><td colspan="11" style="text-align:left;padding:12px 3px 4px;font-size:12px;font-weight:800;color:var(--gold);white-space:normal">'+gname[a.g]+'</td></tr>'}
+    if(a.g!==lastG){lastG=a.g;h+='<tr><td colspan="14" style="text-align:left;padding:12px 3px 4px;font-size:12px;font-weight:800;color:var(--gold);white-space:normal">'+gname[a.g]+'</td></tr>'}
     h+=row(a.g===0?rk:'',esc(a.ad).replace(/_/g,'_​'),c,on,'lqAdOpen('+ix+')');
   });
   h+=row('','<b>All ads</b>',all,false,'');
   h+='</table>';
   if(quiet.length)h+='<div class="sm mut" style="padding:10px 0 0">Spent money but no leads on file yet: '+quiet.map(function(a){return esc(a.ad)+' ('+fmt$(Math.round(a.t.spend))+')'}).join(', ')+'</div>';
-  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by local contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures.</div></div>';
+  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by sellable contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. OUR OFFER \u00f7 ASKING = our sell-at price as a % of what the seller asked, averaged over leads with both numbers. SELLABLE CONTRACTS = signed contracts in our market or near a city of 100,000+. CANCELLED = contracts marked dead in the Dispo app.</div></div>';
   return h;
 }
 function lqRender(){
