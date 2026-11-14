@@ -233,19 +233,19 @@ function lqAdRender(){
   h+='<div class="sm mut" style="margin-top:8px">Green or red = 5 points or more better or worse than all ads together. Cost per lead is not shown here because spend is saved by campaign, not by ad.</div></div>';
   var td='<td style="text-align:right;padding:6px 2px 6px 10px">';
   h+='<div class="card"><h2>\ud83d\udcc5 This ad, month by month</h2><div style="overflow-x:auto"><table style="width:100%;min-width:560px;border-collapse:collapse"><tr class="mut">'
-    +['Month','Leads','In our market','Middle of nowhere','Numbers not workable','Motivated','Local contracts'].map(function(x,ix){return '<td style="'+(ix?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
+    +['Month','Leads','In our market','Sellable elsewhere','Middle of nowhere','Numbers not workable','Motivated','Local contracts'].map(function(x,ix){return '<td style="'+(ix?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
   A.rows.forEach(function(r){var c=lqAdSum([r]);
-    h+='<tr><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(r.m)+'</td>'+td+c.leads+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pNnw)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td></tr>';
+    h+='<tr><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(r.m)+'</td>'+td+c.leads+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pSell)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pNnw)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td></tr>';
   });
   h+='</table></div></div>';
-  h+='<div class="card"><h2>\ud83d\udce3 All ads</h2><div style="overflow-x:auto"><table style="width:100%;min-width:620px;border-collapse:collapse"><tr class="mut">'
-    +['Ad','Leads','In our market','Middle of nowhere','Motivated','Local contracts','Funded'].map(function(x,ix){return '<td style="'+(ix?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
+  h+='<div class="card"><h2>\ud83d\udce3 All ads</h2><div style="overflow-x:auto"><table style="width:100%;min-width:700px;border-collapse:collapse"><tr class="mut">'
+    +['Ad','Leads','In our market','Sellable elsewhere','Middle of nowhere','Motivated','Local contracts','Funded'].map(function(x,ix){return '<td style="'+(ix?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
   L.forEach(function(a,ix){var c=a.t,on=ix===i;
     h+='<tr onclick="lqAdOpen('+ix+')" style="cursor:pointer'+(on?';background:var(--card2);font-weight:800':'')+'"><td style="padding:6px 2px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.ad)+'</td>'
-      +td+c.leads+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td>'+td+(c.funded?fmt$(Math.round(c.funded_fee)):'\u2014')+'</td></tr>';
+      +td+c.leads+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pSell)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td>'+td+(c.funded?fmt$(Math.round(c.funded_fee)):'\u2014')+'</td></tr>';
   });
-  h+='<tr style="font-weight:800"><td style="padding:6px 2px">All ads</td>'+td+all.leads+'</td>'+td+lqPct(all.pMkt)+'</td>'+td+lqPct(all.pNo)+'</td>'+td+lqPct(all.pMot)+'</td>'+td+all.contracts_local+'</td>'+td+fmt$(Math.round(all.funded_fee))+'</td></tr>';
-  h+='</table></div><div class="sm mut" style="margin-top:8px">All Meta leads since Aug 2026, when ad names started being saved. Biggest ads first. Tap an ad to open it. Each lead counts under the ad it came from.</div></div>';
+  h+='<tr style="font-weight:800"><td style="padding:6px 2px">All ads</td>'+td+all.leads+'</td>'+td+lqPct(all.pMkt)+'</td>'+td+lqPct(all.pSell)+'</td>'+td+lqPct(all.pNo)+'</td>'+td+lqPct(all.pMot)+'</td>'+td+all.contracts_local+'</td>'+td+fmt$(Math.round(all.funded_fee))+'</td></tr>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">All Meta leads since Aug 2026, when ad names started being saved. Biggest ads first. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded only counts deals from leads that came in Aug 2026 or later; deals from earlier leads (before ad names were saved) are not in this view.</div></div>';
   return h;
 }
 function lqRender(){
