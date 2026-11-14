@@ -217,12 +217,27 @@ function lqAdRender(){
   if(!LQ.ads||!LQ.ads.list.length)return back+'<div class="card sm mut">No ad names on file yet.</div>';
   var L=LQ.ads.list;
   L.forEach(function(a){a.t=lqAdSum(a.rows)});
-  if(!LQ.adSorted){L.sort(function(a,b){return b.t.leads-a.t.leads});LQ.adSorted=1;LQ.ai=0}
+  if(!LQ.adSorted){
+    // Rank (Nov 14, Nic: "ordered from what i should double down on to the worst performer"):
+    // 1) ads with $1,000+ Meta spend, by ROAS; ties (usually 0x) by local contracts per $1,000, then all contracts per $1,000, then cheaper leads
+    // 2) ads under $1,000 spent = too new to judge, same order   3) no Meta spend found, by leads
+    L.forEach(function(a){var t=a.t;a.g=(!t.hasSp||t.spend<=0)?2:(t.spend<1000?1:0)});
+    L.sort(function(a,b){
+      if(a.g!==b.g)return a.g-b.g;
+      var x=a.t,y=b.t;
+      if(a.g===2)return y.leads-x.leads;
+      var r=(y.roas||0)-(x.roas||0);if(Math.abs(r)>0.001)return r;
+      var l=(y.contracts_local/y.spend)-(x.contracts_local/x.spend);if(Math.abs(l)>1e-9)return l;
+      var c=(y.contracts/y.spend)-(x.contracts/x.spend);if(Math.abs(c)>1e-9)return c;
+      return (x.cpl==null?1e9:x.cpl)-(y.cpl==null?1e9:y.cpl);
+    });
+    LQ.adSorted=1;LQ.ai=0;
+  }
   var all=lqAdSum(LQ.ads.all),A=L[LQ.ai||0],t=A.t,i=LQ.ai||0;
   var h=back+'<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(i<=0?' disabled':'')+' onclick="lqAdGo(-1)">\u25c0</button>'
     +'<div style="flex:1;text-align:center;min-width:0"><div style="font-size:16px;font-weight:800;word-break:break-word">'+esc(A.ad)+'</div>'
-    +'<div class="sm mut">Ad '+(i+1)+' of '+L.length+' \u00b7 '+t.leads+' leads since Mar 2026'+(A.camp?' \u00b7 '+esc(A.camp.length>48?A.camp.slice(0,46)+'\u2026':A.camp):'')+'</div></div>'
+    +'<div class="sm mut">'+(A.g===0?'Rank '+(i+1)+' of '+L.filter(function(x){return x.g===0}).length:A.g===1?'Too new to judge (under $1,000 spent)':'No Meta spend found')+' \u00b7 '+t.leads+' leads since Mar 2026'+(A.camp?' \u00b7 '+esc(A.camp.length>48?A.camp.slice(0,46)+'\u2026':A.camp):'')+'</div></div>'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(i>=L.length-1?' disabled':'')+' onclick="lqAdGo(1)">\u25b6</button></div>';
   if(t.known<10)h+='<div class="sm" style="color:var(--amber);text-align:center;margin-bottom:8px">Small sample: only '+t.known+' leads with a known area. Read this ad as a rough guide.</div>';
   var line=function(title,det,val,cmp,good){
@@ -251,13 +266,16 @@ function lqAdRender(){
   });
   h+='</table></div></div>';
   h+='<div class="card"><h2>\ud83d\udce3 All ads</h2><div style="overflow-x:auto"><table style="width:100%;min-width:900px;border-collapse:collapse"><tr class="mut">'
-    +['Ad','Leads','Cost per lead','Funded','ROAS','In our market','Sellable elsewhere','Middle of nowhere','Motivated','Local contracts'].map(function(x,ix){return '<td style="'+(ix?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
+    +['#','Ad','Leads','Cost per lead','Funded','ROAS','In our market','Sellable elsewhere','Middle of nowhere','Motivated','Local contracts'].map(function(x,ix){return '<td style="'+(ix>1?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix>1?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
+  var gname=['\ud83d\udcb0 Ranked: best ROAS first','\u23f3 Too new to judge (under $1,000 spent)','\u2753 No Meta spend found under this name'],lastG=-1,rk=0;
   L.forEach(function(a,ix){var c=a.t,on=ix===i;
-    h+='<tr onclick="lqAdOpen('+ix+')" style="cursor:pointer'+(on?';background:var(--card2);font-weight:800':'')+'"><td style="padding:6px 2px;width:120px;max-width:120px;font-size:13px;line-height:1.25;overflow-wrap:break-word">'+esc(a.ad).replace(/_/g,'_\u200b')+'</td>'
+    if(a.g!==lastG){lastG=a.g;h+='<tr><td colspan="11" style="padding:12px 2px 4px;font-size:12px;font-weight:800;color:var(--gold)">'+gname[a.g]+'</td></tr>'}
+    if(a.g===0)rk++;
+    h+='<tr onclick="lqAdOpen('+ix+')" style="cursor:pointer'+(on?';background:var(--card2);font-weight:800':'')+'"><td style="padding:6px 4px 6px 2px;color:var(--mut);font-size:12px">'+(a.g===0?rk:'')+'</td><td style="padding:6px 2px;width:120px;max-width:120px;font-size:13px;line-height:1.25;overflow-wrap:break-word">'+esc(a.ad).replace(/_/g,'_\u200b')+'</td>'
       +td+c.leads+'</td>'+td+lqCpl(c.cpl)+'</td>'+td+(c.funded?lqK(c.funded_fee):'\u2014')+'</td>'+td+lqRoas(c.roas)+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pSell)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td></tr>';
   });
-  h+='<tr style="font-weight:800"><td style="padding:6px 2px">All ads</td>'+td+all.leads+'</td>'+td+lqCpl(all.cpl)+'</td>'+td+lqK(all.funded_fee)+'</td>'+td+lqRoas(all.roas)+'</td>'+td+lqPct(all.pMkt)+'</td>'+td+lqPct(all.pSell)+'</td>'+td+lqPct(all.pNo)+'</td>'+td+lqPct(all.pMot)+'</td>'+td+all.contracts_local+'</td></tr>';
-  h+='</table></div><div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). Biggest ads first. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures.</div></div>';
+  h+='<tr style="font-weight:800"><td></td><td style="padding:6px 2px">All ads</td>'+td+all.leads+'</td>'+td+lqCpl(all.cpl)+'</td>'+td+lqK(all.funded_fee)+'</td>'+td+lqRoas(all.roas)+'</td>'+td+lqPct(all.pMkt)+'</td>'+td+lqPct(all.pSell)+'</td>'+td+lqPct(all.pNo)+'</td>'+td+lqPct(all.pMot)+'</td>'+td+all.contracts_local+'</td></tr>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by local contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures.</div></div>';
   return h;
 }
 function lqRender(){
