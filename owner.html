@@ -109,6 +109,7 @@ async function loadLQ(){
     var r=await db.rpc('mkt_lead_quality');
     if(r.error)throw r.error;
     LQ.adSp={};try{var rs=await db.from('owner_kv').select('key,value').like('key','mkt_adspend_%');(rs.data||[]).forEach(function(row){var o={};try{o=JSON.parse(row.value)||{}}catch(e){}LQ.adSp[row.key.slice(12)]=o})}catch(e){}
+    try{var rd=await db.rpc('mkt_lead_quality_ad_deals');LQ.deals=rd.error?[]:(rd.data||[])}catch(e){LQ.deals=[]}
     try{var ra=await db.rpc('mkt_lead_quality_ads');LQ.ads=ra.error?null:lqAdBuild(ra.data||[])}catch(e){LQ.ads=null}
     if(!LQ.geo){try{var g=await fetch('lq_geo.json',{cache:'no-cache'});if(g.ok){LQ.geo=await g.json();var ts={};Object.keys(LQ.geo.t||{}).forEach(function(k){var o={};LQ.geo.t[k].forEach(function(c){o[c]=1});ts[k]=o});LQ.geoT=ts}}catch(e){LQ.geo=null}}
     LQ.rows=r.data||[];LQ.i=LQ.rows.length-1;LQ.err='';LQ.state='ok';
@@ -215,8 +216,42 @@ function lqCpl(v){return v==null?'\u2014':'$'+Math.round(v)}
 function lqK(v){v=Math.round(Number(v)||0);return v?(v>=1000?'$'+(Math.round(v/100)/10)+'k':'$'+v):'\u2014'}
 function lqRoas(v){return v==null?'\u2014':(v>=10?Math.round(v):Math.round(v*10)/10)+'x'}
 function lqPct(v){return v==null?'\u2014':Math.round(v)+'%'}
+// ---- click-through deal list (Nov 14, Nic: "click onto them ... which deal and why it cancelled ... if its live what stage its at") ----
+var LQ_STAGE={waiting_photos:'Waiting on photos',listing_with_agent:'Listed with agent',live:'Live \u2014 sending to buyers',emd_in:'EMD in',assigned:'Assigned to buyer',closed:'Closed',dead:'Cancelled'};
+function lqDealKind(d,kind){
+  if(kind==='funded')return d.stage==='closed'&&Number(d.fee)>0;
+  if(kind==='dead')return d.stage==='dead';
+  if(kind==='sell')return d.area==='metro'||(d.okey&&lqSize(d.okey)==='sell');
+  return true;
+}
+function lqDeals(ix,kind,m){
+  var ad=ix>=0&&LQ.ads?LQ.ads.list[ix].ad:null;
+  LQ.pop={title:(ad||'All ads')+(m?' \u00b7 '+fmtMonth(m):'')+' \u2014 '+({funded:'deals funded',dead:'cancelled contracts',sell:'sellable contracts'})[kind],kind:kind,
+    rows:(LQ.deals||[]).filter(function(d){return (ad===null||d.ad===ad)&&(!m||d.m===m)&&lqDealKind(d,kind)})};
+  render();
+}
+function lqPopClose(){LQ.pop=null;render()}
+function lqPopRender(){
+  var P=LQ.pop;if(!P)return '';
+  var h='<div onclick="lqPopClose()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:90;display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto">'
+    +'<div onclick="event.stopPropagation()" class="card" style="max-width:720px;width:100%;margin:0">'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;font-weight:800;font-size:16px">'+esc(P.title)+'</div><button class="btn mut" style="padding:6px 12px" onclick="lqPopClose()">\u2715 Close</button></div>';
+  if(!P.rows.length)h+='<div class="sm mut">None.</div>';
+  P.rows.forEach(function(d){
+    var st=LQ_STAGE[d.stage]||d.stage||'\u2014',col=d.stage==='dead'?'var(--red)':d.stage==='closed'?'var(--green)':'var(--gold)';
+    var z=d.okey?lqSize(d.okey):'';
+    var where=d.area==='metro'?'In our market':d.okey?(z==='sell'?'Sellable elsewhere':z==='no'?'Middle of nowhere':'Outside our market'):'Area unknown';
+    h+='<div style="padding:10px 0;border-top:1px solid var(--line)">'
+      +'<div style="display:flex;gap:8px;align-items:baseline"><div style="flex:1;font-weight:700">'+esc(d.seller||'(no name)')+'</div><div style="font-weight:800;color:'+col+'">'+esc(st)+'</div></div>'
+      +'<div class="sm mut">'+esc(d.place||'')+(d.place?' \u00b7 ':'')+where+' \u00b7 signed '+esc(d.contract_date||'?')+(d.stage==='closed'&&Number(d.fee)>0?' \u00b7 <b style="color:var(--green)">'+fmt$(Math.round(d.fee))+' funded</b>':'')+'</div>';
+    if(d.stage==='dead')h+='<div style="margin-top:4px;font-size:13px"><b>Why:</b> '+esc(d.reason||'No reason saved')+(d.dead_at?' <span class="sm mut">('+esc(d.dead_at)+')</span>':'')+(Number(d.lost_fee)>0?' <span class="sm mut">\u00b7 lost fee '+fmt$(Math.round(d.lost_fee))+'</span>':'')+'</div>'
+      +(d.notes?'<div class="sm mut" style="margin-top:2px">'+esc(d.notes)+'</div>':'');
+    h+='</div>';
+  });
+  return h+'</div></div>';
+}
 function lqAdRender(){
-  var back='<button class="btn mut" style="width:100%;margin:0 0 12px;padding:10px" onclick="lqView(\'\')">\u25c0 Back to month by month</button>';
+  var back=lqPopRender()+'<button class="btn mut" style="width:100%;margin:0 0 12px;padding:10px" onclick="lqView(\'\')">\u25c0 Back to month by month</button>';
   if(!LQ.ads||!LQ.ads.list.length)return back+'<div class="card sm mut">No ad names on file yet.</div>';
   var L=LQ.ads.list;
   L.forEach(function(a){a.t=lqAdSum(a.rows)});
@@ -268,29 +303,30 @@ function lqAdRender(){
   var roasCol=function(c){return c.roas==null?'':c.roas>=10?'var(--green)':(c.spend>=1000&&c.roas<1)?'var(--red)':''};
   var tbl='<table style="width:100%;table-layout:fixed;border-collapse:collapse">';
   var heads=function(first,w){return th(first,w,1)+th('ROAS')+th('Funded')+th('Deals funded')+th('Cost per lead')+th('Leads')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Our offer ÷ asking')+th('Motivated')+th('Sellable contracts')+th('Cancelled contracts')};
-  var cells=function(c){return td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')+td(c.funded?lqK(c.funded_fee):'—')+td(c.funded||'—')+td(lqCpl(c.cpl))+td(c.leads)
-      +td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.offer))+td(lqPct(c.pMot))+td(c.sellC)+td(c.cancelled,c.cancelled?'var(--red)':'')};
+  var link=function(n,ix,kind,m,col){if(!n)return td(n||'\u2014',col);return '<td onclick="event.stopPropagation();lqDeals('+ix+',\''+kind+'\',\''+(m||'')+'\')" style="text-align:right;padding:6px 3px;font-size:12px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:3px;'+(col?'color:'+col+';':'')+'">'+n+'</td>'};
+  var cells=function(c,ix,m){return td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')+td(c.funded?lqK(c.funded_fee):'\u2014')+link(c.funded,ix,'funded',m)+td(lqCpl(c.cpl))+td(c.leads)
+      +td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.offer))+td(lqPct(c.pMot))+link(c.sellC,ix,'sell',m)+link(c.cancelled,ix,'dead',m,'var(--red)')};
   h+='<div class="card"><h2>📅 This ad, month by month</h2>'+tbl+'<tr>'+heads('Month','9%')+'</tr>';
-  A.rows.forEach(function(r){var c=lqAdSum([r]);h+='<tr>'+td(fmtMonth(r.m),'',1)+cells(c)+'</tr>'});
+  A.rows.forEach(function(r){var c=lqAdSum([r]);h+='<tr>'+td(fmtMonth(r.m),'',1)+cells(c,i,r.m)+'</tr>'});
   h+='</table></div>';
   h+='<div class="card"><h2>📣 All ads</h2>'+tbl+'<tr>'
     +th('#','22px',1)+heads('Ad','15%')+'</tr>';
   var gname=['💰 Ranked: best ROAS first','⏳ Too new to judge (under $1,000 spent)','❓ No Meta spend found under this name'],lastG=-1,rk=0,quiet=[];
-  var row=function(num,name,c,on,click){
+  var row=function(num,name,c,on,click,ix){
     return '<tr'+(click?' onclick="'+click+'"':'')+' style="'+(click?'cursor:pointer;':'')+(on?'background:var(--card2);font-weight:800;':'')+'">'
       +td(num,'var(--mut)',1)+'<td style="text-align:left;padding:6px 3px;font-size:12px;line-height:1.2;white-space:normal;overflow-wrap:break-word">'+name+'</td>'
-      +cells(c)+'</tr>';
+      +cells(c,ix,'')+'</tr>';
   };
   L.forEach(function(a,ix){var c=a.t,on=ix===i;
     if(a.g===0)rk++;
     if(!c.leads){quiet.push(a);return}
     if(a.g!==lastG){lastG=a.g;h+='<tr><td colspan="14" style="text-align:left;padding:12px 3px 4px;font-size:12px;font-weight:800;color:var(--gold);white-space:normal">'+gname[a.g]+'</td></tr>'}
-    h+=row(a.g===0?rk:'',esc(a.ad).replace(/_/g,'_​'),c,on,'lqAdOpen('+ix+')');
+    h+=row(a.g===0?rk:'',esc(a.ad).replace(/_/g,'_​'),c,on,'lqAdOpen('+ix+')',ix);
   });
-  h+=row('','<b>All ads</b>',all,false,'');
+  h+=row('','<b>All ads</b>',all,false,'',-1);
   h+='</table>';
   if(quiet.length)h+='<div class="sm mut" style="padding:10px 0 0">Spent money but no leads on file yet: '+quiet.map(function(a){return esc(a.ad)+' ('+fmt$(Math.round(a.t.spend))+')'}).join(', ')+'</div>';
-  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by sellable contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. OUR OFFER \u00f7 ASKING = our sell-at price as a % of what the seller asked, averaged over leads with both numbers. SELLABLE CONTRACTS = signed contracts in our market or near a city of 100,000+. CANCELLED = contracts marked dead in the Dispo app.</div></div>';
+  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by sellable contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. OUR OFFER \u00f7 ASKING = our sell-at price as a % of what the seller asked, averaged over leads with both numbers. SELLABLE CONTRACTS = signed contracts in our market or near a city of 100,000+. CANCELLED = contracts marked dead in the Dispo app. Tap an underlined number to see those deals, their stage, and why a cancelled one died.</div></div>';
   return h;
 }
 function lqRender(){
