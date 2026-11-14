@@ -108,6 +108,7 @@ async function loadLQ(){
   try{
     var r=await db.rpc('mkt_lead_quality');
     if(r.error)throw r.error;
+    if(!LQ.geo){try{var g=await fetch('lq_geo.json',{cache:'no-cache'});if(g.ok){LQ.geo=await g.json();var ts={};Object.keys(LQ.geo.t||{}).forEach(function(k){var o={};LQ.geo.t[k].forEach(function(c){o[c]=1});ts[k]=o});LQ.geoT=ts}}catch(e){LQ.geo=null}}
     LQ.rows=r.data||[];LQ.i=LQ.rows.length-1;LQ.err='';LQ.state='ok';
   }catch(e){LQ.err=(e&&e.message)||'Could not load';LQ.state='err'}
   render();
@@ -117,13 +118,35 @@ function lqTabs(){
   if(MKVIEW==='lq')return '<button class="btn mut" style="width:100%;margin:0 0 12px;padding:10px" onclick="setMkView(\'camp\')">\u25c0 Back to Marketing</button>';
   return '<button class="btn g" style="width:100%;margin:0 0 12px;padding:10px" onclick="setMkView(\'lq\')">\ud83c\udfaf Lead Quality \u2014 is it getting better or worse? \u25b6</button>';
 }
+var LQ_ST={alabama:'AL',alaska:'AK',arizona:'AZ',arkansas:'AR',california:'CA',colorado:'CO',connecticut:'CT',delaware:'DE',florida:'FL',georgia:'GA',hawaii:'HI',idaho:'ID',illinois:'IL',indiana:'IN',iowa:'IA',kansas:'KS',kentucky:'KY',louisiana:'LA',maine:'ME',maryland:'MD',massachusetts:'MA',michigan:'MI',minnesota:'MN',mississippi:'MS',missouri:'MO',montana:'MT',nebraska:'NE',nevada:'NV',ohio:'OH',oklahoma:'OK',oregon:'OR',pennsylvania:'PA',tennessee:'TN',tenn:'TN',texas:'TX',utah:'UT',vermont:'VT',virginia:'VA',washington:'WA',wisconsin:'WI',wyoming:'WY',
+  al:'AL',ak:'AK',az:'AZ',ar:'AR',ca:'CA',co:'CO',fl:'FL',ga:'GA',ia:'IA',id:'ID',il:'IL',ks:'KS',ky:'KY',la:'LA',md:'MD',mi:'MI',mn:'MN',mo:'MO',ms:'MS',mt:'MT',nc:'NC',nd:'ND',ne:'NE',nh:'NH',nj:'NJ',nm:'NM',nv:'NV',ny:'NY',oh:'OH',ok:'OK',pa:'PA',sc:'SC',sd:'SD',tn:'TN',tx:'TX',ut:'UT',va:'VA',wa:'WA',wi:'WI',wv:'WV',wy:'WY'};
+var LQ_ST2={'new york':'NY','new jersey':'NJ','new mexico':'NM','new hampshire':'NH','north carolina':'NC','south carolina':'SC','north dakota':'ND','south dakota':'SD','west virginia':'WV','rhode island':'RI'};
+// Sizes one outside-market lead: 'sell' = near a city of 100,000+, 'no' = middle of nowhere, 'unk' = cannot tell.
+function lqSize(key){
+  var g=LQ.geo;if(!g||!key)return 'unk';
+  if(key.charAt(0)==='Z'){
+    var n=parseInt(key.slice(1),10),a=g.r,lo=0,hi=a.length-1;
+    while(lo<=hi){var mid=(lo+hi)>>1;if(n<a[mid][0])hi=mid-1;else if(n>a[mid][1])lo=mid+1;else return 'sell'}
+    return 'no';
+  }
+  var bar=key.lastIndexOf('|'),tail=key.slice(2,bar<0?key.length:bar).trim(),st=bar<0?'':key.slice(bar+1).trim(),tok=false;
+  var w=tail?tail.split(' '):[];
+  if(w.length>=2&&LQ_ST2[w[w.length-2]+' '+w[w.length-1]]){st=LQ_ST2[w[w.length-2]+' '+w[w.length-1]];w=w.slice(0,-2);tok=true}
+  else if(w.length>=2&&LQ_ST[w[w.length-1]]){st=LQ_ST[w[w.length-1]];w=w.slice(0,-1);tok=true}
+  var T=(LQ.geoT||{})[st];
+  if(T){for(var k=3;k>=1;k--){if(w.length>=k&&T[w.slice(w.length-k).join(' ')])return 'sell'}}
+  if(tok&&(!w.length||/^(st|street|ln|lane|rd|road|dr|drive|ave|avenue|blvd|ct|court|cir|circle|way|hwy|pl|place|trl|trail|cv|cove|o|n|s|e|w|\d+)$/.test(w[w.length-1])))return 'unk'; // no town in the address
+  return tok?'no':'unk';
+}
+function lqSplit(keys){var o={sell:0,no:0,unk:0};Object.keys(keys||{}).forEach(function(k){o[lqSize(k)]+=keys[k]});return o}
 function lqCalc(r){
   if(!r)return null;
   var known=(r.metro||0)+(r.rural||0)+(r.other_state||0);
+  var sz=lqSplit(r.out_keys),csz=lqSplit(r.contract_out_keys);
   var pc=function(a,b){return b>0?a/b*100:null};
   return {m:r.m,leads:r.leads||0,spend:r.spend,known:known,unknown:r.unknown||0,
     cplLeads:(r.cpl_leads||r.leads||0),cpl:((r.cpl_leads||r.leads)>0&&r.spend!=null)?r.spend/(r.cpl_leads||r.leads):null,rough:!!r.rough,old:r.m<'2026-08',first_day:r.first_day,
-    out:pc((r.rural||0)+(r.other_state||0),known),rural:pc(r.rural||0,known),other:pc(r.other_state||0,known),metro:pc(r.metro||0,known),
+    out:pc((r.rural||0)+(r.other_state||0),known),mkt:pc(r.metro||0,known),sell:pc(sz.sell,known),no:pc(sz.no,known),sz:sz,csz:csz,rural:pc(r.rural||0,known),other:pc(r.other_state||0,known),metro:pc(r.metro||0,known),
     nnw:pc(r.nnw||0,r.leads),mot:pc(r.motivated||0,r.leads),
     ask:(r.pairs>0?r.ask_pct_mao:null),gap:(r.pairs>0&&r.ask_pct_mao>0?(1-100/r.ask_pct_mao)*100:null),pairs:r.pairs||0,loc:(r.contracts_local||0),cplc:((r.contracts_local>0&&r.spend!=null)?r.spend/r.contracts_local:null),ctr:(r.contracts||0),ctrUnk:(r.contracts_unknown||0),
     open:pc(r.still_open||0,r.leads),
@@ -132,15 +155,18 @@ function lqCalc(r){
 var LQM=[
   {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.cplLeads+' leads'+(c.old?' (Meta’s own count)':'')}},
   {k:'cplc',t:'Cost per local contract',low:true,rel:5,cnt:true,f:function(v){return '$'+Math.round(v).toLocaleString()},ft:function(v){return '$'+(v/1000).toFixed(1)+'k'},d:function(c){return fmt$(c.spend)+' spent \u00f7 '+c.loc+' local contract'+(c.loc===1?'':'s')}},
-  {k:'out',t:'Outside our market',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.out+' of '+c.known+' leads with a known area are more than about 50 minutes from Dallas, Fort Worth, Houston, San Antonio or Memphis'}},
+  {k:'mkt',t:'In our market',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.metro+' of '+c.known+' leads with a known area · goal is 75% or more'}},
+  {k:'sell',t:'Sellable elsewhere',neutral:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.sz.sell+' leads outside our market but near a city of 100,000+'+(c.sz.unk?' · '+c.sz.unk+' more could not be sized':'')}},
+  {k:'no',t:'Middle of nowhere',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.sz.no+' leads not near any city of 100,000+ · goal is zero'}},
   {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
   {k:'gap',t:'Price gap: asking vs our offer',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return 'Our max offer is '+Math.round(c.gap)+'% below the middle seller\u2019s asking price \u00b7 '+c.pairs+' leads have both numbers'+(c.pairs<20?' (small sample)':'')}},
   {k:'mot',t:'Motivated leads',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.mot+' of '+c.leads+' leads (Contract This Month, O.R. Distressed, or signed)'}},
-  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are local (within about 50 minutes of one of our metros)'+(c.ctrUnk?' \u00b7 '+c.ctrUnk+' with no location on file':'')}}
+  {k:'loc',t:'Local contracts',low:false,pts:0.5,cnt:true,f:function(v){return String(v)},d:function(c){return c.loc+' of '+c.ctr+' signed contracts are in our market'+((c.csz.sell||c.csz.no)?' · '+c.csz.sell+' sellable elsewhere · '+c.csz.no+' middle of nowhere':'')+((c.ctrUnk+c.csz.unk)?' · '+(c.ctrUnk+c.csz.unk)+' with no clear location':'')}}
 ];
 function lqVerdict(M,cur,prev){
   var a=cur?cur[M.k]:null,b=prev?prev[M.k]:null;
   if(a==null||b==null)return 0/0;
+  if(M.neutral)return 0/0;
   if(M.cnt&&cur.m===new Date().toISOString().slice(0,7))return 0/0; // a count in a month that is still running is not comparable yet
   var diff=a-b,same=M.rel?(b!==0?Math.abs(diff/b*100)<M.rel:diff===0):Math.abs(diff)<M.pts;
   if(same)return 0;
@@ -157,6 +183,7 @@ function lqRender(){
   if(LQ.state==='err')return '<div class="card"><div class="warn">Lead quality did not load: '+esc(LQ.err)+'</div><button class="btn" style="margin-top:8px" onclick="LQ.state=\'\';render()">Try again</button></div>';
   if(!LQ.rows.length)return '<div class="card sm mut">No Meta leads yet.</div>';
   var cur=lqCalc(LQ.rows[LQ.i]),prev=LQ.i>0?lqCalc(LQ.rows[LQ.i-1]):null;
+  var LQT=LQM.filter(function(M){return M.k!=='sell'});
   var live=LQ.i===LQ.rows.length-1&&cur.m===new Date().toISOString().slice(0,7);
   var h='<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(LQ.i<=0?' disabled':'')+' onclick="lqGo(-1)">◀</button>'
@@ -164,11 +191,11 @@ function lqRender(){
     +'<div class="sm mut">'+cur.leads+(cur.old?' leads on file':' Meta leads')+(prev?' · compared with '+fmtMonth(prev.m):' · first month on record')+'</div></div>'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(LQ.i>=LQ.rows.length-1?' disabled':'')+' onclick="lqGo(1)">▶</button></div>';
   if(prev){
-    var up=0,dn=0,sm=0;LQM.forEach(function(M){var v=lqVerdict(M,cur,prev);if(v>0)up++;else if(v<0)dn++;else if(v===0)sm++});
+    var up=0,dn=0,sm=0;var nv=0;LQM.forEach(function(M){var v=lqVerdict(M,cur,prev);if(v>0)up++;else if(v<0)dn++;else if(v===0)sm++;if(v===v)nv++});
     var word=up>dn?'Lead quality got BETTER':dn>up?'Lead quality got WORSE':'Lead quality stayed about the SAME';
     var col=up>dn?'var(--green)':dn>up?'var(--red)':'var(--mut)';
     h+='<div style="text-align:center;font-size:15px;font-weight:800;color:'+col+';margin-bottom:4px">'+word+'</div>'
-      +'<div class="sm mut" style="text-align:center;margin-bottom:10px">Better on '+up+' · worse on '+dn+' · same on '+sm+' of '+LQM.length+'</div>';
+      +'<div class="sm mut" style="text-align:center;margin-bottom:10px">Better on '+up+' · worse on '+dn+' · same on '+sm+' of '+nv+'</div>';
   }
   LQM.forEach(function(M){
     var a=cur[M.k],b=prev?prev[M.k]:null;
@@ -185,17 +212,18 @@ function lqRender(){
   if(cur.old)notes.push('Before August, signed contracts are not tied to these leads, so Motivated reads low and the contract month is approximate.');
   if(cur.first_day&&cur.first_day.slice(8)!=='01')notes.push('Spend tracking starts '+cur.first_day+'.');
   if(cur.unknown>0)notes.push(cur.unknown+' leads gave no city or zip, so they are left out of the area numbers.');
+  if(!LQ.geo)notes.push('The city-size list did not load, so Sellable elsewhere and Middle of nowhere are blank. Refresh to retry.');
   if(notes.length)h+='<div class="sm" style="color:var(--amber);border-top:1px solid var(--line);padding-top:8px">'+notes.join(' ')+'</div>';
   h+='</div>';
   // all months side by side
-  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;min-width:690px;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:12%;font-size:11px">Month</td><td style="text-align:right;width:7%;font-size:11px">Leads</td>'
-    +LQM.map(function(M){return '<td style="text-align:right;font-size:11px;line-height:1.25;padding:5px 2px 5px 16px">'+({cpl:'Cost per lead',out:'Outside market',nnw:'Numbers not workable',gap:'Price gap',mot:'Motivated',loc:'Local contracts',cplc:'Cost per local contract'})[M.k]+'</td>'}).join('')+'</tr>';
+  h+='<div class="card"><h2>📈 All months</h2><div style="overflow-x:auto"><table style="width:100%;min-width:690px;border-collapse:collapse;font-size:12px;table-layout:fixed"><tr class="mut" style="font-size:10px;vertical-align:bottom"><td style="padding:5px 2px;width:11%;font-size:11px">Month</td><td style="text-align:right;width:6%;font-size:11px">Leads</td>'
+    +LQT.map(function(M){return '<td style="text-align:right;font-size:11px;line-height:1.25;padding:5px 2px 5px 12px">'+({cpl:'Cost per lead',mkt:'In our market',no:'Middle of nowhere',nnw:'Numbers not workable',gap:'Price gap',mot:'Motivated',loc:'Local contracts',cplc:'Cost per local contract'})[M.k]+'</td>'}).join('')+'</tr>';
   LQ.rows.forEach(function(r,i){
     var c=lqCalc(r),p=i>0?lqCalc(LQ.rows[i-1]):null;
     h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
-      +LQM.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px 6px 16px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?(M.ft||M.f)(v):'—')+'</td>'}).join('')+'</tr>';
+      +LQT.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px 6px 12px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?(M.ft||M.f)(v):'—')+'</td>'}).join('')+'</tr>';
   });
-  h+='</table></div><div class="sm mut" style="margin-top:8px">LOCAL = in Texas or Tennessee and within about a 50 minute drive (40 miles) of downtown Dallas, Fort Worth, Houston, San Antonio or Memphis. Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">OUR MARKET = Texas or Tennessee, within about a 50 minute drive (40 miles) of downtown Dallas, Fort Worth, Houston, San Antonio or Memphis. SELLABLE ELSEWHERE = outside our market but within about 40 miles of a city with 100,000+ people. MIDDLE OF NOWHERE = neither. Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
   return h;
 }
 

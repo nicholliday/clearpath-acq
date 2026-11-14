@@ -27,3 +27,8 @@
 -- downtown Dallas, Fort Worth, Houston, San Antonio, Memphis) and lq_city_local (town names for addresses
 -- with no zip). lq_area() now returns 'metro' only for those; other TX/TN = 'rural'; everything else = 'other'.
 -- 40 miles is a stand-in for 50 minutes; true drive times would need a routing service.
+
+-- Nov 14 2026: three groups. mkt_lead_quality() now also returns out_keys / contract_out_keys
+-- (zip 'Z12345' or address tail 'T:...|ST' for every outside-market lead / contract, via lq_out_key()).
+-- The page sizes each key against lq_geo.json: within 40 miles of a US city of 100,000+ = "Sellable elsewhere",
+-- otherwise "Middle of nowhere". lq_area_override.place holds the key for hand-checked contracts.
