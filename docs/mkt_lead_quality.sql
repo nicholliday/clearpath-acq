@@ -35,3 +35,7 @@
 
 -- Nov 14 2026: "by ad" view. mkt_lead_quality_ads() returns one row per month per ad (Aug 2026 onward):
 -- leads, metro, outside, unknown, nnw, motivated, contracts, contracts_local, funded, funded_fee, out_keys, camp.
+
+-- Nov 14 2026: by-ad view goes back to Mar 2026. Edge function lq-ad-backfill (GET-only, GHL_READONLY_TOKEN) read the
+-- ad Spark saved on each contact into lq_lead_ad; lq_deal_contact maps Meta contracts (dispo_deals) to their Spark contact;
+-- lq_deal_fee holds bank figures for funded deals from pre-Aug leads. Re-run: POST {k:<ghl_ro_cache lq_backfill_key>} (and mode:"deals").

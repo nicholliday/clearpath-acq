@@ -178,7 +178,7 @@ function lqChip(v){
   var c=v>0?'var(--green)':v<0?'var(--red)':'var(--mut)',t=v>0?'▲ Better':v<0?'▼ Worse':'● Same';
   return '<span style="display:inline-block;min-width:74px;text-align:center;font-size:12px;font-weight:800;color:'+c+';border:1px solid '+c+';border-radius:999px;padding:3px 8px">'+t+'</span>';
 }
-// ---- Lead Quality by ad (Nov 14 2026). Data = rpc mkt_lead_quality_ads(), Aug 2026 onward ----
+// ---- Lead Quality by ad (Nov 14 2026). Data = rpc mkt_lead_quality_ads(), Mar 2026 onward (ads before Aug 3 backfilled from Spark into lq_lead_ad) ----
 function lqView(v){LQ.view=v;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdGo(d){var n=(LQ.ai||0)+d;if(!LQ.ads||n<0||n>=LQ.ads.list.length)return;LQ.ai=n;render()}
 function lqAdOpen(i){LQ.ai=i;render();try{window.scrollTo(0,0)}catch(e){}}
@@ -213,7 +213,7 @@ function lqAdRender(){
   var h=back+'<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(i<=0?' disabled':'')+' onclick="lqAdGo(-1)">\u25c0</button>'
     +'<div style="flex:1;text-align:center;min-width:0"><div style="font-size:16px;font-weight:800;word-break:break-word">'+esc(A.ad)+'</div>'
-    +'<div class="sm mut">Ad '+(i+1)+' of '+L.length+' \u00b7 '+t.leads+' leads since Aug 2026'+(A.camp?' \u00b7 '+esc(A.camp.length>48?A.camp.slice(0,46)+'\u2026':A.camp):'')+'</div></div>'
+    +'<div class="sm mut">Ad '+(i+1)+' of '+L.length+' \u00b7 '+t.leads+' leads since Mar 2026'+(A.camp?' \u00b7 '+esc(A.camp.length>48?A.camp.slice(0,46)+'\u2026':A.camp):'')+'</div></div>'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(i>=L.length-1?' disabled':'')+' onclick="lqAdGo(1)">\u25b6</button></div>';
   if(t.known<10)h+='<div class="sm" style="color:var(--amber);text-align:center;margin-bottom:8px">Small sample: only '+t.known+' leads with a known area. Read this ad as a rough guide.</div>';
   var line=function(title,det,val,cmp,good){
@@ -245,7 +245,7 @@ function lqAdRender(){
       +td+c.leads+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pSell)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td>'+td+(c.funded?fmt$(Math.round(c.funded_fee)):'\u2014')+'</td></tr>';
   });
   h+='<tr style="font-weight:800"><td style="padding:6px 2px">All ads</td>'+td+all.leads+'</td>'+td+lqPct(all.pMkt)+'</td>'+td+lqPct(all.pSell)+'</td>'+td+lqPct(all.pNo)+'</td>'+td+lqPct(all.pMot)+'</td>'+td+all.contracts_local+'</td>'+td+fmt$(Math.round(all.funded_fee))+'</td></tr>';
-  h+='</table></div><div class="sm mut" style="margin-top:8px">All Meta leads since Aug 2026, when ad names started being saved. Biggest ads first. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded only counts deals from leads that came in Aug 2026 or later; deals from earlier leads (before ad names were saved) are not in this view.</div></div>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). Biggest ads first. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures.</div></div>';
   return h;
 }
 function lqRender(){
