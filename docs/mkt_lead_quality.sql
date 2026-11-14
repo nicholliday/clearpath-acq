@@ -32,3 +32,6 @@
 -- (zip 'Z12345' or address tail 'T:...|ST' for every outside-market lead / contract, via lq_out_key()).
 -- The page sizes each key against lq_geo.json: within 40 miles of a US city of 100,000+ = "Sellable elsewhere",
 -- otherwise "Middle of nowhere". lq_area_override.place holds the key for hand-checked contracts.
+
+-- Nov 14 2026: "by ad" view. mkt_lead_quality_ads() returns one row per month per ad (Aug 2026 onward):
+-- leads, metro, outside, unknown, nnw, motivated, contracts, contracts_local, funded, funded_fee, out_keys, camp.

@@ -108,6 +108,7 @@ async function loadLQ(){
   try{
     var r=await db.rpc('mkt_lead_quality');
     if(r.error)throw r.error;
+    try{var ra=await db.rpc('mkt_lead_quality_ads');LQ.ads=ra.error?null:lqAdBuild(ra.data||[])}catch(e){LQ.ads=null}
     if(!LQ.geo){try{var g=await fetch('lq_geo.json',{cache:'no-cache'});if(g.ok){LQ.geo=await g.json();var ts={};Object.keys(LQ.geo.t||{}).forEach(function(k){var o={};LQ.geo.t[k].forEach(function(c){o[c]=1});ts[k]=o});LQ.geoT=ts}}catch(e){LQ.geo=null}}
     LQ.rows=r.data||[];LQ.i=LQ.rows.length-1;LQ.err='';LQ.state='ok';
   }catch(e){LQ.err=(e&&e.message)||'Could not load';LQ.state='err'}
@@ -177,15 +178,87 @@ function lqChip(v){
   var c=v>0?'var(--green)':v<0?'var(--red)':'var(--mut)',t=v>0?'▲ Better':v<0?'▼ Worse':'● Same';
   return '<span style="display:inline-block;min-width:74px;text-align:center;font-size:12px;font-weight:800;color:'+c+';border:1px solid '+c+';border-radius:999px;padding:3px 8px">'+t+'</span>';
 }
+// ---- Lead Quality by ad (Nov 14 2026). Data = rpc mkt_lead_quality_ads(), Aug 2026 onward ----
+function lqView(v){LQ.view=v;render();try{window.scrollTo(0,0)}catch(e){}}
+function lqAdGo(d){var n=(LQ.ai||0)+d;if(!LQ.ads||n<0||n>=LQ.ads.list.length)return;LQ.ai=n;render()}
+function lqAdOpen(i){LQ.ai=i;render();try{window.scrollTo(0,0)}catch(e){}}
+function lqAdSum(rows){
+  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0};
+  rows.forEach(function(r){
+    ['leads','metro','outside','unknown','nnw','motivated','contracts','contracts_local','funded','funded_fee'].forEach(function(k){t[k]+=Number(r[k])||0});
+    var z=lqSplit(r.out_keys);t.sell+=z.sell;t.no+=z.no;t.unk+=z.unk;
+  });
+  t.known=t.metro+t.outside;
+  var pc=function(a,b){return b>0?a/b*100:null};
+  t.pMkt=pc(t.metro,t.known);t.pSell=pc(t.sell,t.known);t.pNo=pc(t.no,t.known);t.pNnw=pc(t.nnw,t.leads);t.pMot=pc(t.motivated,t.leads);
+  return t;
+}
+function lqAdBuild(rows){
+  var by={};rows.forEach(function(r){(by[r.ad]=by[r.ad]||[]).push(r)});
+  var list=Object.keys(by).map(function(ad){
+    var rs=by[ad].slice().sort(function(a,b){return a.m<b.m?-1:1});
+    var camp='';rs.forEach(function(r){if(r.camp)camp=r.camp});
+    return {ad:ad,camp:camp,rows:rs};
+  });
+  return {list:list,all:rows};
+}
+function lqPct(v){return v==null?'\u2014':Math.round(v)+'%'}
+function lqAdRender(){
+  var back='<button class="btn mut" style="width:100%;margin:0 0 12px;padding:10px" onclick="lqView(\'\')">\u25c0 Back to month by month</button>';
+  if(!LQ.ads||!LQ.ads.list.length)return back+'<div class="card sm mut">No ad names on file yet.</div>';
+  var L=LQ.ads.list;
+  L.forEach(function(a){a.t=lqAdSum(a.rows)});
+  if(!LQ.adSorted){L.sort(function(a,b){return b.t.leads-a.t.leads});LQ.adSorted=1;LQ.ai=0}
+  var all=lqAdSum(LQ.ads.all),A=L[LQ.ai||0],t=A.t,i=LQ.ai||0;
+  var h=back+'<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(i<=0?' disabled':'')+' onclick="lqAdGo(-1)">\u25c0</button>'
+    +'<div style="flex:1;text-align:center;min-width:0"><div style="font-size:16px;font-weight:800;word-break:break-word">'+esc(A.ad)+'</div>'
+    +'<div class="sm mut">Ad '+(i+1)+' of '+L.length+' \u00b7 '+t.leads+' leads since Aug 2026'+(A.camp?' \u00b7 '+esc(A.camp.length>48?A.camp.slice(0,46)+'\u2026':A.camp):'')+'</div></div>'
+    +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(i>=L.length-1?' disabled':'')+' onclick="lqAdGo(1)">\u25b6</button></div>';
+  if(t.known<10)h+='<div class="sm" style="color:var(--amber);text-align:center;margin-bottom:8px">Small sample: only '+t.known+' leads with a known area. Read this ad as a rough guide.</div>';
+  var line=function(title,det,val,cmp,good){
+    var col=good==null?'inherit':good>0?'var(--green)':good<0?'var(--red)':'inherit';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)">'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+title+'</div><div class="sm mut">'+det+'</div></div>'
+      +'<div style="text-align:right;min-width:84px"><div style="font-size:20px;font-weight:800;color:'+col+'">'+val+'</div><div class="sm mut">'+cmp+'</div></div></div>';
+  };
+  var vs=function(a,b,low){if(a==null||b==null||t.known<10)return null;var d=a-b;if(Math.abs(d)<5)return 0;return (low?d<0:d>0)?1:-1};
+  h+=line('In our market',t.metro+' of '+t.known+' leads with a known area \u00b7 goal is 75% or more',lqPct(t.pMkt),'all ads '+lqPct(all.pMkt),vs(t.pMkt,all.pMkt,false));
+  h+=line('Sellable elsewhere',t.sell+' leads near a city of 100,000+'+(t.unk?' \u00b7 '+t.unk+' more could not be sized':''),lqPct(t.pSell),'all ads '+lqPct(all.pSell),null);
+  h+=line('Middle of nowhere',t.no+' leads not near any city of 100,000+ \u00b7 goal is zero',lqPct(t.pNo),'all ads '+lqPct(all.pNo),vs(t.pNo,all.pNo,true));
+  h+=line('Numbers not workable',t.nnw+' of '+t.leads+' leads',lqPct(t.pNnw),'all ads '+lqPct(all.pNnw),vs(t.pNnw,all.pNnw,true));
+  h+=line('Motivated leads',t.motivated+' of '+t.leads+' leads (Contract This Month, O.R. Distressed, or signed)',lqPct(t.pMot),'all ads '+lqPct(all.pMot),vs(t.pMot,all.pMot,false));
+  h+=line('Local contracts',t.contracts_local+' of '+t.contracts+' signed contracts are in our market',String(t.contracts_local),'all ads '+all.contracts_local,null);
+  h+=line('Funded deals',t.funded?t.funded+' closed and paid':'None closed yet from this ad',t.funded?fmt$(Math.round(t.funded_fee)):'\u2014','all ads '+fmt$(Math.round(all.funded_fee)),null);
+  h+='<div class="sm mut" style="margin-top:8px">Green or red = 5 points or more better or worse than all ads together. Cost per lead is not shown here because spend is saved by campaign, not by ad.</div></div>';
+  var td='<td style="text-align:right;padding:6px 2px 6px 10px">';
+  h+='<div class="card"><h2>\ud83d\udcc5 This ad, month by month</h2><div style="overflow-x:auto"><table style="width:100%;min-width:560px;border-collapse:collapse"><tr class="mut">'
+    +['Month','Leads','In our market','Middle of nowhere','Numbers not workable','Motivated','Local contracts'].map(function(x,ix){return '<td style="'+(ix?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
+  A.rows.forEach(function(r){var c=lqAdSum([r]);
+    h+='<tr><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(r.m)+'</td>'+td+c.leads+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pNnw)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td></tr>';
+  });
+  h+='</table></div></div>';
+  h+='<div class="card"><h2>\ud83d\udce3 All ads</h2><div style="overflow-x:auto"><table style="width:100%;min-width:620px;border-collapse:collapse"><tr class="mut">'
+    +['Ad','Leads','In our market','Middle of nowhere','Motivated','Local contracts','Funded'].map(function(x,ix){return '<td style="'+(ix?'text-align:right;':'')+'font-size:11px;line-height:1.25;padding:5px 2px 5px '+(ix?'10px':'2px')+'">'+x+'</td>'}).join('')+'</tr>';
+  L.forEach(function(a,ix){var c=a.t,on=ix===i;
+    h+='<tr onclick="lqAdOpen('+ix+')" style="cursor:pointer'+(on?';background:var(--card2);font-weight:800':'')+'"><td style="padding:6px 2px;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.ad)+'</td>'
+      +td+c.leads+'</td>'+td+lqPct(c.pMkt)+'</td>'+td+lqPct(c.pNo)+'</td>'+td+lqPct(c.pMot)+'</td>'+td+c.contracts_local+'</td>'+td+(c.funded?fmt$(Math.round(c.funded_fee)):'\u2014')+'</td></tr>';
+  });
+  h+='<tr style="font-weight:800"><td style="padding:6px 2px">All ads</td>'+td+all.leads+'</td>'+td+lqPct(all.pMkt)+'</td>'+td+lqPct(all.pNo)+'</td>'+td+lqPct(all.pMot)+'</td>'+td+all.contracts_local+'</td>'+td+fmt$(Math.round(all.funded_fee))+'</td></tr>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">All Meta leads since Aug 2026, when ad names started being saved. Biggest ads first. Tap an ad to open it. Each lead counts under the ad it came from.</div></div>';
+  return h;
+}
 function lqRender(){
   if(LQ.state===''){loadLQ();return '<div class="card sm mut">Loading lead quality…</div>'}
   if(LQ.state==='loading')return '<div class="card sm mut">Loading lead quality…</div>';
   if(LQ.state==='err')return '<div class="card"><div class="warn">Lead quality did not load: '+esc(LQ.err)+'</div><button class="btn" style="margin-top:8px" onclick="LQ.state=\'\';render()">Try again</button></div>';
   if(!LQ.rows.length)return '<div class="card sm mut">No Meta leads yet.</div>';
+  if(LQ.view==='ad')return lqAdRender();
   var cur=lqCalc(LQ.rows[LQ.i]),prev=LQ.i>0?lqCalc(LQ.rows[LQ.i-1]):null;
   var LQT=LQM.filter(function(M){return M.k!=='sell'});
   var live=LQ.i===LQ.rows.length-1&&cur.m===new Date().toISOString().slice(0,7);
-  var h='<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+  var h='<button class="btn g" style="width:100%;margin:0 0 12px;padding:10px" onclick="lqView(\'ad\')">\ud83d\udce3 See lead quality by ad \u25b6</button>'
+    +'<div class="card"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
     +'<button class="btn mut" style="padding:8px 14px;font-size:16px"'+(LQ.i<=0?' disabled':'')+' onclick="lqGo(-1)">◀</button>'
     +'<div style="flex:1;text-align:center"><div style="font-size:18px;font-weight:800">'+fmtMonth(cur.m)+(live?' ⚡':'')+'</div>'
     +'<div class="sm mut">'+cur.leads+(cur.old?' leads on file':' Meta leads')+(prev?' · compared with '+fmtMonth(prev.m):' · first month on record')+'</div></div>'
