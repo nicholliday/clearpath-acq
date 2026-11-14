@@ -258,36 +258,37 @@ function lqAdRender(){
   h+=line('Local contracts',t.contracts_local+' of '+t.contracts+' signed contracts are in our market',String(t.contracts_local),'all ads '+all.contracts_local,null);
   h+=line('Funded deals',t.funded?t.funded+' closed and paid':'None closed yet from this ad',t.funded?fmt$(Math.round(t.funded_fee)):'\u2014','all ads '+fmt$(Math.round(all.funded_fee)),null);
   h+='<div class="sm mut" style="margin-top:8px">Green or red = 5 points or more better or worse than all ads together. Cost per lead = Meta spend on that ad name \u00f7 leads on file with that ad name. ROAS = funded fees \u00f7 Meta spend on that ad, Mar 2026 to now; deals take weeks to fund, so newer ads read low.</div></div>';
-  // Nov 14 (Nic: "i dont like having to slide to see all the stats"): no sideways scrolling.
-  // Each ad / month is a block: name + ROAS on top, then a 4-across grid of stats that fits a phone.
-  var cell=function(lab,val,col){return '<div style="min-width:0"><div style="font-size:10px;line-height:1.2;color:var(--mut)">'+lab+'</div><div style="font-size:14px;font-weight:700;'+(col?'color:'+col:'')+'">'+val+'</div></div>'};
-  var grid=function(cells){return '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 8px;margin-top:6px">'+cells.join('')+'</div>'};
+  // Nov 14 (Nic: "i dont like having to slide to see all the stats" / "I ONLY WANT ONE ROW THAT FITS"):
+  // one row per ad, table squeezed to the card width (fixed layout, no sideways scroll). Sellable elsewhere lives on the ad's own card above.
+  var th=function(x,w,left){return '<th style="'+(w?'width:'+w+';':'')+'text-align:'+(left?'left':'right')+';font-size:10px;line-height:1.2;font-weight:600;color:var(--mut);padding:4px 3px;vertical-align:bottom;white-space:normal;word-break:normal;overflow-wrap:normal">'+x+'</th>'};
+  var td=function(x,col,left,extra){return '<td style="text-align:'+(left?'left':'right')+';padding:6px 3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(col?'color:'+col+';':'')+(extra||'')+'">'+x+'</td>'};
   var roasCol=function(c){return c.roas==null?'':c.roas>=10?'var(--green)':(c.spend>=1000&&c.roas<1)?'var(--red)':''};
-  h+='<div class="card"><h2>📅 This ad, month by month</h2>';
+  var tbl='<table style="width:100%;table-layout:fixed;border-collapse:collapse">';
+  h+='<div class="card"><h2>📅 This ad, month by month</h2>'+tbl+'<tr>'
+    +th('Month','17%',1)+th('Leads')+th('Cost per lead')+th('In our market')+th('Middle of nowhere')+th('Numbers not workable')+th('Motivated')+th('Local contracts')+'</tr>';
   A.rows.forEach(function(r){var c=lqAdSum([r]);
-    h+='<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="font-weight:800">'+fmtMonth(r.m)+'</div>'
-      +grid([cell('Leads',c.leads),cell('Cost per lead',lqCpl(c.cpl)),cell('In our market',lqPct(c.pMkt)),cell('Sellable elsewhere',lqPct(c.pSell)),
-             cell('Middle of nowhere',lqPct(c.pNo)),cell('Numbers not workable',lqPct(c.pNnw)),cell('Motivated',lqPct(c.pMot)),cell('Local contracts',c.contracts_local)])+'</div>';
+    h+='<tr>'+td(fmtMonth(r.m),'',1)+td(c.leads)+td(lqCpl(c.cpl))+td(lqPct(c.pMkt))+td(lqPct(c.pNo))+td(lqPct(c.pNnw))+td(lqPct(c.pMot))+td(c.contracts_local)+'</tr>';
   });
-  h+='</div>';
-  h+='<div class="card"><h2>📣 All ads</h2>';
+  h+='</table></div>';
+  h+='<div class="card"><h2>📣 All ads</h2>'+tbl+'<tr>'
+    +th('#','22px',1)+th('Ad','25%',1)+th('Leads')+th('Cost per lead')+th('Funded')+th('ROAS')+th('In our market')+th('Middle of nowhere')+th('Motivated')+th('Local contracts')+'</tr>';
   var gname=['💰 Ranked: best ROAS first','⏳ Too new to judge (under $1,000 spent)','❓ No Meta spend found under this name'],lastG=-1,rk=0,quiet=[];
-  var block=function(title,c,on,click){
-    return '<div'+(click?' onclick="'+click+'"':'')+' style="padding:10px 6px;border-top:1px solid var(--line);'+(click?'cursor:pointer;':'')+(on?'background:var(--card2);border-radius:8px;':'')+'">'
-      +'<div style="display:flex;align-items:baseline;gap:8px"><div style="flex:1;min-width:0;font-weight:800;overflow-wrap:break-word">'+title+'</div>'
-      +'<div style="font-size:18px;font-weight:800;'+(roasCol(c)?'color:'+roasCol(c):'')+'">'+lqRoas(c.roas)+'<span style="font-size:10px;color:var(--mut);font-weight:600"> ROAS</span></div></div>'
-      +grid([cell('Leads',c.leads),cell('Cost per lead',lqCpl(c.cpl)),cell('Funded',c.funded?lqK(c.funded_fee):'—'),cell('Local contracts',c.contracts_local),
-             cell('In our market',lqPct(c.pMkt)),cell('Sellable elsewhere',lqPct(c.pSell)),cell('Middle of nowhere',lqPct(c.pNo)),cell('Motivated',lqPct(c.pMot))])+'</div>';
+  var row=function(num,name,c,on,click){
+    return '<tr'+(click?' onclick="'+click+'"':'')+' style="'+(click?'cursor:pointer;':'')+(on?'background:var(--card2);font-weight:800;':'')+'">'
+      +td(num,'var(--mut)',1)+'<td style="text-align:left;padding:6px 3px;font-size:12px;line-height:1.2;white-space:normal;overflow-wrap:break-word">'+name+'</td>'
+      +td(c.leads)+td(lqCpl(c.cpl))+td(c.funded?lqK(c.funded_fee):'—')+td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')
+      +td(lqPct(c.pMkt))+td(lqPct(c.pNo))+td(lqPct(c.pMot))+td(c.contracts_local)+'</tr>';
   };
   L.forEach(function(a,ix){var c=a.t,on=ix===i;
     if(a.g===0)rk++;
     if(!c.leads){quiet.push(a);return}
-    if(a.g!==lastG){lastG=a.g;h+='<div style="padding:14px 0 4px;font-size:13px;font-weight:800;color:var(--gold)">'+gname[a.g]+'</div>'}
-    h+=block((a.g===0?'<span style="color:var(--mut);font-weight:600">'+rk+'.</span> ':'')+esc(a.ad).replace(/_/g,'_​'),c,on,'lqAdOpen('+ix+')');
+    if(a.g!==lastG){lastG=a.g;h+='<tr><td colspan="10" style="text-align:left;padding:12px 3px 4px;font-size:12px;font-weight:800;color:var(--gold);white-space:normal">'+gname[a.g]+'</td></tr>'}
+    h+=row(a.g===0?rk:'',esc(a.ad).replace(/_/g,'_​'),c,on,'lqAdOpen('+ix+')');
   });
-  if(quiet.length)h+='<div class="sm mut" style="padding:10px 0;border-top:1px solid var(--line)">Spent money but no leads on file yet: '+quiet.map(function(a){return esc(a.ad)+' ('+fmt$(Math.round(a.t.spend))+')'}).join(', ')+'</div>';
-  h+='<div style="padding:14px 0 4px;font-size:13px;font-weight:800;color:var(--gold)">📊 Every ad together</div>'+block('All ads',all,false,'');
-  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by local contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures.</div></div>';
+  h+=row('','<b>All ads</b>',all,false,'');
+  h+='</table>';
+  if(quiet.length)h+='<div class="sm mut" style="padding:10px 0 0">Spent money but no leads on file yet: '+quiet.map(function(a){return esc(a.ad)+' ('+fmt$(Math.round(a.t.spend))+')'}).join(', ')+'</div>';
+  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by local contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. Sellable elsewhere is on each ad\u2019s card (tap the ad).</div></div>';
   return h;
 }
 function lqRender(){
