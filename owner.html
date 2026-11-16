@@ -137,6 +137,9 @@ function lqSize(key){
   var w=tail?tail.split(' '):[];
   if(w.length>=2&&LQ_ST2[w[w.length-2]+' '+w[w.length-1]]){st=LQ_ST2[w[w.length-2]+' '+w[w.length-1]];w=w.slice(0,-2);tok=true}
   else if(w.length>=2&&LQ_ST[w[w.length-1]]){st=LQ_ST[w[w.length-1]];w=w.slice(0,-1);tok=true}
+  // Nov 16 rule: TX/TN always sellable, bad-law states never (lq_geo.json 'always' / 'bad')
+  if(st&&(g.always||[]).indexOf(st)>=0)return 'sell';
+  if(st&&(g.bad||[]).indexOf(st)>=0)return 'no';
   var T=(LQ.geoT||{})[st];
   if(T){for(var k=3;k>=1;k--){if(w.length>=k&&T[w.slice(w.length-k).join(' ')])return 'sell'}}
   if(tok&&(!w.length||/^(st|street|ln|lane|rd|road|dr|drive|ave|avenue|blvd|ct|court|cir|circle|way|hwy|pl|place|trl|trail|cv|cove|o|n|s|e|w|\d+)$/.test(w[w.length-1])))return 'unk'; // no town in the address
@@ -160,7 +163,7 @@ var LQM=[
   {k:'cpl',t:'Cost per lead',low:true,rel:5,f:function(v){return '$'+Math.round(v)},d:function(c){return fmt$(c.spend)+' spent ÷ '+c.cplLeads+' leads'+(c.old?' (Meta’s own count)':'')}},
   {k:'cplc',t:'Cost per local contract',low:true,rel:5,cnt:true,f:function(v){return '$'+Math.round(v).toLocaleString()},ft:function(v){return '$'+(v/1000).toFixed(1)+'k'},d:function(c){return fmt$(c.spend)+' spent \u00f7 '+c.loc+' local contract'+(c.loc===1?'':'s')}},
   {k:'mkt',t:'In our market',low:false,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.metro+' of '+c.known+' leads with a known area · goal is 75% or more'}},
-  {k:'sell',t:'Sellable elsewhere',neutral:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.sz.sell+' leads outside our market but near a city of 100,000+'+(c.sz.unk?' · '+c.sz.unk+' more could not be sized':'')}},
+  {k:'sell',t:'Sellable elsewhere',neutral:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.sz.sell+' leads outside our market but sellable (rest of TX/TN, or within 25 mi of a city of 100,000+)'+(c.sz.unk?' · '+c.sz.unk+' more could not be sized':'')}},
   {k:'no',t:'Middle of nowhere',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.sz.no+' leads not near any city of 100,000+ · goal is zero'}},
   {k:'nnw',t:'Numbers not workable',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return c.n.nnw+' of '+c.leads+' leads sit in the Numbers Not Workable stage'}},
   {k:'gap',t:'Price gap: asking vs our offer',low:true,pts:2,f:function(v){return Math.round(v)+'%'},d:function(c){return 'Our max offer is '+Math.round(c.gap)+'% below the middle seller\u2019s asking price \u00b7 '+c.pairs+' leads have both numbers'+(c.pairs<20?' (small sample)':'')}},
@@ -292,8 +295,8 @@ function lqAdRender(){
   h+=line('Cost per lead',t.hasSp?fmt$(Math.round(t.spend))+' spent \u00f7 '+t.leadsSp+' leads':'No spend found in Meta under this ad name',lqCpl(t.cpl),'all ads '+lqCpl(all.cpl),cg);
   h+=line('ROAS (return on ad spend)',t.hasSp?fmt$(Math.round(t.funded_fee))+' funded \u00f7 '+fmt$(Math.round(t.spend))+' spent \u00b7 goal is 10x':'No spend found in Meta under this ad name',lqRoas(t.roas),'all ads '+lqRoas(all.roas),t.roas==null?null:(t.roas>=10?1:t.spend>=1000&&t.roas<1?-1:0));
   h+=line('In our market',t.metro+' of '+t.known+' leads with a known area \u00b7 goal is 75% or more',lqPct(t.pMkt),'all ads '+lqPct(all.pMkt),vs(t.pMkt,all.pMkt,false));
-  h+=line('Sellable elsewhere',t.sell+' leads near a city of 100,000+'+(t.unk?' \u00b7 '+t.unk+' more could not be sized':''),lqPct(t.pSell),'all ads '+lqPct(all.pSell),null);
-  h+=line('Middle of nowhere',t.no+' leads not near any city of 100,000+ \u00b7 goal is zero',lqPct(t.pNo),'all ads '+lqPct(all.pNo),vs(t.pNo,all.pNo,true));
+  h+=line('Sellable elsewhere',t.sell+' leads sellable outside our market'+(t.unk?' \u00b7 '+t.unk+' more could not be sized':''),lqPct(t.pSell),'all ads '+lqPct(all.pSell),null);
+  h+=line('Middle of nowhere',t.no+' leads unsellable (far from a big city, or in a bad-law state) \u00b7 goal is zero',lqPct(t.pNo),'all ads '+lqPct(all.pNo),vs(t.pNo,all.pNo,true));
   h+=line('Numbers not workable',t.nnw+' of '+t.leads+' leads',lqPct(t.pNnw),'all ads '+lqPct(all.pNnw),vs(t.pNnw,all.pNnw,true));
   h+=line('Motivated leads',t.motivated+' of '+t.leads+' leads (Contract This Month, O.R. Distressed, or signed)',lqPct(t.pMot),'all ads '+lqPct(all.pMot),vs(t.pMot,all.pMot,false));
   h+=line('Local contracts',t.contracts_local+' of '+t.contracts+' signed contracts are in our market',String(t.contracts_local),'all ads '+all.contracts_local,null);
@@ -329,7 +332,7 @@ function lqAdRender(){
   h+=row('','<b>All ads</b>',all,false,'',-1);
   h+='</table>';
   if(quiet.length)h+='<div class="sm mut" style="padding:10px 0 0">Spent money but no leads on file yet: '+quiet.map(function(a){return esc(a.ad)+' ('+fmt$(Math.round(a.t.spend))+')'}).join(', ')+'</div>';
-  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by sellable contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. OUR OFFER \u00f7 ASKING = our sell-at price as a % of what the seller asked, averaged over leads with both numbers. SELLABLE CONTRACTS = signed contracts in our market or near a city of 100,000+. CANCELLED SELLABLE = sellable contracts (our market or sellable elsewhere) marked dead in the Dispo app. Tap an underlined number to see those deals, their stage, and why a cancelled one died.</div></div>';
+  h+='<div class="sm mut" style="margin-top:8px">All leads since Mar 2026. Ads before Aug 3 were read back from Spark. \u201c(no ad on file)\u201d = Spark has no ad saved for that lead (Mar to May also hold some non-Meta leads). ORDER: ads with $1,000+ spent, best ROAS first (double down at the top, worst at the bottom). Ties, like all the 0x ads, go by sellable contracts per dollar, then all contracts per dollar, then cheaper leads. Ads under $1,000 are too new to judge. Funded deals take weeks, so a new ad can sit low for a while. Tap an ad to open it. Each lead counts under the ad it came from. The three area numbers do not add to 100% when some outside leads gave a street but no town or zip. Funded deals before August use the bank figures. OUR OFFER \u00f7 ASKING = our sell-at price as a % of what the seller asked, averaged over leads with both numbers. SELLABLE CONTRACTS = signed contracts in our market or sellable elsewhere. CANCELLED SELLABLE = sellable contracts (our market or sellable elsewhere) marked dead in the Dispo app. Tap an underlined number to see those deals, their stage, and why a cancelled one died.</div></div>';
   return h;
 }
 function lqRender(){
@@ -380,7 +383,7 @@ function lqRender(){
     h+='<tr onclick="LQ.i='+i+';render()" style="cursor:pointer;border-top:1px solid var(--line)'+(i===LQ.i?';background:var(--card2);font-weight:700':'')+'"><td style="padding:6px 2px;white-space:nowrap">'+fmtMonth(c.m).replace(' 20',' \u2019')+(c.rough?' ~':'')+'</td><td style="text-align:right">'+c.leads+'</td>'
       +LQT.map(function(M){var v=c[M.k],vd=lqVerdict(M,c,p);return '<td style="text-align:right;padding:6px 2px 6px 12px;color:'+(vd>0?'var(--green)':vd<0?'var(--red)':'inherit')+'">'+(v!=null?(M.ft||M.f)(v):'—')+'</td>'}).join('')+'</tr>';
   });
-  h+='</table></div><div class="sm mut" style="margin-top:8px">OUR MARKET = Texas or Tennessee, within about a 50 minute drive (40 miles) of downtown Dallas, Fort Worth, Houston, San Antonio or Memphis. SELLABLE ELSEWHERE = outside our market but within about 40 miles of a city with 100,000+ people. MIDDLE OF NOWHERE = neither. Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
+  h+='</table></div><div class="sm mut" style="margin-top:8px">OUR MARKET = Texas or Tennessee, within about a 50 minute drive (40 miles) of downtown Dallas, Fort Worth, Houston, San Antonio or Memphis. SELLABLE ELSEWHERE = outside our market but sellable: anywhere else in Texas or Tennessee, or within 25 miles of a city of 100,000+ in another state. MIDDLE OF NOWHERE = everything else, plus every lead in a bad wholesale-law state (IL, AR, OK, SC). Green = better than the month before · red = worse. Tap a month to open it. Each lead counts in the month it came in. Stages are where the lead sits in Spark today. ~ = rough month (Mar to May also hold some non-Meta leads). Aug onward is the clean Meta lead list.</div></div>';
   return h;
 }
 
