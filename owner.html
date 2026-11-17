@@ -109,6 +109,7 @@ async function loadLQ(){
     var r=await db.rpc('mkt_lead_quality');
     if(r.error)throw r.error;
     LQ.adSp={};try{var rs=await db.from('owner_kv').select('key,value').like('key','mkt_adspend_%');(rs.data||[]).forEach(function(row){var o={};try{o=JSON.parse(row.value)||{}}catch(e){}LQ.adSp[row.key.slice(12)]=o})}catch(e){}
+    LQ.adCk={};try{var rc=await db.from('owner_kv').select('key,value').like('key','mkt_adclicks_%');(rc.data||[]).forEach(function(row){var o={};try{o=JSON.parse(row.value)||{}}catch(e){}LQ.adCk[row.key.slice(13)]=o})}catch(e){} // Nov 17: link clicks per ad from Meta
     try{var rd=await db.rpc('mkt_lead_quality_ad_deals');LQ.deals=rd.error?[]:(rd.data||[])}catch(e){LQ.deals=[]}
     LQ.dIdx={};(LQ.deals||[]).forEach(function(d){var k=d.m+'|'+d.ad;(LQ.dIdx[k]=LQ.dIdx[k]||[]).push(d)});
     try{var ra=await db.rpc('mkt_lead_quality_ads');LQ.ads=ra.error?null:lqAdBuild(ra.data||[])}catch(e){LQ.ads=null}
@@ -190,7 +191,7 @@ function lqView(v){LQ.view=v;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdGo(d){var n=(LQ.ai||0)+d;if(!LQ.ads||n<0||n>=LQ.ads.list.length)return;LQ.ai=n;render()}
 function lqAdOpen(i){LQ.ai=i;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdSum(rows){
-  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0,pairs:0,offer_pct_sum:0,cancelled:0,cSell:0,cNo:0,cancSell:0,pcts:[]};
+  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0,clicks:0,leadsCk:0,pairs:0,offer_pct_sum:0,cancelled:0,cSell:0,cNo:0,cancSell:0,pcts:[]};
   rows.forEach(function(r){
     ['leads','metro','outside','unknown','nnw','motivated','contracts','contracts_local','funded','funded_fee','pairs','offer_pct_sum','cancelled'].forEach(function(k){t[k]+=Number(r[k])||0});
     var z=lqSplit(r.out_keys);t.sell+=z.sell;t.no+=z.no;t.unk+=z.unk;
@@ -198,12 +199,14 @@ function lqAdSum(rows){
     var cz=lqSplit(r.contract_out_keys);t.cSell+=cz.sell;t.cNo+=cz.no;
     ((LQ.dIdx||{})[r.m+'|'+r.ad]||[]).forEach(function(d){if(lqDealKind(d,'deadsell'))t.cancSell++});
     var sp=((LQ.adSp||{})[r.m]||{})[r.ad];if(sp!=null){t.spend+=Number(sp)||0;t.hasSp=1;t.leadsSp+=Number(r.leads)||0}
+    var ck=((LQ.adCk||{})[r.m]||{})[r.ad];if(ck!=null&&Number(ck)>0){t.clicks+=Number(ck);t.leadsCk+=Number(r.leads)||0}
   });
   t.roas=t.hasSp&&t.spend>0?t.funded_fee/t.spend:null;
   // Nov 16 (Nic: "over 100% ... aint no way"): the MIDDLE lead (median), so one odd lead can't drag an ad over 100%
   t.offer=null;if(t.pcts.length){var ps=t.pcts.slice().sort(function(a,b){return a-b}),mid=ps.length>>1;t.offer=ps.length%2?ps[mid]:(ps[mid-1]+ps[mid])/2}
   t.sellC=t.contracts_local+t.cSell; // contracts in our market or near a city of 100,000+
   t.cpl=t.hasSp&&t.leadsSp>0&&t.spend>0?t.spend/t.leadsSp:null; // only months where Meta shows spend under this ad name
+  t.c2l=t.clicks>0?t.leadsCk/t.clicks*100:null; // leads on file per 100 Meta link clicks, same months only
   t.known=t.metro+t.outside;
   var pc=function(a,b){return b>0?a/b*100:null};
   t.pMkt=pc(t.metro,t.known);t.pSell=pc(t.sell,t.known);t.pNo=pc(t.no,t.known);t.pNnw=pc(t.nnw,t.leads);t.pMot=pc(t.motivated,t.leads);
@@ -311,9 +314,9 @@ function lqAdRender(){
   var td=function(x,col,left,extra){return '<td style="text-align:'+(left?'left':'right')+';padding:6px 3px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'+(col?'color:'+col+';':'')+(extra||'')+'">'+x+'</td>'};
   var roasCol=function(c){return c.roas==null?'':c.roas>=10?'var(--green)':(c.spend>=1000&&c.roas<1)?'var(--red)':''};
   var tbl='<table style="width:100%;table-layout:fixed;border-collapse:collapse">';
-  var heads=function(first,w){return th(first,w,1)+th('ROAS')+th('Funded')+th('Deals funded')+th('Total spent')+th('Cost per lead')+th('Leads')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Our sell-at as % of asking')+th('Motivated')+th('Sellable contracts')+th('Cancelled sellable contracts')};
+  var heads=function(first,w){return th(first,w,1)+th('ROAS')+th('Funded')+th('Deals funded')+th('Total spent')+th('Cost per lead')+th('Clicks')+th('Clicks that became leads')+th('Leads')+th('In our market')+th('Sellable elsewhere')+th('Middle of nowhere')+th('Our sell-at as % of asking')+th('Motivated')+th('Sellable contracts')+th('Cancelled sellable contracts')};
   var link=function(n,ix,kind,m,col){if(!n)return td(n||'\u2014',col);return '<td onclick="event.stopPropagation();lqDeals('+ix+',\''+kind+'\',\''+(m||'')+'\')" style="text-align:right;padding:6px 3px;font-size:12px;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:3px;'+(col?'color:'+col+';':'')+'">'+n+'</td>'};
-  var cells=function(c,ix,m){return td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')+td(c.funded?lqK(c.funded_fee):'\u2014')+link(c.funded,ix,'funded',m)+td(c.hasSp&&c.spend>0?lqK(c.spend):'\u2014')+td(lqCpl(c.cpl))+td(c.leads)
+  var cells=function(c,ix,m){return td(lqRoas(c.roas),roasCol(c),0,'font-weight:800;')+td(c.funded?lqK(c.funded_fee):'\u2014')+link(c.funded,ix,'funded',m)+td(c.hasSp&&c.spend>0?lqK(c.spend):'\u2014')+td(lqCpl(c.cpl))+td(c.clicks?c.clicks.toLocaleString():'\u2014')+td(lqPct(c.c2l))+td(c.leads)
       +td(lqPct(c.pMkt))+td(lqPct(c.pSell))+td(lqPct(c.pNo))+td(lqPct(c.offer))+td(lqPct(c.pMot))+link(c.sellC,ix,'sell',m)+link(c.cancSell,ix,'deadsell',m,'var(--red)')};
   h+='<div class="card"><h2>📅 This ad, month by month</h2>'+tbl+'<tr>'+heads('Month','9%')+'</tr>';
   A.rows.forEach(function(r){var c=lqAdSum([r]);h+='<tr>'+td(fmtMonth(r.m),'',1)+cells(c,i,r.m)+'</tr>'});
