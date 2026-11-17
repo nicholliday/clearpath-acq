@@ -189,16 +189,18 @@ function lqView(v){LQ.view=v;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdGo(d){var n=(LQ.ai||0)+d;if(!LQ.ads||n<0||n>=LQ.ads.list.length)return;LQ.ai=n;render()}
 function lqAdOpen(i){LQ.ai=i;render();try{window.scrollTo(0,0)}catch(e){}}
 function lqAdSum(rows){
-  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0,pairs:0,offer_pct_sum:0,cancelled:0,cSell:0,cNo:0,cancSell:0};
+  var t={leads:0,metro:0,outside:0,unknown:0,nnw:0,motivated:0,contracts:0,contracts_local:0,funded:0,funded_fee:0,sell:0,no:0,unk:0,spend:0,hasSp:0,leadsSp:0,pairs:0,offer_pct_sum:0,cancelled:0,cSell:0,cNo:0,cancSell:0,pcts:[]};
   rows.forEach(function(r){
     ['leads','metro','outside','unknown','nnw','motivated','contracts','contracts_local','funded','funded_fee','pairs','offer_pct_sum','cancelled'].forEach(function(k){t[k]+=Number(r[k])||0});
     var z=lqSplit(r.out_keys);t.sell+=z.sell;t.no+=z.no;t.unk+=z.unk;
+    (r.offer_pcts||[]).forEach(function(v){t.pcts.push(Number(v))});
     var cz=lqSplit(r.contract_out_keys);t.cSell+=cz.sell;t.cNo+=cz.no;
     ((LQ.dIdx||{})[r.m+'|'+r.ad]||[]).forEach(function(d){if(lqDealKind(d,'deadsell'))t.cancSell++});
     var sp=((LQ.adSp||{})[r.m]||{})[r.ad];if(sp!=null){t.spend+=Number(sp)||0;t.hasSp=1;t.leadsSp+=Number(r.leads)||0}
   });
   t.roas=t.hasSp&&t.spend>0?t.funded_fee/t.spend:null;
-  t.offer=t.pairs>0?t.offer_pct_sum/t.pairs:null; // our offer as % of the seller's asking price, average
+  // Nov 16 (Nic: "over 100% ... aint no way"): the MIDDLE lead (median), so one odd lead can't drag an ad over 100%
+  t.offer=null;if(t.pcts.length){var ps=t.pcts.slice().sort(function(a,b){return a-b}),mid=ps.length>>1;t.offer=ps.length%2?ps[mid]:(ps[mid-1]+ps[mid])/2}
   t.sellC=t.contracts_local+t.cSell; // contracts in our market or near a city of 100,000+
   t.cpl=t.hasSp&&t.leadsSp>0&&t.spend>0?t.spend/t.leadsSp:null; // only months where Meta shows spend under this ad name
   t.known=t.metro+t.outside;
