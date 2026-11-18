@@ -1683,6 +1683,38 @@ function render(){
        +fsvg
        +(LR.sheetEra?'<div class="sm mut" style="margin-top:8px">Meta only \u00b7 includes your Mar\u2013Jul sheet history.</div>':'')
        +'</div>';
+      // Nov 18 (Nic): offer types under the funnel - how much of each, and how well each works
+      (function(){
+        var TY=[['Cash','💵 Cash','var(--green)'],['Novation','🏡 Novation','var(--blue)'],['Creative Finance','🧩 Creative','var(--gold)']];
+        var st={},none=0,tot=0;
+        TY.forEach(function(t){st[t[0]]={off:0,con:0,cl:0,rev:0}});
+        (D.offers||[]).forEach(function(x){
+          if(!inRange(x.offered_on,R.from,R.to))return;
+          tot++;
+          var ts=(x.offer_types||[]).filter(function(t){return st[t]});
+          if(!ts.length){none++;return}
+          ts.forEach(function(t){st[t].off++});
+        });
+        (D.leads||[]).forEach(function(l){
+          var t=st[l.deal_type];if(!t)return;
+          if(inRange(l.contracted_on,R.from,R.to))t.con++;
+          if(inRange(l.closed_on,R.from,R.to)){t.cl++;t.rev+=Number(l.revenue_closed)||0}
+        });
+        h+='<div class="card"><h2>🏷 Offer types — '+R.label+'</h2><div style="display:flex;gap:8px;flex-wrap:wrap">';
+        TY.forEach(function(t){
+          var x=st[t[0]], pc=x.off>0?Math.round(x.con*100/x.off)+'%':'—';
+          h+='<div style="flex:1;min-width:95px;background:var(--bg);border:1px solid '+t[2]+';border-radius:10px;padding:10px;text-align:center">'
+           +'<div style="color:'+t[2]+';font-weight:800;font-size:14px">'+t[1]+'</div>'
+           +'<div style="font-size:13px;margin-top:8px;line-height:1.9">'
+           +'<b style="font-size:20px">'+x.off+'</b> offers<br>'
+           +x.con+' contracts<br>'
+           +x.cl+' closed<br>'
+           +'<span style="font-weight:800">'+fmt$(Math.round(x.rev))+'</span><br>'
+           +'<span class="sm mut">offer → contract</span> <b>'+pc+'</b>'
+           +'</div></div>';
+        });
+        h+='</div><div class="sm mut" style="margin-top:8px">'+tot+' offers in this range · '+none+' have no type tag yet. One seller with 2 types counts once in the total and once in each type. Contracts and closings count by their contract tag.</div></div>';
+      })();
       var stlT=stlAvgFor(null,R.from,R.to);
       function stlCell(name,v,col){return '<div style="flex:1;min-width:90px;background:var(--bg);border:1px solid '+(col||'var(--line)')+';border-radius:10px;padding:10px;text-align:center"><div style="font-size:19px;font-weight:900;color:'+(v==null?'var(--mut)':(v<=2?'var(--green)':'var(--red)'))+'">'+(v==null?'\u2014':stlFmt(v))+'</div><div class="sm mut">'+name+'</div></div>'}
       h+='<div class="card"><h2>\u26a1 Speed to lead <span class="sm mut" style="font-weight:400">first call \u00b7 target under 2m</span></h2>'
