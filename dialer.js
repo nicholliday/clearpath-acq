@@ -57,15 +57,25 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
   }
   function msg(t) { var m = el('dlr_msg'); if (m) m.textContent = t || ''; }
 
-  var starting = false;
+  // Nov 17: No Reply ladder - the rep picks which No Reply stage(s) to dial. The pick is remembered on this computer.
+  var STG_KEY = 'dlr_stages';
+  function savedStages() { try { var a = JSON.parse(localStorage.getItem(STG_KEY) || '[1,2,3]'); a = (Array.isArray(a) ? a : []).filter(function (n) { return n === 1 || n === 2 || n === 3; }); return a.length ? a : [1, 2, 3]; } catch (x) { return [1, 2, 3]; } }
+  function pickedStages() { var a = []; [1, 2, 3].forEach(function (n) { var c = el('dlr_st' + n); if (c ? c.checked : savedStages().indexOf(n) >= 0) a.push(n); }); return a; }
+  function stageNames(a) { return 'No Reply ' + a.join(' + '); }
+  window.dlrStages = function () { try { localStorage.setItem(STG_KEY, JSON.stringify(pickedStages())); } catch (x) { } };
+
+  var starting = false, isDropped = false;
   async function start(test) {
-    if (starting) return; starting = true; setTimeout(function () { starting = false; }, 8000);
+    if (starting) return;
+    var stages = pickedStages();
+    if (!test && !stages.length) { msg('Tick at least one No Reply stage to dial.'); return; }
+    starting = true; setTimeout(function () { starting = false; }, 8000);
     msg('Connecting your headset…');
     try { micStream = await openMic(); fillMics(); } catch (x) { msg(x && x.name === 'NotAllowedError' ? 'Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.' : 'Could not open the microphone (' + ((x && x.name) || 'error') + '). Pick another mic below and try again.'); return; }
     try { await phone(true); } catch (x) { msg(x.message); return; }
-    var r = await call('start', { lines: 3, test: !!test });
+    var r = await call('start', test ? { lines: 3, test: true } : (isDropped ? { lines: 3 } : { lines: 3, stages: stages })); // reconnecting a dropped headset keeps the same list
     if (r.error) { msg(r.error); return; }
-    msg(r.leads + ' No Reply leads in today\'s list — calling 3 at a time.'); tick(); startPoll();
+    msg(test ? 'Test call going to your cell.' : (r.leads + ' leads ' + (r.resumed ? 'left in' : 'in') + ' today\'s list' + (r.stages ? ' (' + stageNames(r.stages) + ')' : '') + ' — calling 3 at a time.')); tick(); startPoll();
   }
   async function act(a) {
     if (a === 'hangup_live') { var hb = el('dlr_hang'); if (hb) { hb.disabled = true; hb.textContent = 'Hanging up…'; } el('dlr_status').textContent = 'Hanging up…'; }
@@ -135,24 +145,25 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     // headset line dropped: only Start can reconnect it. Also true when it's paused and this browser holds no headset line at all
     // (page was reloaded / tab was closed) - Next Dial can't do anything there.
     var dropped = status === 'paused' && (why === 'rep dropped, paused' || (!why && !agentCall));
+    isDropped = dropped;
     // Nov 12: "Calling…" with nothing ringing for 6s+ -> show Next Dial so there is always a button that moves it on
     var anyActive = ls.some(function (l) { return l.state !== 'done' && l.state !== 'dropped'; });
     if (status === 'ready' && !anyActive) { idleSince = idleSince || Date.now(); } else idleSince = 0;
     var idle = !!idleSince && Date.now() - idleSince > 6000;
-    el('dlr_start').style.display = ((on && !dropped) || !dlrLive()) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
+    el('dlr_start').style.display = ((on && !dropped) || !dlrLive()) ? 'none' : ''; if (el('dlr_stages')) el('dlr_stages').style.display = (on || !dlrLive()) ? 'none' : ''; el('dlr_test').style.display = (on || ROLE !== 'owner') ? 'none' : '';
     el('dlr_stop').style.display = on && status !== 'connected' ? '' : 'none'; // one red button at a time
     el('dlr_pause').style.display = status === 'ready' ? '' : 'none';
     el('dlr_next').style.display = (status === 'wrapup' || (status === 'paused' && !dropped) || idle) ? '' : 'none';
     el('dlr_hang').style.display = status === 'connected' ? '' : 'none';
     el('dlr_vmbtn').style.display = status === 'connected' ? '' : 'none';
     el('dlr_scrbtn').style.display = status === 'connected' ? '' : 'none';
-    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Calling…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: dropped ? '⏸ Headset dropped — tap Start dialing to reconnect (your place is saved)' : ('⏸ Paused' + (why ? ' — ' + why : '')), stopped: why === 'old session closed' ? 'Ready when you are' : 'Stopped', done: '✅ Every No Reply lead has been dialed today' }[status] || status;
+    var head = { none: dlrLive() ? 'Ready when you are' : '🛠 Dialer is still being finished — for now, just record your voicemails below', starting: 'Ringing your headset…', ready: '📞 Calling…', connected: '🟢 LIVE', wrapup: '☎️ Call ended — add your notes in GHL, then tap Next Dial', paused: dropped ? '⏸ Headset dropped — tap Start dialing to reconnect (your place is saved)' : ('⏸ Paused' + (why ? ' — ' + why : '')), stopped: why === 'old session closed' ? 'Ready when you are' : 'Stopped', done: /daily cap/.test(why) ? '✅ Done for today — your caller IDs hit their daily call limit' : '✅ Every lead in this list has been dialed today' }[status] || status;
     el('dlr_status').textContent = head;
     var live = el('dlr_live');
     if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; var onCall = status === 'connected'; live.style.borderColor = onCall ? '#16A34A' : '#9CA3AF'; el('dlr_ltag').style.color = onCall ? '#16A34A' : '#6B7280'; el('dlr_ltag').textContent = onCall ? '🟢 YOU\'RE ON THE PHONE WITH' : '☎️ CALL ENDED — LAST CALL WAS'; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
     else { live.style.display = 'none'; }
     var stx = (s && s.stats) || {};
-    el('dlr_stats').innerHTML = s && s.id ? ('<b>' + (stx.dials || 0) + '</b> dials · <b>' + (stx.talked || 0) + '</b> pickups · <b>' + (stx.convos || 0) + '</b> convos (45s+) · <b>' + (stx.voicemails || 0) + '</b> voicemails · <b>' + (s.left || 0) + '</b> of ' + (s.total || 0) + ' leads left') : '';
+    el('dlr_stats').innerHTML = s && s.id ? ('<b>' + (stx.dials || 0) + '</b> dials · <b>' + (stx.talked || 0) + '</b> pickups · <b>' + (stx.convos || 0) + '</b> convos (45s+) · <b>' + (stx.voicemails || 0) + '</b> voicemails · <b>' + (s.left || 0) + '</b> of ' + (s.total || 0) + ' leads left' + (s.stages && s.stages.length ? ' · list: ' + stageNames(s.stages) : '')) : '';
     // one row per seller (their latest call): who's being called RIGHT NOW on top, then what just happened
     var seen = {}, latest = [];
     ((s && s.lines) || []).forEach(function (l) { if (!seen[l.phone]) { seen[l.phone] = 1; latest.push(l); } });
@@ -198,10 +209,11 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
   }
   function shell() {
     return '<div id="dlr_root"><audio id="dlr_audio" autoplay></audio>'
-      + '<div class="card"><h2>📞 3-Line Dialer</h2><div class="sm mut">Calls your 🚫 No Reply leads 3 at a time. Each lead gets a double dial once a day. Voicemails are left for you; only real people are put through.</div>'
+      + '<div class="card"><h2>📞 3-Line Dialer</h2><div class="sm mut">Calls your 🚫 No Reply leads 3 at a time — tick which No Reply stage(s) to dial. Each lead gets a double dial once a day. Voicemails are left for you; only real people are put through.</div>'
       + '<div id="dlr_status" style="font-size:20px;font-weight:800;margin:12px 0 6px">…</div>'
       + '<div id="dlr_live" style="display:none;border:3px solid #16A34A;border-radius:12px;padding:12px 14px;margin:8px 0"><div id="dlr_ltag" class="sm" style="color:#16A34A;font-weight:800">🟢 YOU\'RE ON THE PHONE WITH</div><div id="dlr_lname" style="font-size:30px;font-weight:900;line-height:1.15"></div><div id="dlr_lphone" style="font-size:14px"></div><div id="dlr_lead"></div></div>'
       + '<div id="dlr_stats" class="sm"></div>'
+      + '<div id="dlr_stages" class="sm" style="margin-top:10px"><b>Dial which leads?</b> ' + [[1, 'No Reply 1 (10 days – 3 weeks)'], [2, 'No Reply 2 (3 weeks – 2 months)'], [3, 'No Reply 3 (2 months+)']].map(function (x) { return '<label style="margin-left:10px;white-space:nowrap"><input type="checkbox" id="dlr_st' + x[0] + '"' + (savedStages().indexOf(x[0]) >= 0 ? ' checked' : '') + ' onchange="dlrStages()"> ' + x[1] + '</label>'; }).join('') + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'
       + '<button id="dlr_start" class="btn gr" style="font-size:17px;padding:12px 22px" onclick="dlrStart()">▶ Start dialing</button>'
       + '<button id="dlr_test" class="btn mut" onclick="dlrStart(true)">🧪 Test (calls your cell)</button>'
