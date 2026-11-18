@@ -1249,11 +1249,15 @@ function renderScript(){
   h+=banner('STEP 1 — FIND WHAT THE MONEY IS FOR');
   h+=b('Okay, I hear you. '+fl('cash price')+' doesn’t work. Can I ask, what were you going to do with the money from the sale?');
   h+=ins('(WAIT. WRITE DOWN THE REAL NEED: NEW PLACE, PAY OFF A BILL, MOVE NEAR FAMILY. THIS TELLS YOU THE DOWN PAYMENT)');
+  h+=b('And if the house doesn’t sell in the next few months, what happens?');
+  h+=ins('(WAIT. THIS IS THE REAL REASON THEY WILL SAY YES. WRITE IT DOWN WORD FOR WORD)');
   h+=b('So to do that, you’d need about '+fl('cash need')+' in your hand. And about '+fl('their price')+' in total. Did I get that right?');
 
   h+=banner('STEP 2 — ASK BEFORE YOU EXPLAIN');
   h+=b('I may be able to get you your price. The trade is, you get part of it now and the rest every month. Do you want to hear how that would look?');
   h+=ins('NO = “GOT IT, THANK YOU.” GO BACK TO CASH OR NOVATION, OR STOP. YES = KEEP GOING.');
+  h+=b('And if the numbers work for you, is there anything that would stop you from moving forward today?');
+  h+=ins('(WHATEVER THEY SAY HERE IS THE REAL OBJECTION. ANSWER IT NOW WITH FAST ANSWERS BELOW, BEFORE YOU GIVE NUMBERS)');
 
   h+=banner('STEP 3 — GET THE LOAN FACTS');
   h+=ins('(SKIP WHAT YOU ALREADY HAVE)');
@@ -1280,14 +1284,22 @@ function renderScript(){
   h+=ins('(IF THEY MISS A PART, SAY ONLY THAT PART AGAIN. IF THEY DON’T SAY THE LOAN STAYS IN THEIR NAME, SAY IT AGAIN)');
 
   h+=banner('STEP 6 — ALL THREE, SIDE BY SIDE');
+  h+=b('You told me you need '+fl('cash need')+' to '+fl('their goal')+'.');
   h+=b('So you have three choices. One: '+fl('cash price')+' cash, in about 30 days. Two: '+fl('novation price')+', in about '+fl('days')+' days. Three: '+fl('their price')+' total, '+fl('down payment')+' now and '+fl('monthly amount')+' a month. Which one fits you best?');
-  h+=ins('THEN STOP TALKING. IF THEY PICK 1 OR 2, CLOSE THAT. IF NO TO ALL: “GOT IT, THANK YOU.”');
+  h+=ins('THEN STOP TALKING. WAIT, EVEN IF IT FEELS LONG. IF THEY PICK 1 OR 2, CLOSE THAT.');
+  h+=sub('IF NO TO ALL');
+  h+=b('Got it, thank you. Things change. Is it okay if I check back in 30 days?');
+  h+=ins('(TAG IT IN SPARK WITH THE DATE. KEEP THE LEAD WARM — YOU ALREADY PAID FOR IT)');
 
   h+=banner('STEP 7 — SEND THE PAPER NOW');
   h+=ins('(ONLY IF THEY PICK OPTION 3)');
   h+=b('Great. I’m sending you the agreement and a one-page paper that explains the loan stays in your name. Tell me when you see it, and I’ll go through it with you.');
+  h+=ins('(READ THE PRICE, THE DOWN PAYMENT, THE MONTHLY AMOUNT AND THE “LOAN STAYS IN YOUR NAME” PART OUT LOUD. ASK “ANY QUESTIONS ON THAT PART?” AFTER EACH)');
   h+=b('Who else needs to say yes? Can we get them on the phone now?');
   h+=b('You can sign today, or have your lawyer or family read it first. Which do you want to do?');
+  h+=sub('IF THEY SAY SIGN TODAY');
+  h+=b('Great. Go ahead and sign where it’s marked. I’ll stay on the line in case you have a question.');
+  h+=ins('(STAY ON UNTIL IT SAYS SIGNED. THEN TELL THEM WHAT HAPPENS NEXT AND WHEN)');
   h+=sub('IF THEY WANT TIME');
   h+=b('That’s smart. Let’s set a time to talk after they read it. Does '+fl('day')+' at '+fl('time')+' work?');
   h+=ins('NEVER HANG UP WITHOUT A SET DAY AND TIME. SEND A TEXT WITH THE THREE OPTIONS AND THE TIME RIGHT AFTER.');
@@ -1309,6 +1321,10 @@ function renderScript(){
   h+=sub('“THAT’S TOO LONG” / “I’M TOO OLD TO WAIT”');
   h+=b('That makes sense. How many years would work for you?');
   h+=ins('(RUN IT. A SHORTER TIME MAY MEAN A LOWER TOTAL. IF THEY ASK ABOUT PAYMENTS GOING TO FAMILY, SAY THEIR LAWYER CAN SET THAT UP)');
+
+  h+=sub('“LET ME THINK ABOUT IT”');
+  h+=b('Of course. What part do you want to think about, the price, the monthly, or the loan?');
+  h+=ins('(ANSWER THAT ONE PART. IF THEY STILL WANT TIME, SET THE DAY AND TIME)');
 
   h+='<div style="border-top:2px solid '+GOLD+';margin-top:22px;padding-top:10px;display:flex;justify-content:space-between;color:'+NAVY+';font-size:11px;font-weight:800"><span>CLEAR PATH PROPERTY SOLUTIONS</span><span>CREATIVE</span></div>';
 
