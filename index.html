@@ -1224,12 +1224,83 @@ function renderScript(){
 
   if(!window.SCRIPT_VIEW)window.SCRIPT_VIEW='occ';
   var pav=(window.SCRIPT_VIEW==='pa');
+  var crv=(window.SCRIPT_VIEW==='cr');
   function tabbtn(label,v,active){return '<button onclick="swScript(\''+v+'\')" style="flex:1;padding:13px 8px;border-radius:8px;font-weight:800;font-size:14px;letter-spacing:.05em;cursor:pointer;border:2px solid '+NAVY+';'+(active?'background:#fff;color:'+NAVY:'background:'+NAVY+';color:#fff')+'">'+label+'</button>'}
-  var bar='<div style="display:flex;gap:10px">'+tabbtn('ONE CALL CLOSE','occ',!pav)+tabbtn('PA WALKTHROUGH','pa',pav)+'</div>';
+  var bar='<div style="display:flex;gap:8px">'+tabbtn('ONE CALL CLOSE','occ',!pav&&!crv)+tabbtn('CREATIVE','cr',crv)+tabbtn('PA WALKTHROUGH','pa',pav)+'</div>';
   var h='<div style="margin:0 0 14px">'+bar+'</div>';
   h+='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)">';
 
-  if(!pav){
+  if(crv){
+  // ===== CREATIVE (Nic, Nov 18): use on the same call, right after cash or novation says no =====
+  function fl(t){return '<span style="color:'+GOLD+';font-weight:800">['+t+']</span>'}
+  h+='<div style="background:'+NAVY+';padding:30px 12px 26px;text-align:center">'
+   +'<div style="color:#fff;font-size:min(8.5vw,44px);font-weight:800;letter-spacing:.12em;line-height:1.18">CREATIVE SCRIPT</div>'
+   +'<div style="width:180px;height:2px;background:'+GOLD+';margin:12px auto"></div>'
+   +'<div style="color:#B9C4D6;font-size:12px;line-height:1.6">After cash or novation says no &nbsp;—&nbsp; <span style="color:'+GOLD+'">[Gold]</span> = their real numbers &nbsp;—&nbsp; <span style="color:'+GOLD+'">Bronze text</span> = instructions, do not read aloud</div>'
+   +'</div>';
+
+  h+='<div style="padding:6px 18px 26px">';
+  h+=ins('USE THIS ON THE SAME CALL, RIGHT AFTER THEY SAY NO TO YOUR CASH OR NOVATION PRICE. DO NOT SAVE IT FOR A CHECK-BACK CALL.');
+  h+=ins('STOP AND WAIT AFTER EVERY QUESTION');
+
+  h+=banner('STEP 1 — SAY BACK THEIR NO');
+  h+=b('Okay. So cash at '+fl('cash price')+' is too low. And '+fl('novation price')+' takes too long, or still isn’t enough. You need about '+fl('their price')+'. Did I get that right?');
+  h+=ins('(WAIT FOR YES. IF THEY GIVE A NEW NUMBER, WRITE IT DOWN)');
+
+  h+=banner('STEP 2 — GET THE LOAN FACTS');
+  h+=ins('(SKIP WHAT YOU ALREADY HAVE)');
+  h+=b('Quick question so I don’t waste your time. Is the house paid off, or is there a mortgage?');
+  h+=sub('IF THERE IS A MORTGAGE');
+  h+=b('About how much is left? What’s the full monthly payment, with taxes and insurance? Do you know the interest rate?');
+  h+=b('Easiest way is a photo of your last mortgage statement. Can you text it to me right now while we talk?');
+
+  h+=banner('STEP 3 — ASK FOR ONE MINUTE');
+  h+=b('There’s one more way I buy houses. It can get you '+fl('their price')+' instead of '+fl('cash price')+'. Can I take one minute to show you?');
+
+  h+=banner('STEP 4 — OPTION 3 WITH REAL NUMBERS');
+  h+=sub('IF THERE IS A MORTGAGE (SUBJECT-TO)');
+  h+=b('Here’s how it works. The house comes to us. <b>Your loan stays in your name.</b> We make your '+fl('monthly payment')+' payment every month, through a payment company, and you can see every payment. You get '+fl('down payment')+' at closing. Then '+fl('monthly amount')+' a month until you have '+fl('their price')+' in total.');
+  h+=sub('IF IT’S PAID OFF (SELLER FINANCE)');
+  h+=b('Here’s how it works. You become the bank. We pay you '+fl('down payment')+' at closing. Then '+fl('monthly amount')+' a month for '+fl('years')+' years. That adds up to '+fl('their price')+'.');
+  h+=sub('IF THEY OWE MORE THAN CASH PAYS');
+  h+=b('Selling for cash, you’d have to bring about '+fl('gap')+' to closing. With this, you bring nothing. <b>Your loan stays in your name</b>, and we make the payments. And we can put '+fl('amount')+' in your pocket at closing.');
+
+  h+=banner('STEP 5 — CHECK THEY UNDERSTOOD');
+  h+=b('That was a lot. Did that make sense, or should I say any part again?');
+
+  h+=banner('STEP 6 — ALL THREE SIDE BY SIDE');
+  h+=b('So you have three choices. One: '+fl('cash price')+' cash, close in about 30 days. Two: '+fl('novation price')+', takes about '+fl('days')+' days. Three: '+fl('their price')+' total, '+fl('down payment')+' now and '+fl('monthly amount')+' a month. Which one fits you best?');
+  h+=ins('IF THEY PICK 1 OR 2, GREAT, CLOSE THAT. IF THEY SAY NO TO ALL, SAY “GOT IT, THANK YOU,” AND STOP.');
+
+  h+=banner('STEP 7 — LOCK IT IN ON THIS CALL');
+  h+=ins('(ONLY IF THEY PICK OPTION 3)');
+  h+=b('Great. I’m texting you all three options in writing right now. Tell me when you see it.');
+  h+=b('Who else needs to say yes? Your husband, wife, kids? Can we all get on the phone tonight or tomorrow? What time?');
+  h+=b('Before you sign anything, you’ll get our contract and a paper that explains <b>the loan stays in your name</b>. Have your own lawyer or family read it. No rush.');
+  h+=b('So we’re talking again '+fl('day')+' at '+fl('time')+'. Does that work?');
+
+  h+=banner('FAST ANSWERS');
+  h+=ins('THE SIX NO’S YOU HEAR MOST. EACH ANSWER ENDS WITH ONE QUESTION. IF THEY STILL SAY NO, LET IT GO.');
+  h+=sub('“I WANT ALL CASH”');
+  h+=b('That’s fair. '+fl('cash price')+' is the most cash I can do. Option 3 is only if a bigger total matters more than speed. Which matters more to you?');
+  h+=sub('“SO I WALK AWAY WITH NOTHING?”');
+  h+=b('What amount at closing would make this worth it to you?');
+  h+=ins('(THEN CHECK IF THE NUMBERS ALLOW IT)');
+  h+=sub('“THE LOAN STAYS IN MY NAME? WHAT IF YOU STOP PAYING?”');
+  h+=b('Yes, it stays in your name. That’s the real risk, and you should know it. Here’s what our contract does about it: '+fl('only what your lawyer’s papers say')+'. Want your lawyer to read it first?');
+  h+=sub('“I NEED TO ASK MY SPOUSE”');
+  h+=b('Of course. Can we all get on the phone tonight or tomorrow? What time?');
+  h+=sub('“I DON’T GET IT”');
+  h+=ins('(STOP TALKING)');
+  h+=b('Sorry, I went too fast. Which part should I say again?');
+  h+=sub('“THAT’S TOO LONG” / “I’M TOO OLD TO WAIT”');
+  h+=b('How many years would work for you?');
+  h+=ins('(THEN RUN IT. YOU CAN ALSO ASK YOUR LAWYER ABOUT A SHORTER PAYOFF OR PAYMENTS THAT GO TO THEIR KIDS)');
+
+  h+='<div style="border-top:2px solid '+GOLD+';margin-top:22px;padding-top:10px;display:flex;justify-content:space-between;color:'+NAVY+';font-size:11px;font-weight:800"><span>CLEAR PATH PROPERTY SOLUTIONS</span><span>CREATIVE</span></div>';
+
+  h+='</div>';
+  } else if(!pav){
   // header
   h+='<div style="background:'+NAVY+';padding:30px 12px 26px;text-align:center">'
    +'<div style="color:#fff;font-size:min(8.5vw,44px);font-weight:800;letter-spacing:.12em">ONE CALL CLOSE SCRIPT</div>'
