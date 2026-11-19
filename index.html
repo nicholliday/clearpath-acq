@@ -1212,6 +1212,180 @@ function swScript(v){
   document.body.scrollTop=0;
   setTimeout(function(){window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0},50);
 }
+// ===== CREATIVE OFFER CALCULATOR (Nic, Nov 19). Opens from the CREATIVE script. Numbers stay on this phone only. =====
+// Buyer limits start from Trung Tang's buy box in dispo_buyers (max $20k up front incl. our fee + closing + TC, loan rate 6% or less).
+var CALC_KEY='cp_creative_calc_v1';
+var CALC_BUYER_DEFAULT={maxEntry:20000,maxRate:6,minCF:'',target:18000,closing:''};
+var CALC_FIELDS=[
+  ['THE HOUSE',[['value','What the house is worth now (as-is)'],['rent','Rent it would get each month'],['cash','Your cash offer'],['nov','Your novation price']]],
+  ['THE LOAN',[['bal','Loan balance left'],['rate','Loan interest rate (%)'],['piti','Full monthly payment (with taxes + insurance)'],['arrears','Behind on payments (total $)']]],
+  ['THE SELLER',[['need','Cash they need in hand at closing'],['price','Total price they want']]],
+  ['IF IT IS PAID OFF (SELLER FINANCE)',[['sfRate','Interest rate you pay the seller (%)'],['sfYears','Years to pay it off'],['taxIns','Taxes + insurance per month']]],
+  ['YOUR TERMS BUYER (SAVED ON THIS PHONE)',[['maxEntry','Most your buyer pays up front (incl. your fee)'],['maxRate','Highest loan rate your buyer takes (%)'],['minCF','Least cash flow your buyer wants per month'],['closing','Closing + TC costs'],['target','Your fee target']]]
+];
+function calcLoad(){
+  var s={};try{s=JSON.parse(localStorage.getItem(CALC_KEY)||'{}')||{}}catch(e){s={}}
+  Object.keys(CALC_BUYER_DEFAULT).forEach(function(k){if(s[k]===undefined)s[k]=CALC_BUYER_DEFAULT[k]});
+  return s;
+}
+function calcSave(){try{localStorage.setItem(CALC_KEY,JSON.stringify(window.CALC||{}))}catch(e){}}
+function calcSet(k,v){window.CALC[k]=v;calcSave();var r=document.getElementById('calc_out');if(r)r.innerHTML=calcResults(window.CALC)}
+function calcClearDeal(){
+  var keep={};['maxEntry','maxRate','minCF','closing','target'].forEach(function(k){keep[k]=window.CALC[k]});
+  window.CALC=keep;calcSave();renderScript();
+}
+function calcNum(v){if(v===''||v==null)return null;var n=Number(String(v).replace(/[$,%\s]/g,''));return isFinite(n)?n:null}
+function calcMoney(n){if(n==null||!isFinite(n))return '—';var neg=n<0;n=Math.round(Math.abs(n));return (neg?'−':'')+'$'+n.toLocaleString()}
+// monthly payment on a loan: amount, yearly rate %, years. 0% = straight split.
+function calcPmt(amt,ratePct,years){
+  if(amt==null||years==null||years<=0)return null; if(amt<=0)return 0;
+  var n=years*12, r=(ratePct||0)/1200;
+  if(r===0)return amt/n;
+  return amt*r/(1-Math.pow(1+r,-n));
+}
+// Pure math, no page stuff. Missing input = null result, never a guess.
+function calcMath(c){
+  var g=function(k){return calcNum(c[k])};
+  var value=g('value'),rent=g('rent'),bal=g('bal'),rate=g('rate'),piti=g('piti'),arrears=g('arrears')||0,
+      need=g('need'),price=g('price'),maxEntry=g('maxEntry'),maxRate=g('maxRate'),minCF=g('minCF'),
+      closing=g('closing'),target=g('target')||18000,sfRate=g('sfRate'),sfYears=g('sfYears'),taxIns=g('taxIns'),
+      cash=g('cash'),nov=g('nov');
+  var o={target:target};
+  // ---- SUBJECT-TO: buyer takes over the loan, pays arrears + closing + seller cash + our fee up front
+  var s={};
+  s.hasLoan=bal!=null&&bal>0;
+  s.equity=(value!=null&&bal!=null)?value-bal-arrears:null;
+  s.room=(maxEntry!=null&&closing!=null)?maxEntry-arrears-closing:null;      // up-front $ left after arrears + closing
+  s.mostToSeller=(s.room!=null)?s.room-target:null;                           // most seller can get at closing and still hit target
+  s.toSeller=(need!=null)?need:(s.mostToSeller!=null?Math.max(0,s.mostToSeller):null);
+  s.fee=(s.room!=null&&s.toSeller!=null)?s.room-s.toSeller:null;
+  s.upFront=(closing!=null&&s.toSeller!=null&&s.fee!=null)?arrears+closing+s.toSeller+s.fee:null;
+  s.cf=(rent!=null&&piti!=null)?rent-piti:null;                               // buyer cash flow before paying seller any monthly
+  s.monthlyRoom=(s.cf!=null)?s.cf-(minCF||0):null;                            // most per month to seller
+  s.rest=(price!=null&&bal!=null&&s.toSeller!=null)?price-bal-arrears-s.toSeller:null; // what seller is still owed after closing
+  s.monthly=(s.rest!=null&&s.rest>0&&s.monthlyRoom!=null&&s.monthlyRoom>0)?Math.floor(s.monthlyRoom/25)*25:null;
+  s.months=(s.monthly&&s.rest>0)?Math.ceil(s.rest/s.monthly):null;
+  s.rateOk=(rate==null||maxRate==null)?null:rate<=maxRate;
+  s.cfOk=(s.cf==null)?null:(s.cf>=(minCF||0));
+  s.feeOk=(s.fee==null)?null:s.fee>=target;
+  s.ok=s.hasLoan&&s.feeOk===true&&s.rateOk!==false&&s.cfOk!==false&&!(s.rest!=null&&s.rest>0&&!s.monthly);
+  o.sub=s;
+  // ---- SELLER FINANCE: house paid off, seller is the bank
+  var f={};
+  f.paidOff=!(bal!=null&&bal>0);
+  f.room=(maxEntry!=null&&closing!=null)?maxEntry-closing:null;
+  f.mostDown=(f.room!=null)?f.room-target:null;
+  f.down=(need!=null)?need:(f.mostDown!=null?Math.max(0,f.mostDown):null);
+  f.fee=(f.room!=null&&f.down!=null)?f.room-f.down:null;
+  f.loan=(price!=null&&f.down!=null)?price-f.down:null;
+  f.monthly=calcPmt(f.loan,sfRate,sfYears);
+  f.total=(f.monthly!=null&&f.down!=null&&sfYears)?f.down+f.monthly*sfYears*12:null;
+  f.cf=(rent!=null&&f.monthly!=null&&taxIns!=null)?rent-f.monthly-taxIns:null;
+  f.mostMonthly=(rent!=null&&taxIns!=null)?rent-taxIns-(minCF||0):null;
+  f.feeOk=(f.fee==null)?null:f.fee>=target;
+  f.cfOk=(f.cf==null)?null:f.cf>=(minCF||0);
+  f.ok=f.paidOff&&f.feeOk===true&&f.cfOk===true;
+  o.sf=f;
+  // ---- CASH + NOVATION: what the seller walks away with (before closing costs and agent fees)
+  o.cashNet=(cash!=null)?cash-(bal||0)-arrears:null;
+  o.novNet=(nov!=null)?nov-(bal||0)-arrears:null;
+  o.cash=cash;o.nov=nov;o.price=price;
+  return o;
+}
+function calcResults(c){
+  var m=calcMath(c),s=m.sub,f=m.sf,M=calcMoney;
+  var GOLD='#D4AF37';
+  function line(l,v,col){return '<div class="row" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="mut" style="font-size:13px">'+l+'</span><b style="font-size:15px;'+(col?'color:'+col:'')+'">'+v+'</b></div>'}
+  function yes(t){return '<div style="background:#064E3B;color:#6EE7B7;font-weight:800;border-radius:9px;padding:10px;margin:8px 0;font-size:14px">✅ '+t+'</div>'}
+  function no(t){return '<div style="background:#450A0A;color:#FCA5A5;font-weight:800;border-radius:9px;padding:10px;margin:8px 0;font-size:14px">❌ '+t+'</div>'}
+  function miss(t){return '<div style="background:#42350D;color:#FCE28A;font-weight:700;border-radius:9px;padding:10px;margin:8px 0;font-size:13px">✏️ '+t+'</div>'}
+  function say(t){return '<div style="background:#fff;color:#1E2A3D;border-left:4px solid '+GOLD+';border-radius:6px;padding:10px 12px;margin:8px 0;font-size:15px;line-height:1.5">“'+t+'”</div>'}
+  function gold(t){return '<b style="color:#A67420">'+t+'</b>'}
+  var h='';
+  // SUB-TO
+  h+='<div class="card"><h2>🏠 Subject-to offer</h2>';
+  if(!s.hasLoan){h+=miss('Add the loan balance. No loan? Use seller finance below.');}
+  else if(s.room==null){h+=miss('Add your buyer’s up-front max and closing costs.');}
+  else{
+    h+=line('Most the seller can get at closing',M(s.mostToSeller),s.mostToSeller<0?'var(--red)':GOLD);
+    h+=line('Seller gets at closing',M(s.toSeller));
+    h+=line('Behind payments you catch up',M(calcNum(c.arrears)||0));
+    h+=line('Your fee',M(s.fee),s.fee>=m.target?'var(--green)':'var(--red)');
+    h+=line('Buyer pays up front',M(s.upFront));
+    h+=line('Seller equity (worth − loan − behind)',M(s.equity));
+    h+=line('Buyer cash flow (rent − payment)',M(s.cf),s.cfOk===false?'var(--red)':null);
+    if(s.rest!=null&&s.rest>0){
+      h+=line('Still owed to seller after closing',M(s.rest));
+      h+=line('Monthly to seller',s.monthly?M(s.monthly):'—');
+      h+=line('Months to pay it',s.months||'—');
+    }
+    if(s.feeOk===false)h+=no('Fee is '+M(s.fee)+'. Under '+M(m.target)+'. '+(s.mostToSeller<0?'Even $0 to the seller misses it. The up-front max is too low for this one.':'Give the seller '+M(s.mostToSeller)+' or less at closing.'));
+    if(s.rateOk===false)h+=no('Loan rate '+c.rate+'% is over your buyer’s '+c.maxRate+'%.');
+    if(s.cfOk===false)h+=no('Cash flow is '+M(s.cf)+'. Under what your buyer wants.');
+    if(s.rest!=null&&s.rest>0&&!s.monthly)h+=no('No money left each month to pay the seller the rest. Lower the price or add more at closing.');
+    if(s.ok)h+=yes('Clears '+M(m.target)+'. Fee '+M(s.fee)+'.');
+    if(s.ok&&m.price!=null){
+      var t='You get '+gold(M(s.toSeller))+' at closing.'+(s.monthly?' Then '+gold(M(s.monthly))+' a month for '+gold(s.months)+' months, until you’ve been paid '+gold(M(m.price))+'.':'')
+        +' We make your '+gold(M(calcNum(c.piti)))+' mortgage payment every month. But the loan stays in your name.';
+      h+='<div class="sm mut" style="margin-top:10px">SAY IT (STEP 4)</div>'+say(t);
+    }
+  }
+  h+='</div>';
+  // SELLER FINANCE
+  h+='<div class="card"><h2>🤝 Seller finance offer</h2>';
+  if(!f.paidOff){h+=miss('This is for paid-off houses. There’s a loan, so use subject-to above.');}
+  else if(f.room==null){h+=miss('Add your buyer’s up-front max and closing costs.');}
+  else{
+    h+=line('Most down payment to seller',M(f.mostDown),f.mostDown<0?'var(--red)':GOLD);
+    h+=line('Down payment',M(f.down));
+    h+=line('Your fee',M(f.fee),f.fee>=m.target?'var(--green)':'var(--red)');
+    if(f.loan==null)h+=miss('Add the total price they want.');
+    else if(f.monthly==null)h+=miss('Add the years to pay it off.');
+    else{
+      h+=line('Monthly to seller',M(f.monthly));
+      h+=line('Seller gets in total',M(f.total));
+      h+=line('Most monthly your buyer can pay',M(f.mostMonthly));
+      if(f.cf==null)h+=miss('Add taxes + insurance to check cash flow.');
+      else h+=line('Buyer cash flow',M(f.cf),f.cfOk?null:'var(--red)');
+    }
+    if(f.feeOk===false)h+=no('Fee is '+M(f.fee)+'. Under '+M(m.target)+'. Down payment can be '+M(f.mostDown)+' at most.');
+    if(f.cfOk===false)h+=no('Cash flow is too low. Lower the monthly, add years, or lower the price.');
+    if(f.ok)h+=yes('Clears '+M(m.target)+'. Fee '+M(f.fee)+'.');
+    if(f.ok)h+='<div class="sm mut" style="margin-top:10px">SAY IT (STEP 4)</div>'+say('You get '+gold(M(f.down))+' at closing. Then '+gold(M(f.monthly))+' a month for '+gold(c.sfYears)+' years. You are the bank, and the house backs the loan.');
+  }
+  h+='</div>';
+  // SIDE BY SIDE
+  h+='<div class="card"><h2>⚖️ All the choices, side by side</h2>';
+  h+='<table><tr><th>CHOICE</th><th>PRICE</th><th>AT CLOSING</th><th>MONTHLY</th><th>YOUR FEE</th></tr>';
+  h+='<tr><td>Cash</td><td>'+M(m.cash)+'</td><td>'+M(m.cashNet)+'</td><td>—</td><td>—</td></tr>';
+  h+='<tr><td>Novation</td><td>'+M(m.nov)+'</td><td>'+M(m.novNet)+'</td><td>—</td><td>—</td></tr>';
+  if(s.hasLoan)h+='<tr><td>Subject-to</td><td>'+M(m.price)+'</td><td>'+M(s.toSeller)+'</td><td>'+(s.monthly?M(s.monthly):'—')+'</td><td style="color:'+(s.feeOk?'var(--green)':'var(--red)')+'">'+M(s.fee)+'</td></tr>';
+  else h+='<tr><td>Seller finance</td><td>'+M(m.price)+'</td><td>'+M(f.down)+'</td><td>'+M(f.monthly)+'</td><td style="color:'+(f.feeOk?'var(--green)':'var(--red)')+'">'+M(f.fee)+'</td></tr>';
+  h+='</table>';
+  h+='<div class="sm mut" style="margin-top:8px">Cash and novation “at closing” = price minus loan and behind payments, before closing costs and agent fees. A minus means the seller would have to bring money.</div>';
+  if(m.cashNet!=null&&m.cashNet<0&&s.hasLoan&&s.toSeller!=null)h+=say('If you sell for cash, you’d have to bring about '+gold(M(-m.cashNet))+' to closing. This way, you bring nothing, and you get '+gold(M(s.toSeller))+' at closing.');
+  h+='</div>';
+  h+='<div class="sm mut" style="margin:0 4px 12px">Seller must understand the loan stays in their name. Your lawyer approves every contract.</div>';
+  return h;
+}
+function renderCalc(){
+  if(!window.CALC)window.CALC=calcLoad();
+  var c=window.CALC;
+  var h='<div class="card" style="margin-top:4px"><div class="brand">CREATIVE</div><h1 style="margin-bottom:4px">Offer Calculator</h1>'
+   +'<div class="sm mut">Fill in what the seller told you. Blank = not used. Answers update as you type.</div></div>';
+  h+='<div class="card">';
+  CALC_FIELDS.forEach(function(sec){
+    h+='<div style="font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--gold);margin:10px 0 6px">'+sec[0]+'</div>';
+    sec[1].forEach(function(fd){
+      var v=c[fd[0]];
+      h+='<label for="calc_'+fd[0]+'">'+fd[1]+'</label><input id="calc_'+fd[0]+'" inputmode="decimal" value="'+esc(v==null?'':String(v))+'" oninput="calcSet(\''+fd[0]+'\',this.value)">';
+    });
+  });
+  h+='<button class="btn mut" onclick="calcClearDeal()" style="margin-top:6px">Clear this seller (keeps buyer numbers)</button>';
+  h+='</div>';
+  h+='<div id="calc_out">'+calcResults(c)+'</div>';
+  return h;
+}
 function renderScript(){
   var el=document.getElementById('v_script');if(!el)return;
   var NAVY='#22375A', GOLD='#C9A24B', BRONZE='#A67420', INK='#1E2A3D';
@@ -1226,8 +1400,15 @@ function renderScript(){
   var pav=(window.SCRIPT_VIEW==='pa');
   var crv=(window.SCRIPT_VIEW==='cr');
   function tabbtn(label,v,active){return '<button onclick="swScript(\''+v+'\')" style="flex:1;padding:13px 8px;border-radius:8px;font-weight:800;font-size:14px;letter-spacing:.05em;cursor:pointer;border:2px solid '+NAVY+';'+(active?'background:#fff;color:'+NAVY:'background:'+NAVY+';color:#fff')+'">'+label+'</button>'}
-  var bar='<div style="display:flex;gap:8px">'+tabbtn('ONE CALL CLOSE','occ',!pav&&!crv)+tabbtn('CREATIVE','cr',crv)+tabbtn('PA WALKTHROUGH','pa',pav)+'</div>';
+  var calv=(window.SCRIPT_VIEW==='calc');
+  var bar='<div style="display:flex;gap:8px">'+tabbtn('ONE CALL CLOSE','occ',!pav&&!crv&&!calv)+tabbtn('CREATIVE','cr',crv||calv)+tabbtn('PA WALKTHROUGH','pa',pav)+'</div>';
   var h='<div style="margin:0 0 14px">'+bar+'</div>';
+  if(calv){
+    h+='<button class="btn mut big" style="margin:0 0 12px" onclick="swScript(\'cr\')">\u2190 Back to the creative script</button>';
+    h+=renderCalc();
+    h+='<div style="margin:16px 0 6px">'+bar+'</div>';
+    el.innerHTML=h;return;
+  }
   h+='<div style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 18px rgba(0,0,0,.35)">';
 
   if(crv){
@@ -1240,6 +1421,8 @@ function renderScript(){
    +'</div>';
 
   h+='<div style="padding:6px 18px 26px">';
+
+  h+='<button onclick="swScript(\'calc\')" style="width:100%;margin:18px 0 4px;padding:16px 10px;border-radius:10px;border:none;background:'+GOLD+';color:'+NAVY+';font-weight:900;font-size:18px;letter-spacing:.06em;cursor:pointer">\uD83E\uDDEE OPEN OFFER CALCULATOR</button>';
 
   h+=banner('BEFORE THE CALL');
   h+=ins('HAVE YOUR TOP NUMBERS READY: MOST YOU CAN PAY AT CLOSING, MOST PER MONTH, MOST TOTAL — THAT STILL LEAVES $18K+ WITH YOUR TERMS BUYER.');
