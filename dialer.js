@@ -99,12 +99,21 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
   window.addEventListener('focus', function () { if (el('dlr_root')) tick(); });
   function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
 
+  // Nov 19 (Nic: "296 leads left but I've been smoking it"): the old number counted the list, and every new Start builds a new
+  // list. These counts are per seller for TODAY, so they stay right across Stop / Start. Refreshed every 10s.
+  var prog = null, progAt = 0, progSid = '';
+  function loadProg(sid) {
+    if (!sid || (sid === progSid && Date.now() - progAt < 10000)) return;
+    if (sid !== progSid) prog = null;
+    progSid = sid; progAt = Date.now();
+    db.rpc('acq_dialer_progress', { p_sid: sid }).then(function (r) { if (r && r.data && progSid === sid) { prog = r.data; if (st && st.id === sid) render(st); } }, function () { });
+  }
   async function tick() {
     // Oct 22 bug: a slow check from BEFORE Start (old session = 'stopped') landed after Start and switched the
     // checking off, so the screen froze. Now only the newest check counts, and checking never stops during Start.
     var my = ++seq;
     busy = true; var s; try { s = await call('state'); } catch (x) { s = null; } finally { busy = false; }
-    if (my !== seq || !s || s.error) return; st = s; render(s);
+    if (my !== seq || !s || s.error) return; st = s; loadProg(s.id); render(s);
     if (!starting && ['none', 'stopped', 'done'].indexOf(s.status) >= 0) stopPoll(); else startPoll();
     var liveId = s && s.live && s.live.ccid;
     if (liveId && liveId !== lastLive) { lastLive = liveId; loadLead(); }
@@ -163,7 +172,7 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     if (s && s.live && (status === 'connected' || status === 'wrapup')) { live.style.display = ''; var onCall = status === 'connected'; live.style.borderColor = onCall ? '#16A34A' : '#9CA3AF'; el('dlr_ltag').style.color = onCall ? '#16A34A' : '#6B7280'; el('dlr_ltag').textContent = onCall ? '🟢 YOU\'RE ON THE PHONE WITH' : '☎️ CALL ENDED — LAST CALL WAS'; el('dlr_lname').textContent = (s.live.name || '').split(' - ')[0]; el('dlr_lphone').textContent = pretty(s.live.phone) + (s.live.name && s.live.name.indexOf(' - ') > 0 ? ' · ' + s.live.name.split(' - ').slice(1).join(' - ') : ''); }
     else { live.style.display = 'none'; }
     var stx = (s && s.stats) || {};
-    el('dlr_stats').innerHTML = s && s.id ? ('<b>' + (stx.dials || 0) + '</b> dials · <b>' + (stx.talked || 0) + '</b> pickups · <b>' + (stx.convos || 0) + '</b> convos (45s+) · <b>' + (stx.voicemails || 0) + '</b> voicemails · <b>' + (s.left || 0) + '</b> of ' + (s.total || 0) + ' leads left' + (s.stages && s.stages.length ? ' · list: ' + stageNames(s.stages) : '')) : '';
+    el('dlr_stats').innerHTML = s && s.id ? ('<b>' + (stx.dials || 0) + '</b> dials · <b>' + (stx.talked || 0) + '</b> pickups · <b>' + (stx.convos || 0) + '</b> convos (45s+) · <b>' + (stx.voicemails || 0) + '</b> voicemails · ' + (prog && progSid === s.id ? ('<b>' + prog.called_today + '</b> of ' + prog.total + ' sellers called today · <b>' + prog.not_yet + '</b> not called yet' + (prog.second_round ? ' · ' + prog.second_round + ' up for a 2nd round later' : '') + (prog.skipped ? ' · ' + prog.skipped + ' skipped' : '')) : ('<b>' + (s.left || 0) + '</b> of ' + (s.total || 0) + ' left in this list')) + (s.stages && s.stages.length ? ' · list: ' + stageNames(s.stages) : '')) : '';
     // one row per seller (their latest call): who's being called RIGHT NOW on top, then what just happened
     var seen = {}, latest = [];
     ((s && s.lines) || []).forEach(function (l) { if (!seen[l.phone]) { seen[l.phone] = 1; latest.push(l); } });
