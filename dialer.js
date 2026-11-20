@@ -9,11 +9,27 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
   var client = null, clientAt = 0, agentCall = null, micStream = null, poll = null, lastLive = null, st = null, vmRec = null, vmSig = null;
   var MIC_KEY = 'acq_dialer_mic';
 
+  // Nov 20 (BT: "dialer isn't working"): the browser had lost its login, so every request went out with no token, got
+  // "not allowed", and the screen froze with no message. Now: refresh the login and retry once; if it's still gone, say so.
+  async function tokNow(force) {
+    var s = null;
+    try { s = force ? await db.auth.refreshSession() : await db.auth.getSession(); } catch (x) { s = null; }
+    var ses = s && s.data && s.data.session;
+    if (!force && ses && ses.expires_at && ses.expires_at * 1000 < Date.now() + 30000) return tokNow(true); // about to expire
+    return ses && ses.access_token;
+  }
   async function call(action, extra) {
-    var s = await db.auth.getSession(); var tok = s && s.data && s.data.session && s.data.session.access_token;
-    var r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (tok || '') }, body: JSON.stringify(Object.assign({ action: action }, extra || {})) });
-    var j = {}; try { j = await r.json(); } catch (e) { }
-    if (!r.ok && !j.error) j.error = 'Server error ' + r.status;
+    var send = async function (tok) {
+      var r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (tok || 'none') }, body: JSON.stringify(Object.assign({ action: action }, extra || {})) });
+      var j = {}; try { j = await r.json(); } catch (e) { }
+      return { r: r, j: j };
+    };
+    var tok = await tokNow(false); if (!tok) tok = await tokNow(true);
+    var x = await send(tok);
+    if (x.r.status === 403) { tok = await tokNow(true); if (tok) x = await send(tok); }
+    var j = x.j;
+    if (x.r.status === 403) { j.error = 'Your login ran out — sign out of the app and sign back in, then press Start.'; msg(j.error); }
+    else if (!x.r.ok && !j.error) j.error = 'Server error ' + x.r.status;
     return j;
   }
   function el(id) { return document.getElementById(id); }
