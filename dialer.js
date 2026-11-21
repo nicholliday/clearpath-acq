@@ -81,15 +81,22 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
   window.dlrStages = function () { try { localStorage.setItem(STG_KEY, JSON.stringify(pickedStages())); } catch (x) { } };
 
   var starting = false, isDropped = false;
+  // Nov 21 (BT: "not working", nothing reached the server): every Start step and every error is reported, so it can be read remotely.
+  function clog(step, extra) { try { db.rpc('acq_dialer_clog', { p: Object.assign({ v: 34, step: String(step).slice(0, 80), ua: navigator.userAgent.slice(0, 160) }, extra || {}) }).then(function () { }, function () { }); } catch (x) { } }
+  function errInfo(x) { return { err: String((x && (x.name ? x.name + ': ' : '') + (x.message || x)) || x).slice(0, 300) }; }
+  window.addEventListener('error', function (ev) { if (el('dlr_root')) clog('page_error', { err: String(ev.message).slice(0, 300), src: String(ev.filename || '').slice(-60), line: ev.lineno }); });
+  window.addEventListener('unhandledrejection', function (ev) { if (el('dlr_root')) clog('unhandled', errInfo(ev.reason)); });
   async function start(test) {
-    if (starting) return;
+    clog('start_pressed', { starting: starting, telnyx: typeof TelnyxWebRTC, mics: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) });
+    if (starting) { msg('Still starting… give it a few seconds.'); return; }
     var stages = pickedStages();
-    if (!test && !stages.length) { msg('Tick at least one No Reply stage to dial.'); return; }
+    if (!test && !stages.length) { msg('Tick at least one No Reply stage to dial.'); clog('no_stages'); return; }
     starting = true; setTimeout(function () { starting = false; }, 8000);
     msg('Connecting your headset…');
-    try { micStream = await openMic(); fillMics(); } catch (x) { msg(x && x.name === 'NotAllowedError' ? 'Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.' : 'Could not open the microphone (' + ((x && x.name) || 'error') + '). Pick another mic below and try again.'); return; }
-    try { await phone(true); } catch (x) { msg(x.message); return; }
+    try { micStream = await openMic(); fillMics(); clog('mic_ok'); } catch (x) { clog('mic_fail', errInfo(x)); starting = false; msg(x && x.name === 'NotAllowedError' ? 'Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.' : 'Could not open the microphone (' + ((x && x.name) || 'error') + '). Pick another mic below and try again.'); return; }
+    try { await phone(true); clog('phone_ok'); } catch (x) { clog('phone_fail', errInfo(x)); starting = false; msg('Headset could not connect: ' + (x && x.message || x) + ' — try again, or use Chrome.'); return; }
     var r = await call('start', test ? { lines: 3, test: true } : (isDropped ? { lines: 3 } : { lines: 3, stages: stages })); // reconnecting a dropped headset keeps the same list
+    clog('start_reply', { error: r.error || null, leads: r.leads, resumed: !!r.resumed });
     if (r.error) { msg(r.error); return; }
     msg(test ? 'Test call going to your cell.' : (r.leads + ' leads ' + (r.resumed ? 'left in' : 'in') + ' today\'s list' + (r.stages ? ' (' + stageNames(r.stages) + ')' : '') + ' — calling 3 at a time.')); tick(); startPoll();
   }
@@ -298,5 +305,5 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
   // didn't change until you clicked it. Now the database pushes every dialer change straight to the page.
   var live = null;
   function listen() { if (live || !db.channel) return; live = db.channel('acq-dialer-' + Date.now()).on('postgres_changes', { event: '*', schema: 'public', table: 'acq_dialer_sessions' }, function () { tick(); }).subscribe(); }
-  window.dlrOpen = function () { var v = el('v_dialer'); if (v && !el('dlr_root')) v.innerHTML = shell(); fillMics(); listen(); tick(); if (dlrLive()) phone().catch(function () { }); }; // Oct 23: log the headset in as soon as the tab opens, so Start rings faster
+  window.dlrOpen = function () { clog('tab_open', { live: dlrLive(), telnyx: typeof TelnyxWebRTC }); var v = el('v_dialer'); if (v && !el('dlr_root')) v.innerHTML = shell(); fillMics(); listen(); tick(); if (dlrLive()) phone().catch(function () { }); }; // Oct 23: log the headset in as soon as the tab opens, so Start rings faster
 })();
