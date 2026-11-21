@@ -82,7 +82,7 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
 
   var starting = false, isDropped = false;
   // Nov 21 (BT: "not working", nothing reached the server): every Start step and every error is reported, so it can be read remotely.
-  function clog(step, extra) { try { db.rpc('acq_dialer_clog', { p: Object.assign({ v: 34, step: String(step).slice(0, 80), ua: navigator.userAgent.slice(0, 160) }, extra || {}) }).then(function () { }, function () { }); } catch (x) { } }
+  function clog(step, extra) { try { db.rpc('acq_dialer_clog', { p: Object.assign({ v: 35, step: String(step).slice(0, 80), ua: navigator.userAgent.slice(0, 160) }, extra || {}) }).then(function () { }, function () { }); } catch (x) { } }
   function errInfo(x) { return { err: String((x && (x.name ? x.name + ': ' : '') + (x.message || x)) || x).slice(0, 300) }; }
   window.addEventListener('error', function (ev) { if (el('dlr_root')) clog('page_error', { err: String(ev.message).slice(0, 300), src: String(ev.filename || '').slice(-60), line: ev.lineno }); });
   window.addEventListener('unhandledrejection', function (ev) { if (el('dlr_root')) clog('unhandled', errInfo(ev.reason)); });
@@ -93,12 +93,17 @@ function dlrLive() { return typeof ROLE !== "undefined"; } // Oct 24 (Nic): Star
     if (!test && !stages.length) { msg('Tick at least one No Reply stage to dial.'); clog('no_stages'); return; }
     starting = true; setTimeout(function () { starting = false; }, 8000);
     msg('Connecting your headset…');
-    try { micStream = await openMic(); fillMics(); clog('mic_ok'); } catch (x) { clog('mic_fail', errInfo(x)); starting = false; msg(x && x.name === 'NotAllowedError' ? 'Microphone blocked — click the icon left of the web address → Microphone → Allow, then try again.' : 'Could not open the microphone (' + ((x && x.name) || 'error') + '). Pick another mic below and try again.'); return; }
-    try { await phone(true); clog('phone_ok'); } catch (x) { clog('phone_fail', errInfo(x)); starting = false; msg('Headset could not connect: ' + (x && x.message || x) + ' — try again, or use Chrome.'); return; }
-    var r = await call('start', test ? { lines: 3, test: true } : (isDropped ? { lines: 3 } : { lines: 3, stages: stages })); // reconnecting a dropped headset keeps the same list
-    clog('start_reply', { error: r.error || null, leads: r.leads, resumed: !!r.resumed });
-    if (r.error) { msg(r.error); return; }
-    msg(test ? 'Test call going to your cell.' : (r.leads + ' leads ' + (r.resumed ? 'left in' : 'in') + ' today\'s list' + (r.stages ? ' (' + stageNames(r.stages) + ')' : '') + ' — calling 3 at a time.')); tick(); startPoll();
+    var usePhone = false;
+    try { micStream = await openMic(); fillMics(); clog('mic_ok'); } catch (x) { clog('mic_fail', errInfo(x)); usePhone = true; }
+    if (!usePhone) { try { await phone(true); clog('phone_ok'); } catch (x) { clog('phone_fail', errInfo(x)); usePhone = true; } }
+    // Nov 21 (BT): the browser headset wouldn't connect. Instead of stopping, the dialer now rings the rep's own phone.
+    if (usePhone) msg('Browser headset won\'t connect — ringing your phone instead. Pick up to start dialing.');
+    var body = test ? { lines: 3, test: true } : (isDropped ? { lines: 3 } : { lines: 3, stages: stages });
+    if (usePhone) body.ring_phone = true;
+    var r = await call('start', body);
+    clog('start_reply', { error: r.error || null, leads: r.leads, resumed: !!r.resumed, ring_phone: usePhone });
+    if (r.error) { msg(r.error); starting = false; return; }
+    msg((usePhone ? '📱 Ringing your phone — pick up. ' : '') + (test ? 'Test call going to your cell.' : (r.leads + ' leads ' + (r.resumed ? 'left in' : 'in') + ' today\'s list' + (r.stages ? ' (' + stageNames(r.stages) + ')' : '') + ' — calling 3 at a time.'))); tick(); startPoll();
   }
   async function act(a) {
     if (a === 'hangup_live') { var hb = el('dlr_hang'); if (hb) { hb.disabled = true; hb.textContent = 'Hanging up…'; } el('dlr_status').textContent = 'Hanging up…'; }
