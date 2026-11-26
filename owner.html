@@ -670,13 +670,8 @@ async function loadPL(){
           var rc=await db.from('acq_leads').select('id').gte('contracted_on',since).lt('contracted_on',nx);
           PL.sync[it.id]=(rc.data||[]).length;
         }else if(it.sync==='assigned_fees'){
-          var raf=await db.from('stage_history').select('deal_id').eq('stage','EMD In').gte('entered_on',since).lt('entered_on',nx);
-          var ids={};(raf.data||[]).forEach(function(r){ids[r.deal_id]=1});
-          var idl=Object.keys(ids);
-          if(idl.length){
-            var rdl=await db.from('deals').select('id,fee_target').in('id',idl);
-            PL.sync[it.id]=(rdl.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
-          } else PL.sync[it.id]=0;
+          var raf=await db.from('acq_leads').select('projected_profit').gte('assigned_on',since).lt('assigned_on',nx);
+          PL.sync[it.id]=(raf.data||[]).reduce(function(a,r){return a+(Number(r.projected_profit)||0)},0);
         }else if(it.sync==='creative'){
           var rcv=await db.from('acq_leads').select('deal_type').gte('contracted_on',since).lt('contracted_on',nx);
           PL.sync[it.id]=(rcv.data||[]).filter(function(r){return /sub|seller|hybrid|wrap|creative/i.test(r.deal_type||'')}).length;
@@ -690,8 +685,8 @@ async function loadPL(){
           var rv=await db.from('acq_leads').select('revenue_closed').gte('closed_on',since).lt('closed_on',nx);
           PL.sync[it.id]=(rv.data||[]).reduce(function(a,r){return a+(Number(r.revenue_closed)||0)},0);
         }else if(it.sync==='assigned'){
-          var ra=await db.from('stage_history').select('deal_id').eq('stage','EMD In').gte('entered_on',since).lt('entered_on',nx);
-          var u={};(ra.data||[]).forEach(function(r){u[r.deal_id]=1});PL.sync[it.id]=Object.keys(u).length;
+          var ra=await db.from('acq_leads').select('id').gte('assigned_on',since).lt('assigned_on',nx);
+          PL.sync[it.id]=(ra.data||[]).length;
         }
       }catch(e){}
       if(it.factor&&PL.sync[it.id]!=null)PL.sync[it.id]=Math.round(PL.sync[it.id]*Number(it.factor));
@@ -720,8 +715,7 @@ async function loadPL(){
       F.locked_fees=(rdf.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
       var rsd=await db.from('sends').select('id').gte('sent_on',a1).lt('sent_on',nx2);F.sends=(rsd.data||[]).length;
       var rsh=await db.from('showings').select('id').gte('shown_on',a1).lt('shown_on',nx2);F.walks=(rsh.data||[]).length;
-      var re=await db.from('stage_history').select('deal_id').eq('stage','EMD In').gte('entered_on',a1).lt('entered_on',nx2);
-      var u2={};(re.data||[]).forEach(function(r){u2[r.deal_id]=1});F.assigned=Object.keys(u2).length;
+      var re=await db.from('acq_leads').select('id').gte('assigned_on',a1).lt('assigned_on',nx2);F.assigned=(re.data||[]).length;
     }catch(e){}
     PL.fx=F;
   }
@@ -1131,7 +1125,7 @@ async function loadAll(){
       var _k=await allRows('dispo_kpi_daily','id,rep_id,day,dials,convos,talk_seconds');D.dkpi=_k.data||[];
       var _s=await allRows('dispo_sent','deal_id,buyer_id,at','at');D.dsent2=_s.data||[];
       var _b=await allRows('dispo_deal_buyers','id,stage,touched_at,offer_at,walked_at');D.ddb=_b.data||[];
-      var _d=await allRows('dispo_deals','id,assignment_signed_on,emd_in_at,closed_at,closed_fee,ghl_opportunity_id');D.dd2=_d.data||[];
+      var _d=await allRows('dispo_deals','id,assignment_signed_on,emd_in_at,closed_at,closed_fee,ghl_opportunity_id,stage,dead_at');D.dd2=_d.data||[];
       var _l=await allRows('closings_ledger','*');D.ledger=_l.data||[];
       var _ms=await db.from('meta_spend_daily').select('day,spend,clicks,impressions').limit(5000);D.mday=_ms.data||[]; // Meta spend per day (meta-sync, hourly)
       var _ba=await db.from('dispo_buyers').select('id,added_to_list_at,not_a_buyer,merged_into').not('added_to_list_at','is',null).limit(10000);D.dbuyers=_ba.data||[];
@@ -1645,17 +1639,15 @@ function render(){
       var rcv=Math.round(1000/STD.dialsPerConvo)/10, rof=Math.round(1000/STD.convosPerOffer)/10, rct=Math.round(1000/STD.offersPerContract)/10;
       var DEADX=['Closed','Cancelled','Ghosted','Ghosted w/ Memorandum'];
       var cLive=0,cFell=0;
-      (D.deals||[]).forEach(function(d){
-        if(d.stage==='Cancelled'||d.stage==='Ghosted'||d.stage==='Ghosted w/ Memorandum')cFell++;
-        else if(d.stage!=='Closed')cLive++;
+      // Nov 26 fix (Nic: "we cancelled 0 this month???"): cancels live in the dispo app (dispo_deals stage 'dead' + dead_at), not the old deals/stage_history
+      (D.dd2||[]).forEach(function(d){
+        if(d.stage==='dead')cFell++;
+        else if(d.stage!=='closed')cLive++;
       });
-      // cancelled within the selected range, via stage history dates; All = every dead deal
       var cFellR=cFell;
       if(RNG.k!=='all'){
-        var seenF={};cFellR=0;
-        (D.dhist||[]).forEach(function(hh){
-          if((hh.stage==='Cancelled'||hh.stage==='Ghosted'||hh.stage==='Ghosted w/ Memorandum')&&inRange(hh.entered_on,R.from,R.to)&&!seenF[hh.deal_id]){seenF[hh.deal_id]=1;cFellR++;}
-        });
+        cFellR=0;
+        (D.dd2||[]).forEach(function(d){if(d.stage==='dead'&&d.dead_at&&inRange(chiDay(d.dead_at),R.from,R.to))cFellR++;});
       }
       var FST=[
         {v:LR.leads.toLocaleString(),l:'leads',s:Math.round(LR.leads/Math.max(1,aday))+'/day',f:'#8a6f1f',t:'#fff'},
