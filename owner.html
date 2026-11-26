@@ -685,8 +685,7 @@ async function loadPL(){
           var rv=await db.from('acq_leads').select('revenue_closed').gte('closed_on',since).lt('closed_on',nx);
           PL.sync[it.id]=(rv.data||[]).reduce(function(a,r){return a+(Number(r.revenue_closed)||0)},0);
         }else if(it.sync==='assigned'){
-          var ra=await db.from('acq_leads').select('id').gte('assigned_on',since).lt('assigned_on',nx);
-          PL.sync[it.id]=(ra.data||[]).length;
+          PL.sync[it.id]=bizAsn(since,nx);
         }
       }catch(e){}
       if(it.factor&&PL.sync[it.id]!=null)PL.sync[it.id]=Math.round(PL.sync[it.id]*Number(it.factor));
@@ -715,7 +714,7 @@ async function loadPL(){
       F.locked_fees=(rdf.data||[]).reduce(function(a,r){return a+(Number(r.fee_target)||0)},0);
       var rsd=await db.from('sends').select('id').gte('sent_on',a1).lt('sent_on',nx2);F.sends=(rsd.data||[]).length;
       var rsh=await db.from('showings').select('id').gte('shown_on',a1).lt('shown_on',nx2);F.walks=(rsh.data||[]).length;
-      var re=await db.from('acq_leads').select('id').gte('assigned_on',a1).lt('assigned_on',nx2);F.assigned=(re.data||[]).length;
+      F.assigned=bizAsn(a1,nx2);
     }catch(e){}
     PL.fx=F;
   }
@@ -1206,6 +1205,14 @@ var NONAD={'Repeat':1,'Cold Call':1,'Referral':1};
 var _CHI=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'});
 function chiDay(ts){if(!ts)return '';var s=String(ts);if(s.length<=10)return s;var d=new Date(s);return isNaN(d)?s.slice(0,10):_CHI.format(d)}
 function inRange(dstr,from,to){if(!dstr)return false;var d=chiDay(dstr);return d>=from&&(!to||d<to)}
+// Nov 26 (Nic: "they should both be the same"): ONE definition of assigned / closed / cancelled for every funnel
+function bizAsn(from,to){
+  var n=(D.dd2||[]).filter(function(x){var a=[x.assignment_signed_on,x.emd_in_at].filter(Boolean).map(chiDay).sort()[0];return !!a&&inRange(a,from,to)}).length;
+  var seen={};(D.dhist||[]).forEach(function(hh){if(hh.stage==='EMD In'&&hh.entered_on<'2026-08-01'&&!seen[hh.deal_id]&&inRange(hh.entered_on,from,to)){seen[hh.deal_id]=1;n++}});
+  return n;
+}
+function bizClosed(from,to){var o={n:0,rev:0};(D.ledger||[]).forEach(function(x){if(x.closed_on&&inRange(x.closed_on,from,to)){o.n++;o.rev+=Number(x.fee)||0}});return o;}
+function bizCx(from,to){return (D.dd2||[]).filter(function(x){return x.stage==='dead'&&x.dead_at&&inRange(chiDay(x.dead_at),from,to)}).length;}
 function ownAgg(from,adOnly,to){
   var o={leads:0,dials:0,convos:0,talk:0,offers:0,contracts:0,assigned:0,closed:0,rev:0,pipeDeals:0,pipeRev:0,cycleDays:[],falls:0};
   (D.leads||[]).forEach(function(l){
@@ -1647,8 +1654,9 @@ function render(){
       var cFellR=cFell;
       if(RNG.k!=='all'){
         cFellR=0;
-        (D.dd2||[]).forEach(function(d){if(d.stage==='dead'&&d.dead_at&&inRange(chiDay(d.dead_at),R.from,R.to))cFellR++;});
+        cFellR=bizCx(R.from,R.to);
       }
+      var _bc=bizClosed(R.from,R.to);LR.assigned=bizAsn(R.from,R.to);LR.closed=_bc.n;LR.rev=_bc.rev;
       var FST=[
         {v:LR.leads.toLocaleString(),l:'leads',s:Math.round(LR.leads/Math.max(1,aday))+'/day',f:'#8a6f1f',t:'#fff'},
         {v:LR.dials.toLocaleString(),l:'dials',s:Math.round(LR.dials/Math.max(1,aday))+'/day',f:'#8a6f1f',t:'#fff'},
@@ -2076,10 +2084,9 @@ function render(){
       var dWalk=(D.ddb||[]).filter(function(x){return x.walked_at&&chiDay(x.walked_at)>=WALK0&&inR(x.walked_at)}).length;
       var walkNone=!!(FR.to&&FR.to<=WALK0), walkNote=walkNone?'not tracked':(FR.from<WALK0?'since Nov 5':'');
       // assigned = first of assignment signed / EMD in, per deal (dispo app); before Aug use the old tracker's EMD In
-      var dAsn=(D.dd2||[]).filter(function(x){var a=[x.assignment_signed_on,x.emd_in_at].filter(Boolean).map(chiDay).sort()[0];return !!a&&inRange(a,FR.from,FR.to)}).length;
-      var _seenE={};(D.dhist||[]).forEach(function(hh){if(hh.stage==='EMD In'&&hh.entered_on<'2026-08-01'&&!_seenE[hh.deal_id]&&inRange(hh.entered_on,FR.from,FR.to)){_seenE[hh.deal_id]=1;dAsn++}});
+      var dAsn=bizAsn(FR.from,FR.to);
       // Nov 26 (Nic: show cancellations above assigned): dispo-app deals marked dead in range
-      var dCx=(D.dd2||[]).filter(function(x){return x.stage==='dead'&&x.dead_at&&inRange(chiDay(x.dead_at),FR.from,FR.to)}).length;
+      var dCx=bizCx(FR.from,FR.to);
       // closed + revenue = closings ledger (GHL value is the truth) + any newer dispo-app closing not in it yet
       var _lid={};(D.ledger||[]).forEach(function(x){if(x.ghl_opp_id)_lid[x.ghl_opp_id]=1});
       var isMetaSrc=function(t){return /paid social|meta|facebook/i.test(t||'')};
